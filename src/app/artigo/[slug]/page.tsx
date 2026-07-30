@@ -268,12 +268,12 @@ export default function ArticlePage() {
             )}
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold font-outfit text-slate-900 dark:text-white leading-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold font-outfit text-slate-900 dark:text-white leading-tight">
             {post.title}
           </h1>
 
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="flex items-center gap-1 font-medium">
                 <UserCheck className="w-3.5 h-3.5 text-emerald-500" /> Autor: Concurseiro Focado
               </span>
@@ -285,11 +285,11 @@ export default function ArticlePage() {
               <span>{post.publishedAt}</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600">
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors">
                 <Bookmark className="w-4 h-4" />
               </button>
-              <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600">
+              <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors">
                 <Share2 className="w-4 h-4" />
               </button>
             </div>
@@ -314,9 +314,9 @@ export default function ArticlePage() {
         {post.category !== "Estude comigo" && (() => {
           const isEstudeCategory = post.category === "Estude";
           return (
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 to-[#0F172A] text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg border border-slate-800">
-              <div className="space-y-1 text-center sm:text-left">
-                <h3 className="font-bold text-sm text-emerald-400 flex items-center justify-center sm:justify-start gap-1">
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-[#0F172A] text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg border border-slate-800">
+              <div className="space-y-1 text-center md:text-left">
+                <h3 className="font-bold text-sm text-emerald-400 flex items-center justify-center md:justify-start gap-1">
                   <BrainCircuit className="w-4 h-4 text-amber-400" /> Ferramentas de Estudo Deste Artigo
                 </h3>
                 <p className="text-xs text-slate-300">
@@ -326,7 +326,7 @@ export default function ArticlePage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 lg:gap-2.5 shrink-0 overflow-x-auto max-w-full pb-1 sm:pb-0">
+              <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 lg:gap-2.5 max-w-full">
                 {/* Flashcards & Questões: Visíveis APENAS na categoria 'Estude' */}
                 {isEstudeCategory && (
                   <>
