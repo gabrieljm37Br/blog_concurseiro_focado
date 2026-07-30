@@ -130,30 +130,30 @@ export default function InteractiveStudyModal({
       <div className="relative w-full max-w-2xl bg-white dark:bg-[#111827] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header Modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             {type === "flashcards" && (
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
-                <BrainCircuit className="w-5 h-5" />
+              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 shrink-0">
+                <BrainCircuit className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             )}
             {type === "questions" && (
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
-                <HelpCircle className="w-5 h-5" />
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
+                <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             )}
             {type === "infografico" && (
-              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
-                <Layers className="w-5 h-5" />
+              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
+                <Layers className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             )}
-            <div>
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white capitalize">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white capitalize truncate">
                 {type === "flashcards" && "Flashcards de Memorização Ativa"}
                 {type === "questions" && "Questões Práticas de Fixação"}
                 {type === "infografico" && "Infográfico & Mapa Mental do Artigo"}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-md">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
                 {articleTitle}
               </p>
             </div>
@@ -161,24 +161,25 @@ export default function InteractiveStudyModal({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+            title="Fechar modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
           
           {/* RENDER FLASHCARDS MODAL */}
           {type === "flashcards" && (
             sampleFlashcards.length === 0 ? (
-              <div className="py-12 px-4 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto border border-amber-500/20">
-                  <BrainCircuit className="w-8 h-8" />
+              <div className="py-6 sm:py-10 px-4 text-center space-y-3.5">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto border border-amber-500/20">
+                  <BrainCircuit className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="font-bold text-slate-900 dark:text-white text-base font-outfit">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base font-outfit">
                     Nenhum Flashcard Cadastrado
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
@@ -280,12 +281,12 @@ export default function InteractiveStudyModal({
           {/* RENDER QUESTIONS MODAL */}
           {type === "questions" && (
             sampleQuestions.length === 0 ? (
-              <div className="py-12 px-4 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto border border-emerald-500/20">
-                  <HelpCircle className="w-8 h-8" />
+              <div className="py-6 sm:py-10 px-4 text-center space-y-3.5">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto border border-emerald-500/20">
+                  <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="font-bold text-slate-900 dark:text-white text-base font-outfit">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base font-outfit">
                     Nenhuma Questão Cadastrada
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
@@ -392,12 +393,12 @@ export default function InteractiveStudyModal({
           {/* RENDER INFOGRAFICO MODAL */}
           {type === "infografico" && (
             sampleInfographics.length === 0 ? (
-              <div className="py-12 px-4 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mx-auto border border-purple-500/20">
-                  <Layers className="w-8 h-8" />
+              <div className="py-6 sm:py-10 px-4 text-center space-y-3.5">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mx-auto border border-purple-500/20">
+                  <Layers className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="font-bold text-slate-900 dark:text-white text-base font-outfit">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base font-outfit">
                     Nenhum Infográfico Cadastrado
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
