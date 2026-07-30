@@ -119,7 +119,7 @@ export default function Logo({
         </div>
 
         {showTagline && (
-          <span className={`text-[10px] sm:text-[11px] font-semibold mt-0.5 tracking-tight font-sans ${forceDarkTheme ? "text-slate-300" : "text-slate-500 dark:text-slate-300"}`}>
+          <span className={`hidden sm:block text-[10px] sm:text-[11px] font-semibold mt-0.5 tracking-tight font-sans ${forceDarkTheme ? "text-slate-300" : "text-slate-500 dark:text-slate-300"}`}>
             Dicas • Materiais • Aprovação
           </span>
         )}

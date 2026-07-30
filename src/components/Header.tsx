@@ -191,8 +191,8 @@ export default function Header() {
       </div>
 
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0B0F19]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 transition-colors shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between min-h-[72px] sm:min-h-[76px] py-3 gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between min-h-[64px] sm:min-h-[76px] py-2 sm:py-3 gap-2 sm:gap-4">
             
             {/* Logo Oficial */}
             <Logo showTagline={true} />
@@ -284,7 +284,7 @@ export default function Header() {
             </nav>
 
             {/* Right Action Buttons */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               
               {/* Botão de Busca */}
               <button
