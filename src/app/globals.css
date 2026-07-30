@@ -1,0 +1,373 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  
+  --primary: #0f172a;
+  --primary-hover: #1e293b;
+  --accent-emerald: #10b981;
+  --accent-emerald-dark: #059669;
+  --accent-amber: #f59e0b;
+  
+  --text-muted: #64748b;
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dark {
+  --background: #0b0f19;
+  --foreground: #f8fafc;
+  --surface: #111827;
+  --border: #1f2937;
+  
+  --primary: #f8fafc;
+  --primary-hover: #e2e8f0;
+  --accent-emerald: #10b981;
+  --accent-amber: #fbbf24;
+  
+  --text-muted: #94a3b8;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-outfit), var(--font-inter), sans-serif;
+}
+
+/* Explicit Heading Typography for Editor Canvas & Article Prose */
+.prose h1, .editor-canvas h1, h1.article-heading {
+  font-size: 2.25rem !important; /* 36px */
+  line-height: 2.5rem !important;
+  font-weight: 800 !important;
+  margin-top: 1.25rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.prose h2, .editor-canvas h2, h2.article-heading {
+  font-size: 1.75rem !important; /* 28px */
+  line-height: 2rem !important;
+  font-weight: 700 !important;
+  margin-top: 1rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.prose h3, .editor-canvas h3, h3.article-heading {
+  font-size: 1.35rem !important; /* 21.6px */
+  line-height: 1.75rem !important;
+  font-weight: 700 !important;
+  margin-top: 0.85rem !important;
+  margin-bottom: 0.4rem !important;
+}
+
+.prose h4, .editor-canvas h4, h4.article-heading {
+  font-size: 1.125rem !important; /* 18px */
+  line-height: 1.5rem !important;
+  font-weight: 600 !important;
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.35rem !important;
+}
+
+/* Explicit List Styling for Editor Canvas & Article Prose */
+.prose ul, .editor-canvas ul {
+  list-style-type: disc !important;
+  margin-left: 1.5rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+  padding-left: 0.5rem !important;
+}
+
+.prose ol, .editor-canvas ol {
+  list-style-type: decimal !important;
+  margin-left: 1.5rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+  padding-left: 0.5rem !important;
+}
+
+.prose li, .editor-canvas li {
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
+  display: list-item !important;
+}
+
+/* Blockquote & Mark Styling */
+.prose blockquote, .editor-canvas blockquote {
+  border-left-width: 4px !important;
+  border-left-color: #94a3b8 !important;
+  padding-left: 1rem !important;
+  font-style: italic !important;
+  margin-top: 1rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.prose mark, .editor-canvas mark {
+  background-color: #fef08a !important;
+  color: #0f172a !important;
+  padding-left: 0.25rem !important;
+  padding-right: 0.25rem !important;
+  border-radius: 0.25rem !important;
+}
+
+.dark .prose mark, .dark .editor-canvas mark {
+  background-color: rgba(234, 179, 8, 0.4) !important;
+  color: #fef08a !important;
+}
+
+/* Explicit Hyperlink Styling for Editor Canvas & Article Content */
+.prose a, .editor-canvas a {
+  color: #059669 !important; /* Emerald 600 */
+  text-decoration: underline !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: color 0.15s ease !important;
+}
+
+.prose a:hover, .editor-canvas a:hover {
+  color: #047857 !important; /* Emerald 700 */
+}
+
+.dark .prose a, .dark .editor-canvas a {
+  color: #34d399 !important; /* Emerald 400 */
+}
+
+.dark .prose a:hover, .dark .editor-canvas a:hover {
+  color: #6ee7b7 !important; /* Emerald 300 */
+}
+
+/* Figure & Figcaption Semantic Image Styling */
+.prose figure, .editor-canvas figure {
+  margin-top: 1.5rem !important;
+  margin-bottom: 1.5rem !important;
+  text-align: center !important;
+}
+
+.prose figcaption, .editor-canvas figcaption {
+  font-size: 0.8rem !important;
+  color: #64748b !important;
+  font-style: italic !important;
+  margin-top: 0.5rem !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+}
+
+.dark .prose figcaption, .dark .editor-canvas figcaption {
+  color: #94a3b8 !important;
+}
+
+/* SVG Logo Dark Mode Overrides (Garante 100% de visibilidade do alvo e lápis no modo noturno) */
+.dark .logo-svg-icon circle:first-child {
+  stroke: #ffffff !important;
+}
+
+.dark .logo-svg-icon circle:nth-child(3) {
+  fill: #ffffff !important;
+}
+
+.dark .logo-svg-icon path:nth-child(4) {
+  stroke: #0b0f19 !important;
+}
+
+.dark .logo-svg-icon path:nth-child(5) {
+  fill: #f8fafc !important;
+}
+
+/* Custom Utilities for Focus Mode & Study Cards */
+.focus-mode-active {
+  max-width: 800px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  font-size: 1.15rem !important;
+  line-height: 1.8 !important;
+}
+
+/* Smooth transitions */
+.transition-theme {
+  transition: all 0.2s ease-in-out;
+}
+
+/* ==========================================================================
+   DARK MODE OVERRIDES (Ajustes de Alto Contraste para Leitura Noturna)
+   ========================================================================== */
+
+.dark body {
+  background-color: #0b0f19 !important;
+  color: #f8fafc !important;
+}
+
+.dark header {
+  background-color: rgba(11, 15, 25, 0.95) !important;
+  border-color: #1f2937 !important;
+}
+
+.dark h1, 
+.dark h2, 
+.dark h3, 
+.dark h4, 
+.dark h5, 
+.dark h6 {
+  color: #ffffff !important;
+}
+
+/* Rich Prose / HTML Content inside Articles in Dark Mode */
+.dark .prose {
+  color: #e2e8f0 !important;
+}
+
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4 {
+  color: #ffffff !important;
+  border-color: #1f2937 !important;
+}
+
+.dark .prose p,
+.dark .prose li,
+.dark .prose span {
+  color: #cbd5e1 !important;
+}
+
+.dark .prose strong,
+.dark .prose b {
+  color: #ffffff !important;
+}
+
+.dark .prose table {
+  border-color: #334155 !important;
+}
+
+.dark .prose th {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  border-color: #334155 !important;
+}
+
+.dark .prose td {
+  background-color: #111827 !important;
+  color: #cbd5e1 !important;
+  border-color: #1f2937 !important;
+}
+
+/* Callout Box Overrides for Dark Mode */
+.dark .bg-amber-50 {
+  background-color: rgba(120, 53, 15, 0.35) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  color: #fef08a !important;
+}
+
+.dark .bg-amber-50 strong {
+  color: #fbbf24 !important;
+}
+
+.dark .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.35) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #a7f3d0 !important;
+}
+
+.dark .bg-emerald-50 strong {
+  color: #34d399 !important;
+}
+
+/* Purple & Legal Norms Callout Box Overrides for Dark Mode */
+.dark .bg-purple-50,
+.dark .bg-purple-100,
+.dark .bg-indigo-50,
+.dark .bg-violet-50,
+.dark div[style*="251, 247, 255"],
+.dark div[style*="251,247,255"],
+.dark div[style*="fbf7ff"],
+.dark div[style*="FBF7FF"],
+.dark div[style*="248, 245, 255"],
+.dark div[style*="f5f3ff"] {
+  background-color: rgba(76, 29, 149, 0.35) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+  color: #e9d5ff !important;
+}
+
+.dark .bg-purple-50 strong,
+.dark .bg-purple-50 p,
+.dark .bg-purple-50 span,
+.dark .bg-purple-100 strong,
+.dark .bg-purple-100 p,
+.dark .bg-purple-100 span,
+.dark div[style*="251, 247, 255"] strong,
+.dark div[style*="251, 247, 255"] p,
+.dark div[style*="251, 247, 255"] span,
+.dark div[style*="fbf7ff"] strong,
+.dark div[style*="fbf7ff"] p,
+.dark div[style*="fbf7ff"] span {
+  color: #e9d5ff !important;
+}
+
+.dark .bg-purple-50 strong,
+.dark .bg-purple-100 strong,
+.dark div[style*="251, 247, 255"] strong,
+.dark div[style*="fbf7ff"] strong {
+  color: #c084fc !important;
+}
+
+/* Generic Fallback for Inline Light Background Styles in Dark Mode */
+.dark .prose div[style*="background"] {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark .prose div[style*="background"] strong,
+.dark .prose div[style*="background"] span,
+.dark .prose div[style*="background"] p {
+  color: #e2e8f0 !important;
+}
+
+.dark .bg-slate-50 {
+  background-color: #0b0f19 !important;
+  color: #f8fafc !important;
+}
+
+.dark .bg-slate-100 {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+.dark .text-slate-900 {
+  color: #ffffff !important;
+}
+
+.dark .text-slate-800 {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-100 {
+  border-color: #1f2937 !important;
+}
+
+.dark .bg-white {
+  background-color: #111827 !important;
+}
+
+/* AdSense Slot Dark Mode */
+.dark .border-dashed {
+  border-color: #334155 !important;
+}

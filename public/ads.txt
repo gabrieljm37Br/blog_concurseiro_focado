@@ -1,0 +1,3 @@
+# Google AdSense - Concurseiro Focado
+# Substitua o ID 'pub-0000000000000000' pelo seu ID oficial de Editor do Google AdSense
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
