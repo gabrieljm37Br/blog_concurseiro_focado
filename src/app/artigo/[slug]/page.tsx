@@ -420,13 +420,14 @@ export default function ArticlePage() {
           onClose={() => setIsModalOpen(false)}
           type={modalType}
           articleTitle={post.title}
-          customFlashcards={dbFlashcards.length > 0 ? dbFlashcards.map(fc => ({
+          customFlashcards={dbFlashcards.map(fc => ({
             id: fc.id,
             question: fc.question,
             answer: fc.answer,
             category: fc.category || post.subcategory || "Geral"
-          })) : undefined}
-          customInfographics={post.infographics}
+          }))}
+          customQuestions={post.questions || []}
+          customInfographics={post.infographics || []}
         />
 
       </div>

@@ -25,6 +25,7 @@ export interface Post {
   featuredImage: string;
   tags?: string[];
   infographics?: InfographicItem[];
+  questions?: any[];
 }
 
 export interface AppProduct {
