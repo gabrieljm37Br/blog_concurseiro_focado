@@ -217,7 +217,7 @@ export default function ArticlePage() {
       <div className={`mx-auto space-y-8 ${isFocusMode ? "max-w-3xl focus-mode-active" : "max-w-4xl"}`}>
         
         {/* Top Controls Bar: Back Link & Modo Foco Toggle */}
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
           <Link
             href="/"
             className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
@@ -225,26 +225,26 @@ export default function ArticlePage() {
             <ChevronLeft className="w-4 h-4" /> Voltar ao Portal
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between sm:justify-end gap-2.5">
             {/* Modo Foco Toggle Button */}
             <button
               onClick={() => setIsFocusMode(!isFocusMode)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm whitespace-nowrap shrink-0 ${
                 isFocusMode
                   ? "bg-amber-500 text-slate-950 ring-2 ring-amber-400"
                   : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-amber-100 dark:hover:bg-amber-950/60"
               }`}
             >
               <Zap className={`w-3.5 h-3.5 ${isFocusMode ? "fill-slate-950" : "text-amber-500"}`} />
-              <span>{isFocusMode ? "Sair do Modo Foco" : "Ativar Modo Foco"}</span>
+              <span>{isFocusMode ? "Sair do Modo Foco" : "Modo Foco"}</span>
             </button>
 
             {/* Simulated Member Status Toggle for Demo */}
             <button
               onClick={() => setIsLoggedInMember(!isLoggedInMember)}
-              className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 underline"
+              className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 underline whitespace-nowrap shrink-0"
             >
-              {isLoggedInMember ? "Membro Logado (Sem Ads)" : "Simular Membro Logado"}
+              {isLoggedInMember ? "Membro (Sem Ads)" : "Simular Membro"}
             </button>
           </div>
         </div>

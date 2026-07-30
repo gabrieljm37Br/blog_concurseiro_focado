@@ -126,8 +126,8 @@ export default function Header() {
       <div className="bg-slate-900 dark:bg-[#070A10] text-slate-300 text-[11px] font-medium border-b border-slate-800 transition-colors z-40 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between gap-4">
           
-          {/* Left: Links Institucionais */}
-          <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto whitespace-nowrap scrollbar-none py-0.5">
+          {/* Left: Links Institucionais (visíveis em telas sm+) */}
+          <div className="hidden sm:flex items-center gap-3 sm:gap-4 overflow-x-auto whitespace-nowrap scrollbar-none py-0.5">
             <Link href="/sobre" className="hover:text-emerald-400 transition-colors">
               Sobre nós
             </Link>
@@ -143,6 +143,11 @@ export default function Header() {
             <Link href="/contato" className="hover:text-emerald-400 transition-colors">
               Contato
             </Link>
+          </div>
+
+          {/* Left: Título Limpo para Telas Pequenas (Mobile) */}
+          <div className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Concurseiro Focado
           </div>
 
           {/* Right: Redes Sociais */}
