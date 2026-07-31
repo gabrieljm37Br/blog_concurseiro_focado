@@ -183,15 +183,19 @@ export default async function ArticlePage({ params }: Props) {
         infographics: infographicsArr
       };
       
-      fcData = flashcardsArr;
-
       const { data: flashcards } = await supabase
         .from("flashcards")
         .select("*")
         .eq("post_id", dbPost.id);
 
-      if (flashcards) {
-        fcData = flashcards;
+      if (flashcards && flashcards.length > 0) {
+        fcData = [...flashcardsArr, ...flashcards];
+      } else {
+        fcData = flashcardsArr;
+      }
+
+      if (initialPost) {
+        initialPost.flashcardsCount = fcData.length || dbPost.flashcards_count || 0;
       }
     }
   } catch (e) {

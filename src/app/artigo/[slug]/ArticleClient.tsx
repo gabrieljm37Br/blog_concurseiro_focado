@@ -111,6 +111,33 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             }
           }
 
+          let parsedStudyData: any = null;
+          if (dbPost.content_html) {
+            const studyMatch = dbPost.content_html.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
+            if (studyMatch && studyMatch[1]) {
+              try {
+                parsedStudyData = JSON.parse(studyMatch[1]);
+              } catch (e) {
+                console.warn("Erro ao fazer parse do STUDY_DATA_JSON no cliente:", e);
+              }
+            }
+          }
+
+          const flashcardsArr = (parsedStudyData && Array.isArray(parsedStudyData.flashcards)) ? parsedStudyData.flashcards : [];
+          const questionsArr = (parsedStudyData && Array.isArray(parsedStudyData.questions)) ? parsedStudyData.questions : [];
+          const simuladosArr = (parsedStudyData && Array.isArray(parsedStudyData.simulados)) ? parsedStudyData.simulados : [];
+          const infographicsArr = (parsedStudyData && Array.isArray(parsedStudyData.infographics)) ? parsedStudyData.infographics : [];
+
+          const { data: fcData } = await supabase
+            .from("flashcards")
+            .select("*")
+            .eq("post_id", dbPost.id);
+
+          const combinedFlashcards = [...flashcardsArr, ...(fcData || [])];
+          if (combinedFlashcards.length > 0) {
+            setDbFlashcards(combinedFlashcards);
+          }
+
           setPost({
             id: dbPost.id,
             title: dbPost.title,
@@ -130,19 +157,14 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             youtubeVideoId: dbPost.youtube_video_id,
             featuredImage: dbPost.featured_image || "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80",
             tags: extractedTags,
-            flashcardsCount: dbPost.flashcards_count || 0,
-            questionsCount: dbPost.questions_count || 0,
-            infographicsCount: dbPost.infographics_count || 0
+            flashcardsCount: combinedFlashcards.length || dbPost.flashcards_count || 0,
+            questionsCount: questionsArr.length || dbPost.questions_count || 0,
+            simuladosCount: simuladosArr.length || dbPost.simulados_count || 0,
+            infographicsCount: infographicsArr.length || dbPost.infographics_count || 0,
+            questions: questionsArr,
+            simulados: simuladosArr,
+            infographics: infographicsArr
           });
-
-          const { data: fcData } = await supabase
-            .from("flashcards")
-            .select("*")
-            .eq("post_id", dbPost.id);
-
-          if (fcData && fcData.length > 0) {
-            setDbFlashcards(fcData);
-          }
         }
       } catch (e) {
         console.error("Erro ao carregar artigo no cliente:", e);

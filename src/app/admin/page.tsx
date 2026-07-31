@@ -390,6 +390,7 @@ export default function AdminPage() {
       .replace(/<!-- TAGS: [\s\S]*? -->/gi, "")
       .replace(/<!-- STATUS: [\s\S]*? -->/gi, "")
       .replace(/<!-- SCHEDULED_AT: [\s\S]*? -->/gi, "")
+      .replace(/<!-- STUDY_DATA_JSON: [\s\S]*? -->/gi, "")
       .trim();
   };
 
@@ -415,6 +416,19 @@ export default function AdminPage() {
       if (schedMatch && schedMatch[1]) {
         scheduledAtStr = schedMatch[1].trim();
       }
+
+      const studyMatch = post.content_html.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
+      if (studyMatch && studyMatch[1]) {
+        try {
+          const parsed = JSON.parse(studyMatch[1]);
+          if (Array.isArray(parsed.flashcards)) setFlashcardsList(parsed.flashcards);
+          if (Array.isArray(parsed.questions)) setQuestionsList(parsed.questions);
+          if (Array.isArray(parsed.simulados)) setSimuladosList(parsed.simulados);
+          if (Array.isArray(parsed.infographics)) setInfographicsList(parsed.infographics);
+        } catch (e) {
+          console.warn("Erro ao restaurar STUDY_DATA_JSON no editor:", e);
+        }
+      }
     }
 
     setFormData({
@@ -439,6 +453,10 @@ export default function AdminPage() {
   const handleCancelEdit = () => {
     setEditingPostId(null);
     setFormData(initialFormDataState);
+    setFlashcardsList([]);
+    setQuestionsList([]);
+    setSimuladosList([]);
+    setInfographicsList([]);
   };
 
   const handleAddSubcategory = (e: React.FormEvent) => {
