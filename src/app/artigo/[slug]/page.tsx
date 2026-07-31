@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { MOCK_POSTS, Post } from "@/data/mockPosts";
+import { Post } from "@/data/mockPosts";
 import { supabase } from "@/lib/supabaseClient";
 import InteractiveStudyModal from "@/components/InteractiveStudyModal";
 import { 
@@ -29,9 +29,8 @@ export default function ArticlePage() {
   const params = useParams();
   const slug = params.slug as string;
 
-  const initialMock = MOCK_POSTS.find((p) => p.slug === slug);
-  const [post, setPost] = useState<Post | null>(initialMock || null);
-  const [isLoading, setIsLoading] = useState<boolean>(!initialMock);
+  const [post, setPost] = useState<Post | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [dbFlashcards, setDbFlashcards] = useState<any[]>([]);
   const [dbQuestions, setDbQuestions] = useState<any[]>([]);
 

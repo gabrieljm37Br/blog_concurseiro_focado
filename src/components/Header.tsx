@@ -24,7 +24,7 @@ import {
 import YouTubeIcon from "@/components/icons/YouTubeIcon";
 import InstagramIcon from "@/components/icons/InstagramIcon";
 import Logo from "@/components/Logo";
-import { MOCK_POSTS } from "@/data/mockPosts";
+
 import { supabase } from "@/lib/supabaseClient";
 
 export default function Header() {
@@ -75,24 +75,34 @@ export default function Header() {
   };
 
   const [dbSubcategories, setDbSubcategories] = useState<string[]>([]);
+  const [dbSearchPosts, setDbSearchPosts] = useState<any[]>([]);
 
   useEffect(() => {
-    async function fetchSubcategories() {
+    async function fetchHeaderData() {
       try {
-        const { data } = await supabase
+        const { data: subData } = await supabase
           .from("posts")
           .select("subcategory")
           .not("subcategory", "is", null);
 
-        if (data) {
-          const subs = Array.from(new Set(data.map((d: any) => d.subcategory).filter(Boolean)));
+        if (subData) {
+          const subs = Array.from(new Set(subData.map((d: any) => d.subcategory).filter(Boolean)));
           setDbSubcategories(subs);
         }
+
+        const { data: postsData } = await supabase
+          .from("posts")
+          .select("id, title, slug, summary, subcategory, banca, category_slug, is_published");
+
+        if (postsData) {
+          const valid = postsData.filter((p: any) => p.is_published !== false);
+          setDbSearchPosts(valid);
+        }
       } catch (e) {
-        console.warn("Erro ao carregar subcategorias:", e);
+        console.warn("Erro ao carregar dados do Header:", e);
       }
     }
-    fetchSubcategories();
+    fetchHeaderData();
   }, []);
 
   const defaultDisciplinas = [
@@ -112,13 +122,17 @@ export default function Header() {
   // Filter posts dynamically for search modal
   const filteredSearchResults = searchQuery.trim() === "" 
     ? [] 
-    : MOCK_POSTS.filter(post => 
-        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (post.subcategory && post.subcategory.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (post.banca && post.banca.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        post.summary.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+    : dbSearchPosts.filter(post => {
+        const q = searchQuery.toLowerCase();
+        const catName = post.category_slug || "Estude";
+        return (
+          (post.title && post.title.toLowerCase().includes(q)) ||
+          (catName && catName.toLowerCase().includes(q)) ||
+          (post.subcategory && post.subcategory.toLowerCase().includes(q)) ||
+          (post.banca && post.banca.toLowerCase().includes(q)) ||
+          (post.summary && post.summary.toLowerCase().includes(q))
+        );
+      });
 
   return (
     <>
@@ -488,7 +502,7 @@ export default function Header() {
                     >
                       <div className="flex items-center justify-between">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                          {post.category}
+                          {post.category || post.category_slug || "Estude"}
                         </span>
                         <span className="text-xs font-medium text-slate-400 flex items-center gap-1 group-hover:text-emerald-500">
                           Ler artigo <ArrowRight className="w-3.5 h-3.5" />

@@ -29,20 +29,21 @@ function HomeContent() {
   const tagQuery = searchParams ? (searchParams.get("q") || searchParams.get("tag") || "") : "";
 
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
-  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
-  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState<boolean>(true);
 
   const categories = ["Todos", "Estude", "Aprenda", "Estude comigo", "Informe-se"];
 
   useEffect(() => {
     async function loadSupabasePosts() {
+      setLoadingPosts(true);
       try {
         const { data, error } = await supabase
           .from("posts")
           .select("*")
           .order("created_at", { ascending: false });
 
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           const now = new Date();
           const validPosts = data.filter((item: any) => {
             let status = "published";
@@ -94,6 +95,8 @@ function HomeContent() {
         }
       } catch (err) {
         console.error("Erro ao carregar posts do Supabase:", err);
+      } finally {
+        setLoadingPosts(false);
       }
     }
 
@@ -286,7 +289,19 @@ function HomeContent() {
         )}
 
         {/* Posts Grid */}
-        {filteredPosts.length > 0 ? (
+        {loadingPosts ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <div key={n} className="rounded-3xl bg-slate-100 dark:bg-[#111827] border border-slate-200 dark:border-slate-800 p-5 space-y-4 animate-pulse">
+                <div className="w-full h-48 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/3" />
+                <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded w-5/6" />
+                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-full" />
+                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-2/3" />
+              </div>
+            ))}
+          </div>
+        ) : filteredPosts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredPosts.map((post) => (
               <PostCard key={post.id} post={post} />
@@ -295,14 +310,18 @@ function HomeContent() {
         ) : (
           <div className="p-12 text-center bg-slate-50 dark:bg-[#111827] rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
             <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-              Nenhum artigo encontrado para a tag "<strong>#{tagQuery}</strong>".
+              {tagQuery 
+                ? `Nenhum artigo encontrado para a tag "${tagQuery}".` 
+                : `Nenhum artigo publicado no momento.`}
             </p>
-            <Link
-              href="/"
-              className="inline-block px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-md hover:bg-emerald-700 transition-all"
-            >
-              Ver Todos os Artigos do Blog
-            </Link>
+            {tagQuery && (
+              <Link
+                href="/"
+                className="inline-block px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-md hover:bg-emerald-700 transition-all"
+              >
+                Ver Todos os Artigos do Blog
+              </Link>
+            )}
           </div>
         )}
 
