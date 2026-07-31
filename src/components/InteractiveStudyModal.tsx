@@ -76,8 +76,6 @@ export default function InteractiveStudyModal({
   // State for Infographics
   const [currentInfographicIndex, setCurrentInfographicIndex] = useState(0);
 
-  if (!isOpen) return null;
-
   // Flashcards, Questions, Simulados & Infographics data
   const sampleFlashcards: Flashcard[] = customFlashcards || [];
   const sampleQuestions: Question[] = type === "simulado" ? (customSimulados || []) : (customQuestions || []);
@@ -141,6 +139,8 @@ export default function InteractiveStudyModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, type, currentFlashcardIndex, sampleFlashcards.length]);
+
+  if (!isOpen) return null;
 
   const exportToAnkiCSV = () => {
     const csvHeader = "Pergunta,Resposta,Categoria\n";
