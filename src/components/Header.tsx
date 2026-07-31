@@ -205,119 +205,51 @@ export default function Header() {
       </div>
 
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0B0F19]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 transition-colors shadow-xs">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between min-h-[64px] sm:min-h-[76px] py-2 sm:py-3 gap-2 sm:gap-4">
+        
+        {/* ROW 1: BRAND LOGO + CENTER PROMINENT SEARCH BAR + RIGHT ACTION BUTTONS (Gran Cursos Style) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 sm:h-20 gap-4 sm:gap-6">
             
             {/* Logo Oficial */}
             <Logo showTagline={true} />
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-1 xl:gap-2 text-xs xl:text-sm font-semibold">
-              
-              {/* Dropdown Estude */}
-              <div 
-                className="relative"
-                onMouseEnter={() => setIsEstudeDropdownOpen(true)}
-                onMouseLeave={() => setIsEstudeDropdownOpen(false)}
-              >
-                <button 
-                  className="flex items-center gap-1.5 px-2.5 py-2 xl:px-3 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
-                  aria-expanded={isEstudeDropdownOpen}
-                >
-                  <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Estude</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isEstudeDropdownOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {isEstudeDropdownOpen && (
-                  <div className="absolute top-full left-0 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 animate-in fade-in slide-in-from-top-2 duration-150 z-50">
-                    <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Disciplinas Principais
-                    </div>
-                    {estudeDisciplinas.map((item) => (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        className="block px-4 py-2 text-xs xl:text-sm text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                      >
-                        {item.name}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Aprenda */}
-              <Link
-                href="/aprenda"
-                className="flex items-center gap-1.5 px-2 py-2 xl:px-3 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors whitespace-nowrap"
-              >
-                <BrainCircuit className="w-4 h-4 text-amber-500 shrink-0" />
-                <span className="whitespace-nowrap">Aprenda</span>
-              </Link>
-
-              {/* Estude comigo (YouTube) */}
-              <Link
-                href="/estude-comigo"
-                className="flex items-center gap-1.5 px-2 py-2 xl:px-3 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors whitespace-nowrap"
-              >
-                <YouTubeIcon className="w-4 h-4 text-red-500 shrink-0" />
-                <span className="whitespace-nowrap">Estude comigo</span>
-              </Link>
-
-              {/* Informe-se */}
-              <Link
-                href="/informe-se"
-                className="flex items-center gap-1.5 px-2 py-2 xl:px-3 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors whitespace-nowrap"
-              >
-                <Newspaper className="w-4 h-4 text-blue-500 shrink-0" />
-                <span className="whitespace-nowrap">Informe-se</span>
-              </Link>
-
-              {/* Rotina */}
-              <Link
-                href="/rotina"
-                className="flex items-center gap-1.5 px-2 py-2 xl:px-3 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors whitespace-nowrap"
-              >
-                <Coffee className="w-4 h-4 text-orange-500 shrink-0" />
-                <span className="whitespace-nowrap">Rotina</span>
-              </Link>
-
-              {/* Loja */}
-              <Link
-                href="/loja"
-                className="flex items-center gap-1.5 px-2 py-2 xl:px-3 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors font-bold whitespace-nowrap"
-              >
-                <ShoppingBag className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="whitespace-nowrap">Loja</span>
-                <span className="px-1.5 py-0.5 text-[9px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-md font-extrabold uppercase whitespace-nowrap">
-                  APPs
-                </span>
-              </Link>
-
-            </nav>
-
-            {/* Right Action Buttons */}
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              
-              {/* Botão de Busca */}
+            {/* Gran Cursos Style - Center Prominent Search Bar (Desktop & Tablet) */}
+            <div className="hidden md:flex flex-1 max-w-md lg:max-w-xl mx-2 lg:mx-6">
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700/60"
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-400 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 transition-all border border-slate-200/80 dark:border-slate-700/60 shadow-inner group cursor-pointer"
                 title="Buscar no Blog (Ctrl + K)"
                 aria-label="Buscar matérias"
               >
-                <Search className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="hidden xl:inline text-xs font-semibold text-slate-500 dark:text-slate-400">Buscar...</span>
-                <kbd className="hidden xl:inline-block text-[10px] font-mono font-bold bg-slate-200 dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700">
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  <Search className="w-4 h-4 text-emerald-500 shrink-0 group-hover:scale-110 transition-transform" />
+                  <span className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 truncate">
+                    Buscar artigos, matérias ou bancas...
+                  </span>
+                </div>
+                <kbd className="hidden sm:inline-block text-[10px] font-mono font-bold bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs">
                   Ctrl K
                 </kbd>
+              </button>
+            </div>
+
+            {/* Right Action Controls */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              
+              {/* Mobile Only Search Icon Button */}
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                className="md:hidden p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700/60"
+                title="Buscar no Blog"
+                aria-label="Buscar matérias"
+              >
+                <Search className="w-5 h-5 text-emerald-500" />
               </button>
 
               {/* Dark Mode Toggle */}
               <button
                 onClick={toggleDarkMode}
-                className="p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
                 title="Alternar Modo Escuro/Claro"
                 aria-label="Alternar Modo Escuro"
               >
@@ -327,11 +259,11 @@ export default function Header() {
               {/* Area de Membros Login Button */}
               <Link
                 href="/membros/login"
-                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all hover:scale-[1.02]"
+                className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <User className="w-4 h-4 shrink-0" />
                 <span>Área de Membros</span>
-                <span className="hidden xl:inline text-[10px] bg-emerald-800/60 px-1.5 py-0.5 rounded text-emerald-100 font-medium">
+                <span className="hidden xl:inline text-[10px] bg-emerald-800/60 px-1.5 py-0.5 rounded text-emerald-100 font-semibold">
                   Zero Ads
                 </span>
               </Link>
@@ -339,7 +271,7 @@ export default function Header() {
               {/* Mobile Hamburger Button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="lg:hidden p-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800"
                 aria-label="Abrir menu"
               >
                 {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -347,6 +279,101 @@ export default function Header() {
 
             </div>
 
+          </div>
+        </div>
+
+        {/* ROW 2: CATEGORY NAVIGATION SUB-BAR (Direção & Gran Cursos Style - Desktop) */}
+        <div className="border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#070A11]/70 hidden lg:block">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav className="flex items-center justify-between gap-1 xl:gap-2 text-xs xl:text-sm font-semibold py-1.5">
+              
+              {/* Left Category Links */}
+              <div className="flex items-center gap-1 xl:gap-2">
+                
+                {/* Dropdown Estude */}
+                <div 
+                  className="relative"
+                  onMouseEnter={() => setIsEstudeDropdownOpen(true)}
+                  onMouseLeave={() => setIsEstudeDropdownOpen(false)}
+                >
+                  <button 
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all font-bold cursor-pointer"
+                    aria-expanded={isEstudeDropdownOpen}
+                  >
+                    <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>Estude</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isEstudeDropdownOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {isEstudeDropdownOpen && (
+                    <div className="absolute top-full left-0 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 animate-in fade-in slide-in-from-top-2 duration-150 z-50">
+                      <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        Disciplinas Principais
+                      </div>
+                      {estudeDisciplinas.map((item) => (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          className="block px-4 py-2 text-xs xl:text-sm text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium"
+                        >
+                          {item.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Aprenda */}
+                <Link
+                  href="/aprenda"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all font-bold whitespace-nowrap"
+                >
+                  <BrainCircuit className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>Aprenda</span>
+                </Link>
+
+                {/* Estude comigo (YouTube) */}
+                <Link
+                  href="/estude-comigo"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all font-bold whitespace-nowrap"
+                >
+                  <YouTubeIcon className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>Estude comigo</span>
+                </Link>
+
+                {/* Informe-se */}
+                <Link
+                  href="/informe-se"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all font-bold whitespace-nowrap"
+                >
+                  <Newspaper className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span>Informe-se</span>
+                </Link>
+
+                {/* Rotina */}
+                <Link
+                  href="/rotina"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all font-bold whitespace-nowrap"
+                >
+                  <Coffee className="w-4 h-4 text-orange-500 shrink-0" />
+                  <span>Rotina</span>
+                </Link>
+
+              </div>
+
+              {/* Right Special App Store Link */}
+              <Link
+                href="/loja"
+                className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 transition-all font-extrabold whitespace-nowrap"
+              >
+                <ShoppingBag className="w-4 h-4 shrink-0" />
+                <span>Loja de APPs</span>
+                <span className="px-1.5 py-0.5 text-[9px] bg-emerald-500 text-slate-950 rounded font-black uppercase">
+                  Exclusivo
+                </span>
+              </Link>
+
+            </nav>
           </div>
         </div>
 
