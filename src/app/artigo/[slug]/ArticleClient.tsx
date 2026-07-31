@@ -99,6 +99,17 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
           const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
           const dynamicReadMinutes = Math.max(1, Math.ceil(wordCount / 200));
 
+          const pubDateStr = new Date(dbPost.created_at || Date.now()).toLocaleDateString("pt-BR", { day: 'numeric', month: 'long', year: 'numeric' });
+          let updDateStr: string | undefined = undefined;
+
+          if (dbPost.updated_at) {
+            const createdMs = new Date(dbPost.created_at || 0).getTime();
+            const updatedMs = new Date(dbPost.updated_at).getTime();
+            if (updatedMs - createdMs > 60000) {
+              updDateStr = new Date(dbPost.updated_at).toLocaleDateString("pt-BR", { day: 'numeric', month: 'long', year: 'numeric' });
+            }
+          }
+
           setPost({
             id: dbPost.id,
             title: dbPost.title,
@@ -112,7 +123,8 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             banca: dbPost.banca,
             summary: dbPost.summary || "",
             content: dbPost.content_html || "",
-            publishedAt: new Date(dbPost.created_at || Date.now()).toLocaleDateString("pt-BR", { day: 'numeric', month: 'long', year: 'numeric' }),
+            publishedAt: pubDateStr,
+            updatedAt: updDateStr,
             readTime: `${dynamicReadMinutes} min de leitura`,
             youtubeVideoId: dbPost.youtube_video_id,
             featuredImage: dbPost.featured_image || "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80",
@@ -255,7 +267,15 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                 <Clock className="w-3.5 h-3.5" /> {post.readTime}
               </span>
               <span>•</span>
-              <span>{post.publishedAt}</span>
+              <span title={`Publicado em ${post.publishedAt}`}>Publicado em {post.publishedAt}</span>
+              {post.updatedAt && post.updatedAt !== post.publishedAt && (
+                <>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/20 px-2 py-0.5 rounded-md border border-emerald-500/30 shadow-xs" title={`Conteúdo revisado e atualizado em ${post.updatedAt}`}>
+                    🔄 Atualizado em {post.updatedAt}
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -438,7 +458,15 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                   <Clock className="w-3.5 h-3.5" /> {post.readTime}
                 </span>
                 <span>•</span>
-                <span>{post.publishedAt}</span>
+                <span>Publicado em {post.publishedAt}</span>
+                {post.updatedAt && post.updatedAt !== post.publishedAt && (
+                  <>
+                    <span>•</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      🔄 Atualizado em {post.updatedAt}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 

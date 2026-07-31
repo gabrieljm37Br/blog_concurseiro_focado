@@ -17,6 +17,7 @@ export interface Post {
   summary: string;
   content: string;
   publishedAt: string;
+  updatedAt?: string;
   readTime: string;
   youtubeVideoId?: string;
   flashcardsCount?: number;

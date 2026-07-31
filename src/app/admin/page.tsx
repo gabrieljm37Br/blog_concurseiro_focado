@@ -465,7 +465,8 @@ export default function AdminPage() {
       read_time: dynamicReadTime,
       featured_image: formData.featured_image,
       youtube_video_id: formData.youtube_video_id || null,
-      is_published: isPublishedBool
+      is_published: isPublishedBool,
+      updated_at: new Date().toISOString()
     };
 
     let targetPostId = editingPostId;

@@ -125,6 +125,17 @@ export default async function ArticlePage({ params }: Props) {
       const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
       const dynamicReadMinutes = Math.max(1, Math.ceil(wordCount / 200));
 
+      const pubDateStr = new Date(dbPost.created_at || Date.now()).toLocaleDateString("pt-BR", { day: 'numeric', month: 'long', year: 'numeric' });
+      let updDateStr: string | undefined = undefined;
+
+      if (dbPost.updated_at) {
+        const createdMs = new Date(dbPost.created_at || 0).getTime();
+        const updatedMs = new Date(dbPost.updated_at).getTime();
+        if (updatedMs - createdMs > 60000) {
+          updDateStr = new Date(dbPost.updated_at).toLocaleDateString("pt-BR", { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+      }
+
       initialPost = {
         id: dbPost.id,
         title: dbPost.title,
@@ -138,7 +149,8 @@ export default async function ArticlePage({ params }: Props) {
         banca: dbPost.banca,
         summary: dbPost.summary || "",
         content: dbPost.content_html || "",
-        publishedAt: new Date(dbPost.created_at || Date.now()).toLocaleDateString("pt-BR", { day: 'numeric', month: 'long', year: 'numeric' }),
+        publishedAt: pubDateStr,
+        updatedAt: updDateStr,
         readTime: `${dynamicReadMinutes} min de leitura`,
         youtubeVideoId: dbPost.youtube_video_id,
         featuredImage: dbPost.featured_image || "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80",
