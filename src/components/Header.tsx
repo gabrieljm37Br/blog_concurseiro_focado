@@ -283,7 +283,7 @@ export default function Header() {
         </div>
 
         {/* ROW 2: CATEGORY NAVIGATION SUB-BAR (Direção & Gran Cursos Style - Desktop) */}
-        <div className="border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#070A11]/70 hidden lg:block">
+        <div className="header-subnav border-t border-b border-slate-200/80 dark:border-slate-800/90 bg-slate-100/90 dark:bg-[#070A12] hidden lg:block">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <nav className="flex items-center justify-between gap-1 xl:gap-2 text-xs xl:text-sm font-semibold py-1.5">
               

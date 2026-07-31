@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #f8fafc;
@@ -205,6 +206,22 @@ h1, h2, h3, h4, h5, h6 {
 .dark header {
   background-color: rgba(11, 15, 25, 0.95) !important;
   border-color: #1f2937 !important;
+}
+
+.dark .header-subnav {
+  background-color: #070a12 !important;
+  border-color: #1e293b !important;
+}
+
+.dark .header-subnav a,
+.dark .header-subnav button {
+  color: #e2e8f0 !important;
+}
+
+.dark .header-subnav a:hover,
+.dark .header-subnav button:hover {
+  background-color: #1e293b !important;
+  color: #34d399 !important;
 }
 
 .dark h1, 
