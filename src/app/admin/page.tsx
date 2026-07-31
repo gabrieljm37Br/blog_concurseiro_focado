@@ -134,6 +134,7 @@ export default function AdminPage() {
     questionCorrectOption: "0",
     questionExplanation: "",
     // Tool 3: Simulado (Questões Inéditas)
+    simuladoType: "multipla_escolha_4",
     simuladoStatement: "",
     simuladoOptionA: "",
     simuladoOptionB: "",
@@ -659,13 +660,19 @@ export default function AdminPage() {
     setStatusMessage("✅ Questão adicionada à lista!");
   };
 
-  // Helper Parser 3: Simulado (Questões Inéditas) (Item 7 - Importação em Lote)
+  // Helper Parser 3: Simulado (Questões Inéditas) (Item 7 - Importação em Lote & Certo/Errado)
   const handleParseBulkSimulados = () => {
     if (!bulkSimuladosText.trim()) return;
     const blocks = bulkSimuladosText.split(/---|\n\n\n|===/).filter(b => b.trim());
     const newSimulados: any[] = [];
 
     blocks.forEach((blockText, idx) => {
+      const tipoMatch = blockText.match(/(?:TIPO|Tipo):\s*([^|\n]+)/i);
+      let qType = tipoMatch ? tipoMatch[1].trim() : "multipla_escolha_4";
+
+      const isCertoErrado = /certo\s*ou\s*errado|certo\/errado|certo_errado/i.test(qType) || 
+        (!blockText.match(/A\)\s*/i) && /gabarito:\s*(certo|errado|c|e)/i.test(blockText));
+
       let statement = "";
       const statementMatch = blockText.match(/(?:ENUNCIADO|STATEMENT|Questao|Questão):\s*([\s\S]*?)(?=[A-D]\)|GABARITO:|$)/i);
       if (statementMatch) {
@@ -674,25 +681,35 @@ export default function AdminPage() {
         statement = blockText.split("\nA)")[0].replace(/^TIPO:[^\n]*\n/gi, "").trim();
       }
 
-      const options: string[] = [];
-      const optAMatch = blockText.match(/A\)\s*([^\n]+)/i);
-      const optBMatch = blockText.match(/B\)\s*([^\n]+)/i);
-      const optCMatch = blockText.match(/C\)\s*([^\n]+)/i);
-      const optDMatch = blockText.match(/D\)\s*([^\n]+)/i);
+      let options: string[] = [];
+      if (isCertoErrado) {
+        qType = "certo_errado";
+        options = ["Certo", "Errado"];
+      } else {
+        const optAMatch = blockText.match(/A\)\s*([^\n]+)/i);
+        const optBMatch = blockText.match(/B\)\s*([^\n]+)/i);
+        const optCMatch = blockText.match(/C\)\s*([^\n]+)/i);
+        const optDMatch = blockText.match(/D\)\s*([^\n]+)/i);
 
-      if (optAMatch) options.push(optAMatch[1].trim());
-      if (optBMatch) options.push(optBMatch[1].trim());
-      if (optCMatch) options.push(optCMatch[1].trim());
-      if (optDMatch) options.push(optDMatch[1].trim());
+        if (optAMatch) options.push(optAMatch[1].trim());
+        if (optBMatch) options.push(optBMatch[1].trim());
+        if (optCMatch) options.push(optCMatch[1].trim());
+        if (optDMatch) options.push(optDMatch[1].trim());
+      }
 
-      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-D|Certo|Errado])/i);
+      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-D|Certo|Errado|C|E])/i);
       let correctIndex = 0;
       if (gabMatch) {
         const g = gabMatch[1].toUpperCase();
-        if (g === "A") correctIndex = 0;
-        else if (g === "B") correctIndex = 1;
-        else if (g === "C") correctIndex = 2;
-        else if (g === "D") correctIndex = 3;
+        if (isCertoErrado) {
+          if (g === "CERTO" || g === "C" || g === "A" || g === "1") correctIndex = 0;
+          else if (g === "ERRADO" || g === "E" || g === "B" || g === "2") correctIndex = 1;
+        } else {
+          if (g === "A") correctIndex = 0;
+          else if (g === "B") correctIndex = 1;
+          else if (g === "C") correctIndex = 2;
+          else if (g === "D") correctIndex = 3;
+        }
       }
 
       const expMatch = blockText.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
@@ -701,8 +718,9 @@ export default function AdminPage() {
       if (statement || options.length > 0) {
         newSimulados.push({
           id: Date.now() + idx,
+          type: qType,
           statement: statement || `Questão Inédita ${idx + 1} de Simulado`,
-          options: options.length > 0 ? options : ["Primeira opção inédita", "Segunda opção inédita", "Terceira opção inédita", "Quarta opção inédita"],
+          options: options.length > 0 ? options : (isCertoErrado ? ["Certo", "Errado"] : ["Primeira opção inédita", "Segunda opção inédita", "Terceira opção inédita", "Quarta opção inédita"]),
           correctIndex,
           explanation
         });
@@ -720,15 +738,19 @@ export default function AdminPage() {
 
   const handleAddSingleSimulado = () => {
     if (!formData.simuladoStatement) return;
-    const opts = [
-      formData.simuladoOptionA || "Primeira opção inédita",
-      formData.simuladoOptionB || "Segunda opção inédita",
-      formData.simuladoOptionC || "Terceira opção inédita",
-      formData.simuladoOptionD || "Quarta opção inédita"
-    ];
+    const isCertoErrado = formData.simuladoType === "certo_errado";
+    const opts = isCertoErrado
+      ? ["Certo", "Errado"]
+      : [
+          formData.simuladoOptionA || "Primeira opção inédita",
+          formData.simuladoOptionB || "Segunda opção inédita",
+          formData.simuladoOptionC || "Terceira opção inédita",
+          formData.simuladoOptionD || "Quarta opção inédita"
+        ];
 
     const newSimulado = {
       id: Date.now(),
+      type: isCertoErrado ? "certo_errado" : "multipla_escolha_4",
       statement: formData.simuladoStatement,
       options: opts,
       correctIndex: parseInt(formData.simuladoCorrectOption || "0", 10),
@@ -1940,36 +1962,57 @@ export default function AdminPage() {
                       className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
 
+                    {/* Modalidade da Questão Inédita (Múltipla Escolha 4 vs Certo ou Errado) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        value={formData.simuladoOptionA}
-                        onChange={(e) => setFormData({ ...formData, simuladoOptionA: e.target.value })}
-                        placeholder="A) Primeira opção inédita"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        value={formData.simuladoOptionB}
-                        onChange={(e) => setFormData({ ...formData, simuladoOptionB: e.target.value })}
-                        placeholder="B) Segunda opção inédita"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        value={formData.simuladoOptionC}
-                        onChange={(e) => setFormData({ ...formData, simuladoOptionC: e.target.value })}
-                        placeholder="C) Terceira opção inédita"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        value={formData.simuladoOptionD}
-                        onChange={(e) => setFormData({ ...formData, simuladoOptionD: e.target.value })}
-                        placeholder="D) Quarta opção inédita"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                      />
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400">Modalidade / Tipo da Questão Inédita</label>
+                        <select
+                          value={formData.simuladoType || "multipla_escolha_4"}
+                          onChange={(e) => setFormData({ ...formData, simuladoType: e.target.value, simuladoCorrectOption: "0" })}
+                          className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="multipla_escolha_4">Múltipla Escolha Inédita (4 Alternativas A-D)</option>
+                          <option value="certo_errado">Certo ou Errado (Item Inédito Cebraspe)</option>
+                        </select>
+                      </div>
                     </div>
+
+                    {formData.simuladoType === "certo_errado" ? (
+                      <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-xs font-semibold text-blue-300 flex items-center gap-2">
+                        <span>🎯 Questão inédita configurada para a modalidade <strong>Certo ou Errado</strong> (2 opções automáticas).</span>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          value={formData.simuladoOptionA}
+                          onChange={(e) => setFormData({ ...formData, simuladoOptionA: e.target.value })}
+                          placeholder="A) Primeira opção inédita"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                        <input
+                          type="text"
+                          value={formData.simuladoOptionB}
+                          onChange={(e) => setFormData({ ...formData, simuladoOptionB: e.target.value })}
+                          placeholder="B) Segunda opção inédita"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                        <input
+                          type="text"
+                          value={formData.simuladoOptionC}
+                          onChange={(e) => setFormData({ ...formData, simuladoOptionC: e.target.value })}
+                          placeholder="C) Terceira opção inédita"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                        <input
+                          type="text"
+                          value={formData.simuladoOptionD}
+                          onChange={(e) => setFormData({ ...formData, simuladoOptionD: e.target.value })}
+                          placeholder="D) Quarta opção inédita"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <select
@@ -1977,10 +2020,19 @@ export default function AdminPage() {
                         onChange={(e) => setFormData({ ...formData, simuladoCorrectOption: e.target.value })}
                         className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-blue-400"
                       >
-                        <option value="0">Alternativa A</option>
-                        <option value="1">Alternativa B</option>
-                        <option value="2">Alternativa C</option>
-                        <option value="3">Alternativa D</option>
+                        {formData.simuladoType === "certo_errado" ? (
+                          <>
+                            <option value="0">🟢 CERTO</option>
+                            <option value="1">🔴 ERRADO</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="0">Alternativa A</option>
+                            <option value="1">Alternativa B</option>
+                            <option value="2">Alternativa C</option>
+                            <option value="3">Alternativa D</option>
+                          </>
+                        )}
                       </select>
 
                       <input
