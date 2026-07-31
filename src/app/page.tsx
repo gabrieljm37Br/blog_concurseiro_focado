@@ -85,9 +85,9 @@ function HomeContent() {
               youtubeVideoId: item.youtube_video_id,
               featuredImage: item.featured_image || "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80",
               tags: item.tags || [],
-              flashcardsCount: 12,
-              questionsCount: 5,
-              infographicsCount: 2
+              flashcardsCount: item.flashcards_count || 0,
+              questionsCount: item.questions_count || 0,
+              infographicsCount: item.infographics_count || 0
             };
           });
 

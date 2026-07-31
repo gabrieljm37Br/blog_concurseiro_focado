@@ -80,22 +80,29 @@ export default function PostCard({ post }: PostCardProps) {
           
           {/* Study Badges */}
           <div className="flex items-center gap-3">
-            {post.category === "Estude" ? (
-              <>
-                {post.flashcardsCount && (
-                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold" title={`${post.flashcardsCount} Flashcards inclusos`}>
-                    <Layers className="w-3.5 h-3.5" /> {post.flashcardsCount} cards
-                  </span>
-                )}
-                {post.questionsCount && (
-                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold" title={`${post.questionsCount} Questões resolvidas`}>
-                    <HelpCircle className="w-3.5 h-3.5" /> {post.questionsCount} quest.
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold" title="Infográfico disponível neste artigo">
-                <Sparkles className="w-3.5 h-3.5" /> Infográfico
+            {post.flashcardsCount && post.flashcardsCount > 0 ? (
+              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold" title={`${post.flashcardsCount} Flashcards inclusos`}>
+                <Layers className="w-3.5 h-3.5" /> {post.flashcardsCount} cards
+              </span>
+            ) : null}
+
+            {post.questionsCount && post.questionsCount > 0 ? (
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold" title={`${post.questionsCount} Questões resolvidas`}>
+                <HelpCircle className="w-3.5 h-3.5" /> {post.questionsCount} quest.
+              </span>
+            ) : null}
+
+            {post.infographicsCount && post.infographicsCount > 0 ? (
+              <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold" title={`${post.infographicsCount} Infográficos`}>
+                <Sparkles className="w-3.5 h-3.5" /> {post.infographicsCount} info.
+              </span>
+            ) : null}
+
+            {(!post.flashcardsCount || post.flashcardsCount === 0) &&
+             (!post.questionsCount || post.questionsCount === 0) &&
+             (!post.infographicsCount || post.infographicsCount === 0) && (
+              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-medium">
+                <Clock className="w-3.5 h-3.5" /> {post.readTime}
               </span>
             )}
           </div>
