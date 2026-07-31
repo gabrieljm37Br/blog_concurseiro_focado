@@ -124,6 +124,7 @@ export default function AdminPage() {
     flashcardQuestion: "",
     flashcardAnswer: "",
     // Tool 2: Questões (Provas Pretéritas)
+    questionType: "multipla_escolha_5",
     questionStatement: "",
     questionOptionA: "",
     questionOptionB: "",
@@ -529,7 +530,7 @@ export default function AdminPage() {
     setStatusMessage("✅ Flashcard adicionado à lista do artigo!");
   };
 
-  // Helper Parser 2: Questões (Provas Pretéritas) (Item 6 - Importação em Lote)
+  // Helper Parser 2: Questões (Provas Pretéritas) (Item 6 - Importação em Lote & Certo/Errado)
   const handleParseBulkQuestions = () => {
     if (!bulkQuestionsText.trim()) return;
     const blocks = bulkQuestionsText.split(/---|\n\n\n|===/).filter(b => b.trim());
@@ -544,7 +545,11 @@ export default function AdminPage() {
       const banca = bancaMatch ? bancaMatch[1].trim() : (formData.banca || "Cebraspe");
       const ano = anoMatch ? anoMatch[1].trim() : "2026";
       const orgao = orgaoMatch ? orgaoMatch[1].trim() : "Concurso Público";
-      const qType = tipoMatch ? tipoMatch[1].trim() : "multipla_escolha_5";
+      let qType = tipoMatch ? tipoMatch[1].trim() : "multipla_escolha_5";
+
+      // Detect Certo ou Errado
+      const isCertoErrado = /certo\s*ou\s*errado|certo\/errado|certo_errado/i.test(qType) || 
+        (!blockText.match(/A\)\s*/i) && /gabarito:\s*(certo|errado|c|e)/i.test(blockText));
 
       let statement = "";
       const statementMatch = blockText.match(/(?:ENUNCIADO|STATEMENT|Questao|Questão):\s*([\s\S]*?)(?=[A-E]\)|GABARITO:|$)/i);
@@ -554,28 +559,38 @@ export default function AdminPage() {
         statement = blockText.split("\nA)")[0].replace(/^(?:BANCA|TIPO|ANO|ORGAO):[^\n]*\n/gi, "").trim();
       }
 
-      const options: string[] = [];
-      const optAMatch = blockText.match(/A\)\s*([^\n]+)/i);
-      const optBMatch = blockText.match(/B\)\s*([^\n]+)/i);
-      const optCMatch = blockText.match(/C\)\s*([^\n]+)/i);
-      const optDMatch = blockText.match(/D\)\s*([^\n]+)/i);
-      const optEMatch = blockText.match(/E\)\s*([^\n]+)/i);
+      let options: string[] = [];
+      if (isCertoErrado) {
+        qType = "certo_errado";
+        options = ["Certo", "Errado"];
+      } else {
+        const optAMatch = blockText.match(/A\)\s*([^\n]+)/i);
+        const optBMatch = blockText.match(/B\)\s*([^\n]+)/i);
+        const optCMatch = blockText.match(/C\)\s*([^\n]+)/i);
+        const optDMatch = blockText.match(/D\)\s*([^\n]+)/i);
+        const optEMatch = blockText.match(/E\)\s*([^\n]+)/i);
 
-      if (optAMatch) options.push(optAMatch[1].trim());
-      if (optBMatch) options.push(optBMatch[1].trim());
-      if (optCMatch) options.push(optCMatch[1].trim());
-      if (optDMatch) options.push(optDMatch[1].trim());
-      if (optEMatch) options.push(optEMatch[1].trim());
+        if (optAMatch) options.push(optAMatch[1].trim());
+        if (optBMatch) options.push(optBMatch[1].trim());
+        if (optCMatch) options.push(optCMatch[1].trim());
+        if (optDMatch) options.push(optDMatch[1].trim());
+        if (optEMatch) options.push(optEMatch[1].trim());
+      }
 
       const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-E|Certo|Errado|V|F])/i);
       let correctIndex = 0;
       if (gabMatch) {
         const g = gabMatch[1].toUpperCase();
-        if (g === "A" || g === "1") correctIndex = 0;
-        else if (g === "B" || g === "2") correctIndex = 1;
-        else if (g === "C" || g === "3") correctIndex = 2;
-        else if (g === "D" || g === "4") correctIndex = 3;
-        else if (g === "E" || g === "5") correctIndex = 4;
+        if (isCertoErrado) {
+          if (g === "CERTO" || g === "C" || g === "A" || g === "1") correctIndex = 0;
+          else if (g === "ERRADO" || g === "E" || g === "B" || g === "2") correctIndex = 1;
+        } else {
+          if (g === "A" || g === "1") correctIndex = 0;
+          else if (g === "B" || g === "2") correctIndex = 1;
+          else if (g === "C" || g === "3") correctIndex = 2;
+          else if (g === "D" || g === "4") correctIndex = 3;
+          else if (g === "E" || g === "5") correctIndex = 4;
+        }
       }
 
       const expMatch = blockText.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
@@ -589,7 +604,7 @@ export default function AdminPage() {
           orgao,
           type: qType,
           statement: statement || `Questão ${idx + 1} de Concurso`,
-          options: options.length > 0 ? options : ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"],
+          options: options.length > 0 ? options : (isCertoErrado ? ["Certo", "Errado"] : ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"]),
           correctIndex,
           explanation
         });
@@ -607,19 +622,23 @@ export default function AdminPage() {
 
   const handleAddSingleQuestion = () => {
     if (!formData.questionStatement) return;
-    const opts = [
-      formData.questionOptionA || "Opção A",
-      formData.questionOptionB || "Opção B",
-      formData.questionOptionC || "Opção C",
-      formData.questionOptionD || "Opção D",
-      formData.questionOptionE || "Opção E"
-    ];
+    const isCertoErrado = formData.questionType === "certo_errado";
+    const opts = isCertoErrado 
+      ? ["Certo", "Errado"]
+      : [
+          formData.questionOptionA || "Opção A",
+          formData.questionOptionB || "Opção B",
+          formData.questionOptionC || "Opção C",
+          formData.questionOptionD || "Opção D",
+          formData.questionOptionE || "Opção E"
+        ];
 
     const newQuestion = {
       id: Date.now(),
       banca: formData.banca || "Cebraspe",
       ano: "2026",
       orgao: "Concurso Público",
+      type: isCertoErrado ? "certo_errado" : "multipla_escolha_5",
       statement: formData.questionStatement,
       options: opts,
       correctIndex: parseInt(formData.questionCorrectOption || "0", 10),
@@ -1741,43 +1760,64 @@ export default function AdminPage() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      <input
-                        type="text"
-                        value={formData.questionOptionA}
-                        onChange={(e) => setFormData({ ...formData, questionOptionA: e.target.value })}
-                        placeholder="A) Texto da alternativa A"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        value={formData.questionOptionB}
-                        onChange={(e) => setFormData({ ...formData, questionOptionB: e.target.value })}
-                        placeholder="B) Texto da alternativa B"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        value={formData.questionOptionC}
-                        onChange={(e) => setFormData({ ...formData, questionOptionC: e.target.value })}
-                        placeholder="C) Texto da alternativa C"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        value={formData.questionOptionD}
-                        onChange={(e) => setFormData({ ...formData, questionOptionD: e.target.value })}
-                        placeholder="D) Texto da alternativa D"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        value={formData.questionOptionE}
-                        onChange={(e) => setFormData({ ...formData, questionOptionE: e.target.value })}
-                        placeholder="E) Texto da alternativa E"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white sm:col-span-2 lg:col-span-1"
-                      />
+                    {/* Modalidade de Questão (Múltipla Escolha vs Certo ou Errado) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400">Modalidade / Tipo da Questão</label>
+                        <select
+                          value={formData.questionType || "multipla_escolha_5"}
+                          onChange={(e) => setFormData({ ...formData, questionType: e.target.value, questionCorrectOption: "0" })}
+                          className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        >
+                          <option value="multipla_escolha_5">Múltipla Escolha (5 Alternativas A-E)</option>
+                          <option value="certo_errado">Certo ou Errado (Cebraspe / CESPE)</option>
+                        </select>
+                      </div>
                     </div>
+
+                    {formData.questionType === "certo_errado" ? (
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-semibold text-emerald-300 flex items-center gap-2">
+                        <span>🟢 Questão configurada para a modalidade <strong>Certo ou Errado</strong> (Cebraspe / CESPE). As opções serão "Certo" e "Errado".</span>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <input
+                          type="text"
+                          value={formData.questionOptionA}
+                          onChange={(e) => setFormData({ ...formData, questionOptionA: e.target.value })}
+                          placeholder="A) Texto da alternativa A"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                        <input
+                          type="text"
+                          value={formData.questionOptionB}
+                          onChange={(e) => setFormData({ ...formData, questionOptionB: e.target.value })}
+                          placeholder="B) Texto da alternativa B"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                        <input
+                          type="text"
+                          value={formData.questionOptionC}
+                          onChange={(e) => setFormData({ ...formData, questionOptionC: e.target.value })}
+                          placeholder="C) Texto da alternativa C"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                        <input
+                          type="text"
+                          value={formData.questionOptionD}
+                          onChange={(e) => setFormData({ ...formData, questionOptionD: e.target.value })}
+                          placeholder="D) Texto da alternativa D"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                        <input
+                          type="text"
+                          value={formData.questionOptionE}
+                          onChange={(e) => setFormData({ ...formData, questionOptionE: e.target.value })}
+                          placeholder="E) Texto da alternativa E"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white sm:col-span-2 lg:col-span-1"
+                        />
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
@@ -1787,11 +1827,20 @@ export default function AdminPage() {
                           onChange={(e) => setFormData({ ...formData, questionCorrectOption: e.target.value })}
                           className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-emerald-400"
                         >
-                          <option value="0">Alternativa A</option>
-                          <option value="1">Alternativa B</option>
-                          <option value="2">Alternativa C</option>
-                          <option value="3">Alternativa D</option>
-                          <option value="4">Alternativa E</option>
+                          {formData.questionType === "certo_errado" ? (
+                            <>
+                              <option value="0">🟢 CERTO</option>
+                              <option value="1">🔴 ERRADO</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="0">Alternativa A</option>
+                              <option value="1">Alternativa B</option>
+                              <option value="2">Alternativa C</option>
+                              <option value="3">Alternativa D</option>
+                              <option value="4">Alternativa E</option>
+                            </>
+                          )}
                         </select>
                       </div>
 
