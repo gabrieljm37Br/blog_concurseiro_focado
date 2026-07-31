@@ -490,17 +490,23 @@ export default function InteractiveStudyModal({
                 {/* Options */}
                 <div className="space-y-2.5">
                   {sampleQuestions[currentQuestionIndex]?.options.map((option, idx) => {
-                    let optionStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500/50";
+                    let optionStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-amber-500/50";
+                    let badgeStyle = "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300";
                     
                     if (selectedOption === idx) {
-                      optionStyle = "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 font-semibold";
+                      optionStyle = "border-amber-500 bg-amber-500/10 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 font-bold ring-1 ring-amber-500/50";
+                      badgeStyle = "border-amber-500 bg-amber-500 text-slate-950 font-black";
                     }
 
                     if (isAnswerSubmitted) {
                       if (idx === sampleQuestions[currentQuestionIndex].correctIndex) {
-                        optionStyle = "border-emerald-600 bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 font-bold";
+                        optionStyle = "border-emerald-600 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 font-bold";
+                        badgeStyle = "border-emerald-500 bg-emerald-600 text-white font-black";
                       } else if (selectedOption === idx) {
                         optionStyle = "border-red-500 bg-red-100 dark:bg-red-950/40 text-red-900 dark:text-red-200";
+                        badgeStyle = "border-red-500 bg-red-500 text-white font-black";
+                      } else {
+                        optionStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 opacity-60";
                       }
                     }
 
@@ -511,7 +517,7 @@ export default function InteractiveStudyModal({
                         disabled={isAnswerSubmitted}
                         className={`w-full text-left p-3.5 rounded-xl border text-sm transition-all flex items-start gap-3 ${optionStyle}`}
                       >
-                        <span className="w-6 h-6 rounded-full border border-slate-300 dark:border-slate-700 flex items-center justify-center shrink-0 font-bold text-xs">
+                        <span className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 font-bold text-xs transition-colors ${badgeStyle}`}>
                           {String.fromCharCode(65 + idx)}
                         </span>
                         <MathRenderer content={option} inline className="flex-1" />
