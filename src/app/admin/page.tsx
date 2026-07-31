@@ -38,7 +38,9 @@ import {
   Users,
   Award,
   Activity,
-  Flame
+  Flame,
+  HelpCircle,
+  Target
 } from "lucide-react";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 
@@ -91,8 +93,9 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
-  // Form State for creating a post (Pilar 4: Workflow Editorial & Status)
-  const [formData, setFormData] = useState({
+  const [studyToolTab, setStudyToolTab] = useState<"flashcards" | "questions" | "simulado" | "infographic">("flashcards");
+
+  const initialFormDataState = {
     title: "",
     slug: "",
     category_slug: "estude",
@@ -106,9 +109,34 @@ export default function AdminPage() {
     tags: "",
     status: "published" as "published" | "draft" | "review" | "scheduled",
     scheduled_at: "",
+    // Tool 1: Flashcards
     flashcardQuestion: "",
-    flashcardAnswer: ""
-  });
+    flashcardAnswer: "",
+    // Tool 2: Questões (Provas Pretéritas)
+    questionStatement: "",
+    questionOptionA: "",
+    questionOptionB: "",
+    questionOptionC: "",
+    questionOptionD: "",
+    questionCorrectOption: "0",
+    questionExplanation: "",
+    // Tool 3: Simulado (Questões Inéditas)
+    simuladoStatement: "",
+    simuladoOptionA: "",
+    simuladoOptionB: "",
+    simuladoOptionC: "",
+    simuladoOptionD: "",
+    simuladoCorrectOption: "0",
+    simuladoExplanation: "",
+    // Tool 4: Infográfico
+    infographicTitle: "",
+    infographicSubtitle: "",
+    infographicSummary: "",
+    infographicType: "resumo_visual" as "mapa_mental" | "resumo_visual" | "tabela_comparativa"
+  };
+
+  // Form State for creating a post (Pilar 4: Workflow Editorial & Status)
+  const [formData, setFormData] = useState(initialFormDataState);
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -191,6 +219,7 @@ export default function AdminPage() {
       if (savedLocalDraft) {
         const parsed = JSON.parse(savedLocalDraft);
         setFormData({
+          ...initialFormDataState,
           title: parsed.title || "",
           slug: parsed.slug || "",
           category_slug: parsed.category_slug || "estude",
@@ -377,6 +406,7 @@ export default function AdminPage() {
     }
 
     setFormData({
+      ...initialFormDataState,
       title: post.title || "",
       slug: post.slug || "",
       category_slug: post.category_slug || "estude",
@@ -389,32 +419,14 @@ export default function AdminPage() {
       youtube_video_id: post.youtube_video_id || "",
       tags: tagsStr,
       status: postStatus,
-      scheduled_at: scheduledAtStr,
-      flashcardQuestion: "",
-      flashcardAnswer: ""
+      scheduled_at: scheduledAtStr
     });
     setActiveTab("create");
   };
 
   const handleCancelEdit = () => {
     setEditingPostId(null);
-    setFormData({
-      title: "",
-      slug: "",
-      category_slug: "estude",
-      subcategory: "",
-      banca: "",
-      summary: "",
-      content_html: "",
-      read_time: "6 min de leitura",
-      featured_image: "",
-      youtube_video_id: "",
-      tags: "",
-      status: "published",
-      scheduled_at: "",
-      flashcardQuestion: "",
-      flashcardAnswer: ""
-    });
+    setFormData(initialFormDataState);
   };
 
   const handleAddSubcategory = (e: React.FormEvent) => {
@@ -454,7 +466,12 @@ export default function AdminPage() {
     const dynamicReadMinutes = Math.max(1, Math.ceil(wordCount / 200));
     const dynamicReadTime = `${dynamicReadMinutes} min de leitura`;
 
-    const postPayload = {
+    let flashcardsCountAcc = (formData.flashcardQuestion && formData.flashcardAnswer) ? 1 : 0;
+    let questionsCountAcc = formData.questionStatement ? 1 : 0;
+    let simuladosCountAcc = formData.simuladoStatement ? 1 : 0;
+    let infographicsCountAcc = formData.infographicTitle ? 1 : 0;
+
+    const postPayload: any = {
       title: formData.title,
       slug: formData.slug,
       category_slug: formData.category_slug,
@@ -466,6 +483,10 @@ export default function AdminPage() {
       featured_image: formData.featured_image,
       youtube_video_id: formData.youtube_video_id || null,
       is_published: isPublishedBool,
+      flashcards_count: flashcardsCountAcc,
+      questions_count: questionsCountAcc,
+      simulados_count: simuladosCountAcc,
+      infographics_count: infographicsCountAcc,
       updated_at: new Date().toISOString()
     };
 
@@ -1161,33 +1182,330 @@ export default function AdminPage() {
             />
           </div>
 
-          {/* Section: Flashcard Acoplado */}
-          <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-              <BrainCircuit className="w-4 h-4" /> Flashcard de Evocação Rápida para o Artigo
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Pergunta do Flashcard</label>
-                <input
-                  type="text"
-                  value={formData.flashcardQuestion}
-                  onChange={(e) => setFormData({ ...formData, flashcardQuestion: e.target.value })}
-                  placeholder="Ex: Qual o prazo prescricional para sanções disciplinares?"
-                  className="w-full px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-medium text-slate-900 dark:text-white"
-                />
+          {/* Section: Painel Completo de Cadastro de Ferramentas de Estudo */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-slate-900 text-white border border-slate-800 space-y-5 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-sm font-extrabold font-outfit text-white tracking-wide flex items-center gap-2">
+                  <BrainCircuit className="w-5 h-5 text-amber-400" /> Painel de Cadastro das Ferramentas de Estudo
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Adicione Flashcards, Questões de Concursos, Simulados Inéditos e Infográficos acoplados a este artigo.
+                </p>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Resposta (Gabarito)</label>
-                <input
-                  type="text"
-                  value={formData.flashcardAnswer}
-                  onChange={(e) => setFormData({ ...formData, flashcardAnswer: e.target.value })}
-                  placeholder="Ex: 5 anos para demissão e 2 anos para suspensão."
-                  className="w-full px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-medium text-slate-900 dark:text-white"
-                />
+
+              {/* Selector Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setStudyToolTab("flashcards")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    studyToolTab === "flashcards"
+                      ? "bg-amber-500 text-slate-950 shadow-md"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" /> Flashcards
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStudyToolTab("questions")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    studyToolTab === "questions"
+                      ? "bg-emerald-500 text-slate-950 shadow-md"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <HelpCircle className="w-3.5 h-3.5" /> Questões
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStudyToolTab("simulado")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    studyToolTab === "simulado"
+                      ? "bg-blue-500 text-white shadow-md"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Target className="w-3.5 h-3.5" /> Simulado
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStudyToolTab("infographic")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    studyToolTab === "infographic"
+                      ? "bg-purple-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Infográfico
+                </button>
               </div>
             </div>
+
+            {/* TAB 1: FLASHCARDS */}
+            {studyToolTab === "flashcards" && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs text-amber-400 font-bold">
+                  <span>🎴 Flashcard de Evocação Rápida</span>
+                  <span>Memorização Ativa</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Pergunta do Flashcard</label>
+                    <input
+                      type="text"
+                      value={formData.flashcardQuestion}
+                      onChange={(e) => setFormData({ ...formData, flashcardQuestion: e.target.value })}
+                      placeholder="Ex: Qual o prazo prescricional para sanções disciplinares?"
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Resposta (Gabarito)</label>
+                    <input
+                      type="text"
+                      value={formData.flashcardAnswer}
+                      onChange={(e) => setFormData({ ...formData, flashcardAnswer: e.target.value })}
+                      placeholder="Ex: 5 anos para demissão e 2 anos para suspensão."
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: QUESTÕES (PROVAS PRETERITAS) */}
+            {studyToolTab === "questions" && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs text-emerald-400 font-bold">
+                  <span>🏛️ Questão de Concurso (Prova Pretérita)</span>
+                  <span>Questões de Provas Anteriores</span>
+                </div>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Enunciado da Questão</label>
+                    <textarea
+                      rows={2}
+                      value={formData.questionStatement}
+                      onChange={(e) => setFormData({ ...formData, questionStatement: e.target.value })}
+                      placeholder="Ex: (Cebraspe/2026/STJ) A respeito da Receita Pública, assinale a alternativa..."
+                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Alternativa A</label>
+                      <input
+                        type="text"
+                        value={formData.questionOptionA}
+                        onChange={(e) => setFormData({ ...formData, questionOptionA: e.target.value })}
+                        placeholder="Texto da alternativa A"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Alternativa B</label>
+                      <input
+                        type="text"
+                        value={formData.questionOptionB}
+                        onChange={(e) => setFormData({ ...formData, questionOptionB: e.target.value })}
+                        placeholder="Texto da alternativa B"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Alternativa C</label>
+                      <input
+                        type="text"
+                        value={formData.questionOptionC}
+                        onChange={(e) => setFormData({ ...formData, questionOptionC: e.target.value })}
+                        placeholder="Texto da alternativa C"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Alternativa D</label>
+                      <input
+                        type="text"
+                        value={formData.questionOptionD}
+                        onChange={(e) => setFormData({ ...formData, questionOptionD: e.target.value })}
+                        placeholder="Texto da alternativa D"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Gabarito Correto</label>
+                      <select
+                        value={formData.questionCorrectOption}
+                        onChange={(e) => setFormData({ ...formData, questionCorrectOption: e.target.value })}
+                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-emerald-400"
+                      >
+                        <option value="0">Opção A</option>
+                        <option value="1">Opção B</option>
+                        <option value="2">Opção C</option>
+                        <option value="3">Opção D</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Explicação / Comentário do Gabarito</label>
+                      <input
+                        type="text"
+                        value={formData.questionExplanation}
+                        onChange={(e) => setFormData({ ...formData, questionExplanation: e.target.value })}
+                        placeholder="Ex: Conforme Art. 5º da CF/88..."
+                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: SIMULADO (QUESTÕES INÉDITAS) */}
+            {studyToolTab === "simulado" && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs text-blue-400 font-bold">
+                  <span>🎯 Simulado (Questão Inédita)</span>
+                  <span>Gerada a partir do Conteúdo do Artigo</span>
+                </div>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Enunciado da Questão Inédita</label>
+                    <textarea
+                      rows={2}
+                      value={formData.simuladoStatement}
+                      onChange={(e) => setFormData({ ...formData, simuladoStatement: e.target.value })}
+                      placeholder="Ex: Considerando a classificação orçamentária vista no texto, julgue a afirmativa a seguir..."
+                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Alternativa A</label>
+                      <input
+                        type="text"
+                        value={formData.simuladoOptionA}
+                        onChange={(e) => setFormData({ ...formData, simuladoOptionA: e.target.value })}
+                        placeholder="Texto da alternativa A"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Alternativa B</label>
+                      <input
+                        type="text"
+                        value={formData.simuladoOptionB}
+                        onChange={(e) => setFormData({ ...formData, simuladoOptionB: e.target.value })}
+                        placeholder="Texto da alternativa B"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Alternativa C</label>
+                      <input
+                        type="text"
+                        value={formData.simuladoOptionC}
+                        onChange={(e) => setFormData({ ...formData, simuladoOptionC: e.target.value })}
+                        placeholder="Texto da alternativa C"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Alternativa D</label>
+                      <input
+                        type="text"
+                        value={formData.simuladoOptionD}
+                        onChange={(e) => setFormData({ ...formData, simuladoOptionD: e.target.value })}
+                        placeholder="Texto da alternativa D"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Gabarito Correto</label>
+                      <select
+                        value={formData.simuladoCorrectOption}
+                        onChange={(e) => setFormData({ ...formData, simuladoCorrectOption: e.target.value })}
+                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-blue-400"
+                      >
+                        <option value="0">Opção A</option>
+                        <option value="1">Opção B</option>
+                        <option value="2">Opção C</option>
+                        <option value="3">Opção D</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Comentário Didático da Questão Inédita</label>
+                      <input
+                        type="text"
+                        value={formData.simuladoExplanation}
+                        onChange={(e) => setFormData({ ...formData, simuladoExplanation: e.target.value })}
+                        placeholder="Ex: Conforme demonstrado na seção 2 do artigo..."
+                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: INFOGRÁFICO */}
+            {studyToolTab === "infographic" && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs text-purple-400 font-bold">
+                  <span>✨ Infográfico / Mapa Mental Acoplado</span>
+                  <span>Resumo Visual e Esquematização</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Título do Infográfico</label>
+                    <input
+                      type="text"
+                      value={formData.infographicTitle}
+                      onChange={(e) => setFormData({ ...formData, infographicTitle: e.target.value })}
+                      placeholder="Ex: Esquema Visual dos 8 Dígitos da Receita"
+                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Tipo de Infográfico</label>
+                    <select
+                      value={formData.infographicType}
+                      onChange={(e) => setFormData({ ...formData, infographicType: e.target.value as any })}
+                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-purple-300"
+                    >
+                      <option value="resumo_visual">Resumo Visual</option>
+                      <option value="mapa_mental">Mapa Mental Esquematizado</option>
+                      <option value="tabela_comparativa">Tabela Comparativa</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Resumo / Conteúdo do Infográfico</label>
+                  <textarea
+                    rows={2}
+                    value={formData.infographicSummary}
+                    onChange={(e) => setFormData({ ...formData, infographicSummary: e.target.value })}
+                    placeholder="Pontos chave e explicação do infográfico..."
+                    className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white"
+                  />
+                </div>
+              </div>
+            )}
+
           </div>
 
           {statusMessage && (
