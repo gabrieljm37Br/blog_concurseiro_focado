@@ -129,6 +129,7 @@ export default function AdminPage() {
     questionOptionB: "",
     questionOptionC: "",
     questionOptionD: "",
+    questionOptionE: "",
     questionCorrectOption: "0",
     questionExplanation: "",
     // Tool 3: Simulado (Questões Inéditas)
@@ -592,7 +593,8 @@ export default function AdminPage() {
       formData.questionOptionA || "Opção A",
       formData.questionOptionB || "Opção B",
       formData.questionOptionC || "Opção C",
-      formData.questionOptionD || "Opção D"
+      formData.questionOptionD || "Opção D",
+      formData.questionOptionE || "Opção E"
     ];
 
     const newQuestion = {
@@ -614,6 +616,7 @@ export default function AdminPage() {
       questionOptionB: "",
       questionOptionC: "",
       questionOptionD: "",
+      questionOptionE: "",
       questionExplanation: ""
     }));
     setStatusMessage("✅ Questão adicionada à lista!");
@@ -751,7 +754,7 @@ export default function AdminPage() {
     // Embed Multi-Item Study Data JSON
     const studyDataJson = {
       flashcards: flashcardsList.length > 0 ? flashcardsList : (formData.flashcardQuestion ? [{ id: Date.now(), question: formData.flashcardQuestion, answer: formData.flashcardAnswer, category: formData.subcategory || "Geral" }] : []),
-      questions: questionsList.length > 0 ? questionsList : (formData.questionStatement ? [{ id: Date.now(), banca: formData.banca || "Cebraspe", ano: "2026", orgao: "Concurso Público", statement: formData.questionStatement, options: [formData.questionOptionA || "Opção A", formData.questionOptionB || "Opção B", formData.questionOptionC || "Opção C", formData.questionOptionD || "Opção D"], correctIndex: parseInt(formData.questionCorrectOption || "0", 10), explanation: formData.questionExplanation }] : []),
+      questions: questionsList.length > 0 ? questionsList : (formData.questionStatement ? [{ id: Date.now(), banca: formData.banca || "Cebraspe", ano: "2026", orgao: "Concurso Público", statement: formData.questionStatement, options: [formData.questionOptionA || "Opção A", formData.questionOptionB || "Opção B", formData.questionOptionC || "Opção C", formData.questionOptionD || "Opção D", formData.questionOptionE || "Opção E"], correctIndex: parseInt(formData.questionCorrectOption || "0", 10), explanation: formData.questionExplanation }] : []),
       simulados: simuladosList.length > 0 ? simuladosList : (formData.simuladoStatement ? [{ id: Date.now(), statement: formData.simuladoStatement, options: [formData.simuladoOptionA || "Opção A", formData.simuladoOptionB || "Opção B", formData.simuladoOptionC || "Opção C", formData.simuladoOptionD || "Opção D"], correctIndex: parseInt(formData.simuladoCorrectOption || "0", 10), explanation: formData.simuladoExplanation }] : []),
       infographics: infographicsList.length > 0 ? infographicsList : (formData.infographicTitle ? [{ id: Date.now(), title: formData.infographicTitle, subtitle: formData.infographicSubtitle, summary: formData.infographicSummary, type: formData.infographicType, codeContent: infographicCode, points: ["Revisão rápida de alta incidência"] }] : [])
     };
@@ -1690,7 +1693,7 @@ export default function AdminPage() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <input
                         type="text"
                         value={formData.questionOptionA}
@@ -1718,6 +1721,13 @@ export default function AdminPage() {
                         onChange={(e) => setFormData({ ...formData, questionOptionD: e.target.value })}
                         placeholder="D) Texto da alternativa D"
                         className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                      />
+                      <input
+                        type="text"
+                        value={formData.questionOptionE}
+                        onChange={(e) => setFormData({ ...formData, questionOptionE: e.target.value })}
+                        placeholder="E) Texto da alternativa E"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white sm:col-span-2 lg:col-span-1"
                       />
                     </div>
 
