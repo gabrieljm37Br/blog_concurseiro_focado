@@ -464,6 +464,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             category: fc.category || post.subcategory || "Geral"
           }))}
           customQuestions={post.questions || []}
+          customSimulados={post.simulados || []}
           customInfographics={post.infographics || []}
         />
 

@@ -95,6 +95,17 @@ export default function AdminPage() {
 
   const [studyToolTab, setStudyToolTab] = useState<"flashcards" | "questions" | "simulado" | "infographic">("flashcards");
 
+  // Multi-item Study Tool Lists State
+  const [flashcardsList, setFlashcardsList] = useState<any[]>([]);
+  const [questionsList, setQuestionsList] = useState<any[]>([]);
+  const [simuladosList, setSimuladosList] = useState<any[]>([]);
+  const [infographicsList, setInfographicsList] = useState<any[]>([]);
+
+  const [bulkFlashcardsText, setBulkFlashcardsText] = useState("");
+  const [bulkQuestionsText, setBulkQuestionsText] = useState("");
+  const [bulkSimuladosText, setBulkSimuladosText] = useState("");
+  const [infographicCode, setInfographicCode] = useState("");
+
   const initialFormDataState = {
     title: "",
     slug: "",
@@ -444,6 +455,268 @@ export default function AdminPage() {
     setNewSubcategoryName("");
   };
 
+  // Helper Parser 1: Flashcards Bulk Import (Item 5)
+  const handleParseBulkFlashcards = () => {
+    if (!bulkFlashcardsText.trim()) return;
+    const blocks = bulkFlashcardsText.split(/---|\n\n\n/).filter(b => b.trim());
+    const newCards: any[] = [];
+
+    blocks.forEach((block, idx) => {
+      const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+      let q = "";
+      let a = "";
+
+      lines.forEach(line => {
+        if (/^(?:P|Pergunta|Q|Question):/i.test(line)) {
+          q = line.replace(/^(?:P|Pergunta|Q|Question):/i, "").trim();
+        } else if (/^(?:R|Resposta|A|Answer|Gabarito):/i.test(line)) {
+          a = line.replace(/^(?:R|Resposta|A|Answer|Gabarito):/i, "").trim();
+        } else if (!q) {
+          q = line;
+        } else if (!a) {
+          a = line;
+        }
+      });
+
+      if (q && a) {
+        newCards.push({
+          id: Date.now() + idx,
+          question: q,
+          answer: a,
+          category: formData.subcategory || "Geral"
+        });
+      }
+    });
+
+    if (newCards.length > 0) {
+      setFlashcardsList(prev => [...prev, ...newCards]);
+      setBulkFlashcardsText("");
+      setStatusMessage(`✅ ${newCards.length} Flashcards convertidos e adicionados!`);
+    } else {
+      setStatusMessage("⚠️ Estrutura não reconhecida. Use P: Pergunta \\n R: Resposta");
+    }
+  };
+
+  const handleAddSingleFlashcard = () => {
+    if (!formData.flashcardQuestion || !formData.flashcardAnswer) return;
+    const newCard = {
+      id: Date.now(),
+      question: formData.flashcardQuestion,
+      answer: formData.flashcardAnswer,
+      category: formData.subcategory || "Geral"
+    };
+    setFlashcardsList(prev => [...prev, newCard]);
+    setFormData(prev => ({ ...prev, flashcardQuestion: "", flashcardAnswer: "" }));
+    setStatusMessage("✅ Flashcard adicionado à lista do artigo!");
+  };
+
+  // Helper Parser 2: Questões (Provas Pretéritas) (Item 6)
+  const handleParseBulkQuestions = () => {
+    if (!bulkQuestionsText.trim()) return;
+    const text = bulkQuestionsText;
+
+    const bancaMatch = text.match(/(?:BANCA|Banca):\s*([^|\n]+)/i);
+    const anoMatch = text.match(/(?:ANO|Ano):\s*([^|\n]+)/i);
+    const orgaoMatch = text.match(/(?:ORGAO|ÓRGÃO|Orgao):\s*([^|\n]+)/i);
+    const tipoMatch = text.match(/(?:TIPO|Tipo):\s*([^|\n]+)/i);
+
+    const banca = bancaMatch ? bancaMatch[1].trim() : (formData.banca || "Cebraspe");
+    const ano = anoMatch ? anoMatch[1].trim() : "2026";
+    const orgao = orgaoMatch ? orgaoMatch[1].trim() : "Concurso Público";
+    const qType = tipoMatch ? tipoMatch[1].trim() : "multipla_escolha_5";
+
+    let statement = "";
+    const statementMatch = text.match(/(?:ENUNCIADO|STATEMENT|Questao|Questão):\s*([\s\S]*?)(?=[A-E]\)|GABARITO:|$)/i);
+    if (statementMatch) {
+      statement = statementMatch[1].trim();
+    } else {
+      statement = text.split("\nA)")[0].replace(/^(?:BANCA|TIPO):[^\n]*\n/gi, "").trim();
+    }
+
+    const options: string[] = [];
+    const optAMatch = text.match(/A\)\s*([^\n]+)/i);
+    const optBMatch = text.match(/B\)\s*([^\n]+)/i);
+    const optCMatch = text.match(/C\)\s*([^\n]+)/i);
+    const optDMatch = text.match(/D\)\s*([^\n]+)/i);
+    const optEMatch = text.match(/E\)\s*([^\n]+)/i);
+
+    if (optAMatch) options.push(optAMatch[1].trim());
+    if (optBMatch) options.push(optBMatch[1].trim());
+    if (optCMatch) options.push(optCMatch[1].trim());
+    if (optDMatch) options.push(optDMatch[1].trim());
+    if (optEMatch) options.push(optEMatch[1].trim());
+
+    const gabMatch = text.match(/(?:GABARITO|RESPOSTA):\s*([A-E|Certo|Errado|V|F])/i);
+    let correctIndex = 0;
+    if (gabMatch) {
+      const g = gabMatch[1].toUpperCase();
+      if (g === "A" || g === "1") correctIndex = 0;
+      else if (g === "B" || g === "2") correctIndex = 1;
+      else if (g === "C" || g === "3") correctIndex = 2;
+      else if (g === "D" || g === "4") correctIndex = 3;
+      else if (g === "E" || g === "5") correctIndex = 4;
+    }
+
+    const expMatch = text.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
+    const explanation = expMatch ? expMatch[1].trim() : "";
+
+    const newQuestion = {
+      id: Date.now(),
+      banca,
+      ano,
+      orgao,
+      type: qType,
+      statement: statement || "Enunciado da Questão de Concurso Pretérita",
+      options: options.length > 0 ? options : ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"],
+      correctIndex,
+      explanation
+    };
+
+    setQuestionsList(prev => [...prev, newQuestion]);
+    setBulkQuestionsText("");
+    setStatusMessage("✅ Questão de Concurso convertida e adicionada à lista!");
+  };
+
+  const handleAddSingleQuestion = () => {
+    if (!formData.questionStatement) return;
+    const opts = [
+      formData.questionOptionA || "Opção A",
+      formData.questionOptionB || "Opção B",
+      formData.questionOptionC || "Opção C",
+      formData.questionOptionD || "Opção D"
+    ];
+
+    const newQuestion = {
+      id: Date.now(),
+      banca: formData.banca || "Cebraspe",
+      ano: "2026",
+      orgao: "Concurso Público",
+      statement: formData.questionStatement,
+      options: opts,
+      correctIndex: parseInt(formData.questionCorrectOption || "0", 10),
+      explanation: formData.questionExplanation
+    };
+
+    setQuestionsList(prev => [...prev, newQuestion]);
+    setFormData(prev => ({
+      ...prev,
+      questionStatement: "",
+      questionOptionA: "",
+      questionOptionB: "",
+      questionOptionC: "",
+      questionOptionD: "",
+      questionExplanation: ""
+    }));
+    setStatusMessage("✅ Questão adicionada à lista!");
+  };
+
+  // Helper Parser 3: Simulado (Questões Inéditas) (Item 7)
+  const handleParseBulkSimulados = () => {
+    if (!bulkSimuladosText.trim()) return;
+    const text = bulkSimuladosText;
+
+    let statement = "";
+    const statementMatch = text.match(/(?:ENUNCIADO|STATEMENT|Questao|Questão):\s*([\s\S]*?)(?=[A-D]\)|GABARITO:|$)/i);
+    if (statementMatch) {
+      statement = statementMatch[1].trim();
+    } else {
+      statement = text.split("\nA)")[0].replace(/^TIPO:[^\n]*\n/gi, "").trim();
+    }
+
+    const options: string[] = [];
+    const optAMatch = text.match(/A\)\s*([^\n]+)/i);
+    const optBMatch = text.match(/B\)\s*([^\n]+)/i);
+    const optCMatch = text.match(/C\)\s*([^\n]+)/i);
+    const optDMatch = text.match(/D\)\s*([^\n]+)/i);
+
+    if (optAMatch) options.push(optAMatch[1].trim());
+    if (optBMatch) options.push(optBMatch[1].trim());
+    if (optCMatch) options.push(optCMatch[1].trim());
+    if (optDMatch) options.push(optDMatch[1].trim());
+
+    const gabMatch = text.match(/(?:GABARITO|RESPOSTA):\s*([A-D|Certo|Errado])/i);
+    let correctIndex = 0;
+    if (gabMatch) {
+      const g = gabMatch[1].toUpperCase();
+      if (g === "A") correctIndex = 0;
+      else if (g === "B") correctIndex = 1;
+      else if (g === "C") correctIndex = 2;
+      else if (g === "D") correctIndex = 3;
+    }
+
+    const expMatch = text.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
+    const explanation = expMatch ? expMatch[1].trim() : "";
+
+    const newSimulado = {
+      id: Date.now(),
+      statement: statement || "Enunciado da Questão Inédita de Simulado",
+      options: options.length > 0 ? options : ["Primeira opção inédita", "Segunda opção inédita", "Terceira opção inédita", "Quarta opção inédita"],
+      correctIndex,
+      explanation
+    };
+
+    setSimuladosList(prev => [...prev, newSimulado]);
+    setBulkSimuladosText("");
+    setStatusMessage("✅ Questão Inédita de Simulado convertida e adicionada!");
+  };
+
+  const handleAddSingleSimulado = () => {
+    if (!formData.simuladoStatement) return;
+    const opts = [
+      formData.simuladoOptionA || "Primeira opção inédita",
+      formData.simuladoOptionB || "Segunda opção inédita",
+      formData.simuladoOptionC || "Terceira opção inédita",
+      formData.simuladoOptionD || "Quarta opção inédita"
+    ];
+
+    const newSimulado = {
+      id: Date.now(),
+      statement: formData.simuladoStatement,
+      options: opts,
+      correctIndex: parseInt(formData.simuladoCorrectOption || "0", 10),
+      explanation: formData.simuladoExplanation
+    };
+
+    setSimuladosList(prev => [...prev, newSimulado]);
+    setFormData(prev => ({
+      ...prev,
+      simuladoStatement: "",
+      simuladoOptionA: "",
+      simuladoOptionB: "",
+      simuladoOptionC: "",
+      simuladoOptionD: "",
+      simuladoExplanation: ""
+    }));
+    setStatusMessage("✅ Questão inédita de simulado adicionada à lista!");
+  };
+
+  // Helper Parser 4: Infográficos com Código (Item 8)
+  const handleAddInfographic = () => {
+    if (!formData.infographicTitle && !infographicCode) return;
+    const newInfo = {
+      id: Date.now(),
+      title: formData.infographicTitle || "Infográfico Acoplado",
+      subtitle: formData.infographicSubtitle || "Resumo Esquematizado",
+      summary: formData.infographicSummary || "Conteúdo visual explicativo sobre os pontos chave.",
+      type: formData.infographicType || "resumo_visual",
+      codeContent: infographicCode,
+      points: [
+        "Revisão rápida de pontos de alta incidência",
+        "Esquematização gráfica para memorização ativa"
+      ]
+    };
+
+    setInfographicsList(prev => [...prev, newInfo]);
+    setInfographicCode("");
+    setFormData(prev => ({
+      ...prev,
+      infographicTitle: "",
+      infographicSubtitle: "",
+      infographicSummary: ""
+    }));
+    setStatusMessage("✅ Infográfico / Código adicionado à lista do artigo!");
+  };
+
   const handleSavePost = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMessage(editingPostId ? "Atualizando artigo no Supabase..." : "Salvando novo post no Supabase...");
@@ -457,6 +730,16 @@ export default function AdminPage() {
       cleanContentHtml += `\n<!-- SCHEDULED_AT: ${formData.scheduled_at} -->`;
     }
 
+    // Embed Multi-Item Study Data JSON
+    const studyDataJson = {
+      flashcards: flashcardsList.length > 0 ? flashcardsList : (formData.flashcardQuestion ? [{ id: Date.now(), question: formData.flashcardQuestion, answer: formData.flashcardAnswer, category: formData.subcategory || "Geral" }] : []),
+      questions: questionsList.length > 0 ? questionsList : (formData.questionStatement ? [{ id: Date.now(), banca: formData.banca || "Cebraspe", ano: "2026", orgao: "Concurso Público", statement: formData.questionStatement, options: [formData.questionOptionA || "Opção A", formData.questionOptionB || "Opção B", formData.questionOptionC || "Opção C", formData.questionOptionD || "Opção D"], correctIndex: parseInt(formData.questionCorrectOption || "0", 10), explanation: formData.questionExplanation }] : []),
+      simulados: simuladosList.length > 0 ? simuladosList : (formData.simuladoStatement ? [{ id: Date.now(), statement: formData.simuladoStatement, options: [formData.simuladoOptionA || "Opção A", formData.simuladoOptionB || "Opção B", formData.simuladoOptionC || "Opção C", formData.simuladoOptionD || "Opção D"], correctIndex: parseInt(formData.simuladoCorrectOption || "0", 10), explanation: formData.simuladoExplanation }] : []),
+      infographics: infographicsList.length > 0 ? infographicsList : (formData.infographicTitle ? [{ id: Date.now(), title: formData.infographicTitle, subtitle: formData.infographicSubtitle, summary: formData.infographicSummary, type: formData.infographicType, codeContent: infographicCode, points: ["Revisão rápida de alta incidência"] }] : [])
+    };
+
+    cleanContentHtml += `\n<!-- STUDY_DATA_JSON: ${JSON.stringify(studyDataJson)} -->`;
+
     const isPublishedBool = formData.status === "published" || (
       formData.status === "scheduled" && formData.scheduled_at && new Date(formData.scheduled_at) <= new Date()
     );
@@ -466,10 +749,10 @@ export default function AdminPage() {
     const dynamicReadMinutes = Math.max(1, Math.ceil(wordCount / 200));
     const dynamicReadTime = `${dynamicReadMinutes} min de leitura`;
 
-    let flashcardsCountAcc = (formData.flashcardQuestion && formData.flashcardAnswer) ? 1 : 0;
-    let questionsCountAcc = formData.questionStatement ? 1 : 0;
-    let simuladosCountAcc = formData.simuladoStatement ? 1 : 0;
-    let infographicsCountAcc = formData.infographicTitle ? 1 : 0;
+    let flashcardsCountAcc = studyDataJson.flashcards.length;
+    let questionsCountAcc = studyDataJson.questions.length;
+    let simuladosCountAcc = studyDataJson.simulados.length;
+    let infographicsCountAcc = studyDataJson.infographics.length;
 
     const postPayload: any = {
       title: formData.title,
@@ -1246,263 +1529,482 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* TAB 1: FLASHCARDS */}
+            {/* TAB 1: FLASHCARDS (Item 5: Múltiplos Flashcards por Texto) */}
             {studyToolTab === "flashcards" && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between text-xs text-amber-400 font-bold">
-                  <span>🎴 Flashcard de Evocação Rápida</span>
-                  <span>Memorização Ativa</span>
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs text-amber-400 font-bold border-b border-slate-800 pb-2">
+                  <span className="flex items-center gap-1.5"><Layers className="w-4 h-4" /> Editor de Flashcards (Memorização Ativa)</span>
+                  <span>{flashcardsList.length} card(s) cadastrado(s)</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300">Pergunta do Flashcard</label>
-                    <input
-                      type="text"
-                      value={formData.flashcardQuestion}
-                      onChange={(e) => setFormData({ ...formData, flashcardQuestion: e.target.value })}
-                      placeholder="Ex: Qual o prazo prescricional para sanções disciplinares?"
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
+
+                {/* Bulk Import Box */}
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-extrabold text-amber-400 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" /> Importador de Flashcards em Lote por Texto
+                    </label>
+                    <p className="text-[11px] text-slate-300">
+                      Cole um bloco de texto com a estrutura <strong>P: Pergunta</strong> e <strong>R: Resposta</strong> (separe com <strong>---</strong> entre os cards):
+                    </p>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300">Resposta (Gabarito)</label>
-                    <input
-                      type="text"
-                      value={formData.flashcardAnswer}
-                      onChange={(e) => setFormData({ ...formData, flashcardAnswer: e.target.value })}
-                      placeholder="Ex: 5 anos para demissão e 2 anos para suspensão."
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
+                  <textarea
+                    rows={4}
+                    value={bulkFlashcardsText}
+                    onChange={(e) => setBulkFlashcardsText(e.target.value)}
+                    placeholder={`P: Qual o prazo prescricional para sanções disciplinares?\nR: 5 anos para demissão e 2 anos para suspensão.\n---\nP: Qual o princípio da unidade orçamentária?\nR: O orçamento deve ser uno para cada ente da federação.`}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-amber-500/30 text-xs font-mono text-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleParseBulkFlashcards}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                  >
+                    <Sparkles className="w-4 h-4" /> ⚡ Converter & Importar Lote de Flashcards
+                  </button>
                 </div>
+
+                {/* Manual Add Card */}
+                <div className="space-y-3 pt-2 border-t border-slate-800">
+                  <span className="text-xs font-bold text-slate-300">Ou Adicionar Flashcard Individual:</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-400">Pergunta do Flashcard</label>
+                      <input
+                        type="text"
+                        value={formData.flashcardQuestion}
+                        onChange={(e) => setFormData({ ...formData, flashcardQuestion: e.target.value })}
+                        placeholder="Ex: Qual o prazo de impugnação do edital?"
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-400">Resposta (Gabarito)</label>
+                      <input
+                        type="text"
+                        value={formData.flashcardAnswer}
+                        onChange={(e) => setFormData({ ...formData, flashcardAnswer: e.target.value })}
+                        placeholder="Ex: Até 3 dias úteis antes da abertura da sessão."
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddSingleFlashcard}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-amber-400" /> + Adicionar Flashcard à Lista
+                  </button>
+                </div>
+
+                {/* Cards List Preview */}
+                {flashcardsList.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <span className="text-xs font-bold text-amber-400">Flashcards Acoplados ao Artigo ({flashcardsList.length}):</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                      {flashcardsList.map((fc, i) => (
+                        <div key={fc.id || i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-2 text-xs">
+                          <div className="space-y-1">
+                            <p className="font-bold text-amber-300">P: {fc.question}</p>
+                            <p className="text-slate-300">R: {fc.answer}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFlashcardsList(flashcardsList.filter((_, idx) => idx !== i))}
+                            className="text-slate-500 hover:text-red-400 text-xs font-bold shrink-0"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* TAB 2: QUESTÕES (PROVAS PRETERITAS) */}
+            {/* TAB 2: QUESTÕES DE CONCURSO (Item 6: 3 Tipos + Banca, Ano, Órgão + Importação) */}
             {studyToolTab === "questions" && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between text-xs text-emerald-400 font-bold">
-                  <span>🏛️ Questão de Concurso (Prova Pretérita)</span>
-                  <span>Questões de Provas Anteriores</span>
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs text-emerald-400 font-bold border-b border-slate-800 pb-2">
+                  <span className="flex items-center gap-1.5"><HelpCircle className="w-4 h-4" /> Questões de Provas Pretéritas (Concursos)</span>
+                  <span>{questionsList.length} questão(ões) cadastrada(s)</span>
                 </div>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300">Enunciado da Questão</label>
-                    <textarea
-                      rows={2}
-                      value={formData.questionStatement}
-                      onChange={(e) => setFormData({ ...formData, questionStatement: e.target.value })}
-                      placeholder="Ex: (Cebraspe/2026/STJ) A respeito da Receita Pública, assinale a alternativa..."
-                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-400">Alternativa A</label>
+                {/* Bulk Question Import */}
+                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-extrabold text-emerald-400 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" /> Importador Inteligente de Questão de Concurso por Texto
+                    </label>
+                    <p className="text-[11px] text-slate-300">
+                      Cole o texto da questão com <strong>BANCA</strong>, <strong>ANO</strong>, <strong>ÓRGÃO</strong>, <strong>ENUNCIADO</strong>, opções (<strong>A-E</strong>), <strong>GABARITO</strong> e <strong>GABARITO_COMENTADO</strong>:
+                    </p>
+                  </div>
+                  <textarea
+                    rows={5}
+                    value={bulkQuestionsText}
+                    onChange={(e) => setBulkQuestionsText(e.target.value)}
+                    placeholder={`BANCA: Cebraspe | ANO: 2026 | ORGAO: STJ | TIPO: Múltipla Escolha\nENUNCIADO: A respeito da Receita Orçamentária, assinale a opção correta.\nA) A receita patrimonial é receita corrente.\nB) As receitas de capital não alteram o patrimônio líquido.\nC) O MTO extinguiu as categorias econômicas.\nD) A alienação de bens produz receita corrente.\nE) Nenhuma das respostas anteriores.\nGABARITO: A\nGABARITO_COMENTADO: Conforme Art. 11 da Lei 4.320/64...`}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-xs font-mono text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleParseBulkQuestions}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                  >
+                    <Sparkles className="w-4 h-4" /> ⚡ Converter & Adicionar Questão de Concurso
+                  </button>
+                </div>
+
+                {/* Manual Add Single Question */}
+                <div className="space-y-3 pt-2 border-t border-slate-800">
+                  <span className="text-xs font-bold text-slate-300">Ou Preencher Formulário da Questão:</span>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-400">Enunciado da Questão de Concurso</label>
+                      <textarea
+                        rows={2}
+                        value={formData.questionStatement}
+                        onChange={(e) => setFormData({ ...formData, questionStatement: e.target.value })}
+                        placeholder="Ex: (Cebraspe/2026/STJ) A respeito da Receita Pública, assinale a opção correta..."
+                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input
                         type="text"
                         value={formData.questionOptionA}
                         onChange={(e) => setFormData({ ...formData, questionOptionA: e.target.value })}
-                        placeholder="Texto da alternativa A"
+                        placeholder="A) Texto da alternativa A"
                         className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-400">Alternativa B</label>
                       <input
                         type="text"
                         value={formData.questionOptionB}
                         onChange={(e) => setFormData({ ...formData, questionOptionB: e.target.value })}
-                        placeholder="Texto da alternativa B"
+                        placeholder="B) Texto da alternativa B"
                         className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-400">Alternativa C</label>
                       <input
                         type="text"
                         value={formData.questionOptionC}
                         onChange={(e) => setFormData({ ...formData, questionOptionC: e.target.value })}
-                        placeholder="Texto da alternativa C"
+                        placeholder="C) Texto da alternativa C"
                         className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-400">Alternativa D</label>
                       <input
                         type="text"
                         value={formData.questionOptionD}
                         onChange={(e) => setFormData({ ...formData, questionOptionD: e.target.value })}
-                        placeholder="Texto da alternativa D"
+                        placeholder="D) Texto da alternativa D"
                         className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
                       />
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Gabarito Correto</label>
-                      <select
-                        value={formData.questionCorrectOption}
-                        onChange={(e) => setFormData({ ...formData, questionCorrectOption: e.target.value })}
-                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-emerald-400"
-                      >
-                        <option value="0">Opção A</option>
-                        <option value="1">Opção B</option>
-                        <option value="2">Opção C</option>
-                        <option value="3">Opção D</option>
-                      </select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400">Gabarito Correto</label>
+                        <select
+                          value={formData.questionCorrectOption}
+                          onChange={(e) => setFormData({ ...formData, questionCorrectOption: e.target.value })}
+                          className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-emerald-400"
+                        >
+                          <option value="0">Alternativa A</option>
+                          <option value="1">Alternativa B</option>
+                          <option value="2">Alternativa C</option>
+                          <option value="3">Alternativa D</option>
+                          <option value="4">Alternativa E</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400">Explicação do Gabarito</label>
+                        <input
+                          type="text"
+                          value={formData.questionExplanation}
+                          onChange={(e) => setFormData({ ...formData, questionExplanation: e.target.value })}
+                          placeholder="Ex: Fundamentação legal Art. 5º..."
+                          className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Explicação / Comentário do Gabarito</label>
-                      <input
-                        type="text"
-                        value={formData.questionExplanation}
-                        onChange={(e) => setFormData({ ...formData, questionExplanation: e.target.value })}
-                        placeholder="Ex: Conforme Art. 5º da CF/88..."
-                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white"
-                      />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddSingleQuestion}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 text-emerald-400" /> + Adicionar Questão à Lista
+                    </button>
                   </div>
                 </div>
+
+                {/* Questions List Preview */}
+                {questionsList.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <span className="text-xs font-bold text-emerald-400">Questões de Concursos Cadastradas ({questionsList.length}):</span>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {questionsList.map((q, i) => (
+                        <div key={q.id || i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-2 text-xs">
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                              🏛️ {q.banca} / {q.ano} - {q.orgao}
+                            </span>
+                            <p className="font-bold text-slate-200">{q.statement}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setQuestionsList(questionsList.filter((_, idx) => idx !== i))}
+                            className="text-slate-500 hover:text-red-400 text-xs font-bold shrink-0"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* TAB 3: SIMULADO (QUESTÕES INÉDITAS) */}
+            {/* TAB 3: SIMULADO (Item 7: Questões Inéditas - 2 Tipos + Importação) */}
             {studyToolTab === "simulado" && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between text-xs text-blue-400 font-bold">
-                  <span>🎯 Simulado (Questão Inédita)</span>
-                  <span>Gerada a partir do Conteúdo do Artigo</span>
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs text-blue-400 font-bold border-b border-slate-800 pb-2">
+                  <span className="flex items-center gap-1.5"><Target className="w-4 h-4" /> Simulado (Questões Inéditas do Artigo)</span>
+                  <span>{simuladosList.length} questão(ões) inédita(s)</span>
                 </div>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300">Enunciado da Questão Inédita</label>
+
+                {/* Bulk Simulado Import */}
+                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-extrabold text-blue-400 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" /> Importador Inteligente de Questão Inédita por Texto
+                    </label>
+                    <p className="text-[11px] text-slate-300">
+                      Cole o texto da questão inédita com <strong>ENUNCIADO</strong>, opções (<strong>A-D</strong>), <strong>GABARITO</strong> e <strong>GABARITO_COMENTADO</strong>:
+                    </p>
+                  </div>
+                  <textarea
+                    rows={5}
+                    value={bulkSimuladosText}
+                    onChange={(e) => setBulkSimuladosText(e.target.value)}
+                    placeholder={`TIPO: Múltipla Escolha\nENUNCIADO: Considerando o texto do artigo sobre a Receita Orçamentária, julgue a afirmativa inédita a seguir.\nA) A receita patrimonial é considerada receita corrente.\nB) As receitas tributárias incluem apenas impostos e taxas.\nC) A alienação de bens produz receita corrente.\nD) As operações de crédito são receitas correntes.\nGABARITO: A\nGABARITO_COMENTADO: Conforme demonstrado na seção 2 do artigo, a receita patrimonial deriva do patrimônio.`}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-blue-500/30 text-xs font-mono text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleParseBulkSimulados}
+                    className="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-slate-950 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                  >
+                    <Sparkles className="w-4 h-4" /> ⚡ Converter & Adicionar Questão Inédita
+                  </button>
+                </div>
+
+                {/* Manual Add Simulado */}
+                <div className="space-y-3 pt-2 border-t border-slate-800">
+                  <span className="text-xs font-bold text-slate-300">Ou Preencher Formulário da Questão Inédita:</span>
+                  <div className="space-y-3">
                     <textarea
                       rows={2}
                       value={formData.simuladoStatement}
                       onChange={(e) => setFormData({ ...formData, simuladoStatement: e.target.value })}
-                      placeholder="Ex: Considerando a classificação orçamentária vista no texto, julgue a afirmativa a seguir..."
+                      placeholder="Ex: Julgue o item inédito relativo ao tópico principal do artigo..."
                       className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-400">Alternativa A</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input
                         type="text"
                         value={formData.simuladoOptionA}
                         onChange={(e) => setFormData({ ...formData, simuladoOptionA: e.target.value })}
-                        placeholder="Texto da alternativa A"
+                        placeholder="A) Primeira opção inédita"
                         className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-400">Alternativa B</label>
                       <input
                         type="text"
                         value={formData.simuladoOptionB}
                         onChange={(e) => setFormData({ ...formData, simuladoOptionB: e.target.value })}
-                        placeholder="Texto da alternativa B"
+                        placeholder="B) Segunda opção inédita"
                         className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-400">Alternativa C</label>
                       <input
                         type="text"
                         value={formData.simuladoOptionC}
                         onChange={(e) => setFormData({ ...formData, simuladoOptionC: e.target.value })}
-                        placeholder="Texto da alternativa C"
+                        placeholder="C) Terceira opção inédita"
                         className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-400">Alternativa D</label>
                       <input
                         type="text"
                         value={formData.simuladoOptionD}
                         onChange={(e) => setFormData({ ...formData, simuladoOptionD: e.target.value })}
-                        placeholder="Texto da alternativa D"
+                        placeholder="D) Quarta opção inédita"
                         className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
                       />
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Gabarito Correto</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <select
                         value={formData.simuladoCorrectOption}
                         onChange={(e) => setFormData({ ...formData, simuladoCorrectOption: e.target.value })}
                         className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-blue-400"
                       >
-                        <option value="0">Opção A</option>
-                        <option value="1">Opção B</option>
-                        <option value="2">Opção C</option>
-                        <option value="3">Opção D</option>
+                        <option value="0">Alternativa A</option>
+                        <option value="1">Alternativa B</option>
+                        <option value="2">Alternativa C</option>
+                        <option value="3">Alternativa D</option>
                       </select>
-                    </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Comentário Didático da Questão Inédita</label>
                       <input
                         type="text"
                         value={formData.simuladoExplanation}
                         onChange={(e) => setFormData({ ...formData, simuladoExplanation: e.target.value })}
-                        placeholder="Ex: Conforme demonstrado na seção 2 do artigo..."
-                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white"
+                        placeholder="Comentário didático da questão inédita..."
+                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
                       />
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddSingleSimulado}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 text-blue-400" /> + Adicionar Questão Inédita à Lista
+                    </button>
                   </div>
                 </div>
+
+                {/* Simulados List Preview */}
+                {simuladosList.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <span className="text-xs font-bold text-blue-400">Questões Inéditas Cadastradas ({simuladosList.length}):</span>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {simuladosList.map((s, i) => (
+                        <div key={s.id || i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-2 text-xs">
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
+                              🎯 Questão Inédita {i + 1}
+                            </span>
+                            <p className="font-bold text-slate-200">{s.statement}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSimuladosList(simuladosList.filter((_, idx) => idx !== i))}
+                            className="text-slate-500 hover:text-red-400 text-xs font-bold shrink-0"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* TAB 4: INFOGRÁFICO */}
+            {/* TAB 4: INFOGRÁFICO & CÓDIGO (Item 8: Suporte a múltiplos itens e Código HTML/SVG) */}
             {studyToolTab === "infographic" && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between text-xs text-purple-400 font-bold">
-                  <span>✨ Infográfico / Mapa Mental Acoplado</span>
-                  <span>Resumo Visual e Esquematização</span>
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs text-purple-400 font-bold border-b border-slate-800 pb-2">
+                  <span className="flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-purple-400" /> Editor de Infográficos & Código Visual</span>
+                  <span>{infographicsList.length} infográfico(s) cadastrado(s)</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Título do Infográfico / Mapa Mental</label>
+                      <input
+                        type="text"
+                        value={formData.infographicTitle}
+                        onChange={(e) => setFormData({ ...formData, infographicTitle: e.target.value })}
+                        placeholder="Ex: Esquema Visual dos 8 Dígitos da Receita"
+                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Tipo de Infográfico</label>
+                      <select
+                        value={formData.infographicType}
+                        onChange={(e) => setFormData({ ...formData, infographicType: e.target.value as any })}
+                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-purple-300"
+                      >
+                        <option value="resumo_visual">Resumo Visual</option>
+                        <option value="mapa_mental">Mapa Mental Esquematizado</option>
+                        <option value="tabela_comparativa">Tabela Comparativa</option>
+                        <option value="codigo_html">Infográfico em Código (HTML / SVG)</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300">Título do Infográfico</label>
+                    <label className="text-xs font-bold text-slate-300">Resumo Didático do Infográfico</label>
                     <input
                       type="text"
-                      value={formData.infographicTitle}
-                      onChange={(e) => setFormData({ ...formData, infographicTitle: e.target.value })}
-                      placeholder="Ex: Esquema Visual dos 8 Dígitos da Receita"
-                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      value={formData.infographicSummary}
+                      onChange={(e) => setFormData({ ...formData, infographicSummary: e.target.value })}
+                      placeholder="Resumo dos pontos gráficos para o estudante..."
+                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300">Tipo de Infográfico</label>
-                    <select
-                      value={formData.infographicType}
-                      onChange={(e) => setFormData({ ...formData, infographicType: e.target.value as any })}
-                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-purple-300"
-                    >
-                      <option value="resumo_visual">Resumo Visual</option>
-                      <option value="mapa_mental">Mapa Mental Esquematizado</option>
-                      <option value="tabela_comparativa">Tabela Comparativa</option>
-                    </select>
+
+                  {/* Code Input Box (Item 8) */}
+                  <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-2">
+                    <label className="text-xs font-extrabold text-purple-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Código HTML / SVG / Esquema Personalizado (Item 8)
+                    </label>
+                    <p className="text-[11px] text-slate-300">
+                      Cole aqui blocos de código HTML, vetores SVG ou quadros estilizados para este infográfico:
+                    </p>
+                    <textarea
+                      rows={4}
+                      value={infographicCode}
+                      onChange={(e) => setInfographicCode(e.target.value)}
+                      placeholder={`<div style="background:#0f172a; padding:12px; border-radius:8px; color:#38bdf8;">\n  <h4>Esquema dos 8 Dígitos</h4>\n  <p>1ª Categoria | 2ª Origem | 3ª Suborigem</p>\n</div>`}
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-purple-500/30 text-xs font-mono text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddInfographic}
+                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                  >
+                    <Plus className="w-4 h-4" /> + Adicionar Infográfico / Código à Lista
+                  </button>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Resumo / Conteúdo do Infográfico</label>
-                  <textarea
-                    rows={2}
-                    value={formData.infographicSummary}
-                    onChange={(e) => setFormData({ ...formData, infographicSummary: e.target.value })}
-                    placeholder="Pontos chave e explicação do infográfico..."
-                    className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white"
-                  />
-                </div>
+
+                {/* Infographics List Preview */}
+                {infographicsList.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <span className="text-xs font-bold text-purple-400">Infográficos Cadastrados ({infographicsList.length}):</span>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {infographicsList.map((info, i) => (
+                        <div key={info.id || i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-2 text-xs">
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 uppercase">
+                              ✨ {info.type?.replace("_", " ")}
+                            </span>
+                            <p className="font-bold text-slate-200">{info.title}</p>
+                            {info.codeContent && (
+                              <p className="text-[10px] font-mono text-emerald-400">Código personalizável incluído ({info.codeContent.length} chars)</p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setInfographicsList(infographicsList.filter((_, idx) => idx !== i))}
+                            className="text-slate-500 hover:text-red-400 text-xs font-bold shrink-0"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

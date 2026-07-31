@@ -438,22 +438,39 @@ export default function InteractiveStudyModal({
                   </div>
 
                   {/* Key Points Flow */}
-                  <div className="space-y-3 pt-2">
-                    <h4 className="text-xs font-bold uppercase text-emerald-400 tracking-wider">
-                      Pontos Chaves de Prova:
-                    </h4>
+                  {sampleInfographics[currentInfographicIndex]?.points && sampleInfographics[currentInfographicIndex].points.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-xs font-bold uppercase text-emerald-400 tracking-wider">
+                        Pontos Chaves de Prova:
+                      </h4>
 
-                    <div className="grid grid-cols-1 gap-2.5">
-                      {sampleInfographics[currentInfographicIndex]?.points.map((pt, i) => (
-                        <div key={i} className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 flex items-start gap-3 text-xs text-slate-100">
-                          <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0 font-bold text-[10px]">
-                            {i + 1}
-                          </span>
-                          <span className="flex-1 leading-relaxed">{pt}</span>
-                        </div>
-                      ))}
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {sampleInfographics[currentInfographicIndex]?.points.map((pt, i) => (
+                          <div key={i} className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 flex items-start gap-3 text-xs text-slate-100">
+                            <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0 font-bold text-[10px]">
+                              {i + 1}
+                            </span>
+                            <span className="flex-1 leading-relaxed">{pt}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Render Code/HTML Content if present */}
+                  {sampleInfographics[currentInfographicIndex]?.codeContent && (
+                    <div className="space-y-2 pt-2">
+                      <h4 className="text-xs font-bold uppercase text-purple-400 tracking-wider">
+                        Conteúdo Visual / Código Esquematizado:
+                      </h4>
+                      <div className="p-4 rounded-xl bg-slate-950 border border-purple-500/30 text-xs font-mono text-slate-100 overflow-x-auto">
+                        <div 
+                          className="prose dark:prose-invert max-w-none"
+                          dangerouslySetInnerHTML={{ __html: sampleInfographics[currentInfographicIndex].codeContent || "" }} 
+                        />
+                      </div>
+                    </div>
+                  )}
 
                 </div>
 

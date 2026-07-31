@@ -4,7 +4,8 @@ export interface InfographicItem {
   subtitle: string;
   summary: string;
   points: string[];
-  type: "mapa_mental" | "resumo_visual" | "tabela_comparativa";
+  type: "mapa_mental" | "resumo_visual" | "tabela_comparativa" | "codigo_html";
+  codeContent?: string;
 }
 
 export interface Post {
