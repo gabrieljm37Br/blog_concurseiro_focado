@@ -797,10 +797,24 @@ export default function AdminPage() {
     let targetPostId = editingPostId;
 
     if (editingPostId) {
-      const { error } = await supabase
+      let { error } = await supabase
         .from("posts")
         .update(postPayload)
         .eq("id", editingPostId);
+
+      // Fallback automático caso as colunas de contagem não existam na tabela posts do Supabase
+      if (error && error.message.toLowerCase().includes("column")) {
+        delete postPayload.flashcards_count;
+        delete postPayload.questions_count;
+        delete postPayload.simulados_count;
+        delete postPayload.infographics_count;
+
+        const retryRes = await supabase
+          .from("posts")
+          .update(postPayload)
+          .eq("id", editingPostId);
+        error = retryRes.error;
+      }
 
       if (error) {
         setStatusMessage(`❌ Erro ao atualizar: ${error.message}`);
@@ -808,11 +822,27 @@ export default function AdminPage() {
       }
       setStatusMessage("✅ Artigo atualizado com sucesso no Supabase!");
     } else {
-      const { data: insertedPost, error } = await supabase
+      let { data: insertedPost, error } = await supabase
         .from("posts")
         .insert([postPayload])
         .select()
         .single();
+
+      // Fallback automático caso as colunas de contagem não existam na tabela posts do Supabase
+      if (error && error.message.toLowerCase().includes("column")) {
+        delete postPayload.flashcards_count;
+        delete postPayload.questions_count;
+        delete postPayload.simulados_count;
+        delete postPayload.infographics_count;
+
+        const retryRes = await supabase
+          .from("posts")
+          .insert([postPayload])
+          .select()
+          .single();
+        insertedPost = retryRes.data;
+        error = retryRes.error;
+      }
 
       if (error) {
         setStatusMessage(`❌ Erro ao salvar: ${error.message}`);
