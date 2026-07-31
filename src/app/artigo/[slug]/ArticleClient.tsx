@@ -303,51 +303,78 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
           </div>
         )}
 
-        {/* INTERACTIVE STUDY MODALS BAR */}
+        {/* INTERACTIVE STUDY TOOLS SECTION (Modern Two-Tier Layout) */}
         {post.category !== "Estude comigo" && (() => {
           const isEstudeCategory = post.category === "Estude";
           return (
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-[#0F172A] text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg border border-slate-800">
-              <div className="space-y-1 text-center md:text-left">
-                <h3 className="font-bold text-sm text-emerald-400 flex items-center justify-center md:justify-start gap-1">
-                  <BrainCircuit className="w-4 h-4 text-amber-400" /> Ferramentas de Estudo Deste Artigo
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-slate-900 via-[#0D1322] to-[#0A0E17] text-white p-6 sm:p-7 border border-slate-800/90 shadow-2xl space-y-5 group">
+              
+              {/* Background Accent Glow Lights */}
+              <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-80 h-80 bg-amber-500/10 blur-[100px] rounded-full pointer-events-none" />
+
+              {/* TOP PART: SECTION HEADER */}
+              <div className="space-y-1.5 border-b border-slate-800/80 pb-4 relative z-10">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 shadow-xs mb-1">
+                  <BrainCircuit className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span>Hub de Treino & Evocação Ativa</span>
+                </div>
+
+                <h3 className="text-xl sm:text-2xl font-extrabold font-outfit text-white tracking-tight flex items-center gap-2">
+                  Ferramentas de Estudo deste Artigo
                 </h3>
-                <p className="text-xs text-slate-300">
+
+                <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
                   {isEstudeCategory
-                    ? "Pratique evocação rápida com flashcards, questões e infográficos acoplados."
-                    : "Visualize o resumo visual e mapa mental em infográfico."}
+                    ? "Pratique a memorização ativa e teste seus conhecimentos com recursos acoplados diretamente a este conteúdo."
+                    : "Visualize mapas mentais, resumos visuais e esquemas acoplados a este artigo."}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 lg:gap-2.5 max-w-full">
-                {isEstudeCategory && (
-                  <>
+              {/* BOTTOM PART: TOOLS MENU BAR */}
+              <div className="relative z-10">
+                <div className="flex flex-wrap items-center gap-3">
+                  
+                  {/* Flashcards Button */}
+                  {isEstudeCategory && (
                     <button
                       onClick={openFlashcards}
-                      className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md transition-all hover:scale-105 flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-amber-500/15 hover:bg-amber-500 text-amber-400 hover:text-slate-950 border border-amber-500/30 hover:border-amber-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-md group/btn cursor-pointer"
                     >
-                      <Layers className="w-4 h-4 shrink-0" />
+                      <div className="w-7 h-7 rounded-xl bg-amber-500/20 group-hover/btn:bg-slate-950/20 flex items-center justify-center shrink-0">
+                        <Layers className="w-4 h-4 text-amber-400 group-hover/btn:text-slate-950" />
+                      </div>
                       <span>Flashcards ({dbFlashcards.length ?? post.flashcardsCount ?? 0})</span>
                     </button>
+                  )}
 
+                  {/* Questões Button */}
+                  {isEstudeCategory && (
                     <button
                       onClick={openQuestions}
-                      className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs shadow-md transition-all hover:scale-105 flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/30 hover:border-emerald-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-md group/btn cursor-pointer"
                     >
-                      <HelpCircle className="w-4 h-4 shrink-0" />
+                      <div className="w-7 h-7 rounded-xl bg-emerald-500/20 group-hover/btn:bg-slate-950/20 flex items-center justify-center shrink-0">
+                        <HelpCircle className="w-4 h-4 text-emerald-400 group-hover/btn:text-slate-950" />
+                      </div>
                       <span>Questões ({post.questionsCount || 0})</span>
                     </button>
-                  </>
-                )}
+                  )}
 
-                <button
-                  onClick={openInfographic}
-                  className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition-all hover:scale-105 flex items-center gap-1.5 whitespace-nowrap shrink-0"
-                >
-                  <Sparkles className="w-4 h-4 shrink-0" />
-                  <span>Infográfico ({post.infographicsCount || 0})</span>
-                </button>
+                  {/* Infográfico Button */}
+                  <button
+                    onClick={openInfographic}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-purple-500/15 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 hover:border-purple-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-md group/btn cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-xl bg-purple-500/20 group-hover/btn:bg-white/20 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4 text-purple-400 group-hover/btn:text-white" />
+                    </div>
+                    <span>Infográfico ({post.infographicsCount || 0})</span>
+                  </button>
+
+                </div>
               </div>
+
             </div>
           );
         })()}
