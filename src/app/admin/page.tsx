@@ -533,11 +533,16 @@ export default function AdminPage() {
 
   // Helper Parser 2: Questões (Provas Pretéritas) (Item 6 - Importação em Lote & Certo/Errado)
   const handleParseBulkQuestions = () => {
-    if (!bulkQuestionsText.trim()) return;
+    if (!bulkQuestionsText.trim()) {
+      setStatusMessage("⚠️ Cole o texto das questões de concurso para converter!");
+      return;
+    }
     const blocks = bulkQuestionsText.split(/---|\n\n\n|===/).filter(b => b.trim());
     const newQuestions: any[] = [];
+    const missingErrors: string[] = [];
 
     blocks.forEach((blockText, idx) => {
+      const blockNum = idx + 1;
       const bancaMatch = blockText.match(/(?:BANCA|Banca):\s*([^|\n]+)/i);
       const anoMatch = blockText.match(/(?:ANO|Ano):\s*([^|\n]+)/i);
       const orgaoMatch = blockText.match(/(?:ORGAO|ÓRGÃO|Orgao):\s*([^|\n]+)/i);
@@ -560,6 +565,19 @@ export default function AdminPage() {
         statement = blockText.split("\nA)")[0].replace(/^(?:BANCA|TIPO|ANO|ORGAO):[^\n]*\n/gi, "").trim();
       }
 
+      // Validação de Item Obrigatório 1: ENUNCIADO
+      if (!statement) {
+        missingErrors.push(`Bloco ${blockNum}: falta o ENUNCIADO`);
+        return;
+      }
+
+      // Validação de Item Obrigatório 2: GABARITO
+      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-E|Certo|Errado|C|E])/i);
+      if (!gabMatch) {
+        missingErrors.push(`Bloco ${blockNum}: falta o GABARITO (ex: GABARITO: A ou GABARITO: Certo)`);
+        return;
+      }
+
       let options: string[] = [];
       if (isCertoErrado) {
         qType = "certo_errado";
@@ -576,63 +594,84 @@ export default function AdminPage() {
         if (optCMatch) options.push(optCMatch[1].trim());
         if (optDMatch) options.push(optDMatch[1].trim());
         if (optEMatch) options.push(optEMatch[1].trim());
-      }
 
-      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-E|Certo|Errado|V|F])/i);
-      let correctIndex = 0;
-      if (gabMatch) {
-        const g = gabMatch[1].toUpperCase();
-        if (isCertoErrado) {
-          if (g === "CERTO" || g === "C" || g === "A" || g === "1") correctIndex = 0;
-          else if (g === "ERRADO" || g === "E" || g === "B" || g === "2") correctIndex = 1;
-        } else {
-          if (g === "A" || g === "1") correctIndex = 0;
-          else if (g === "B" || g === "2") correctIndex = 1;
-          else if (g === "C" || g === "3") correctIndex = 2;
-          else if (g === "D" || g === "4") correctIndex = 3;
-          else if (g === "E" || g === "5") correctIndex = 4;
+        // Validação de Item Obrigatório 3: 5 alternativas para Múltipla Escolha
+        if (options.length < 5) {
+          missingErrors.push(`Bloco ${blockNum}: múltipla escolha exige as 5 alternativas (A a E)`);
+          return;
         }
       }
 
+      let correctIndex = 0;
+      const g = gabMatch[1].toUpperCase();
+      if (isCertoErrado) {
+        if (g === "CERTO" || g === "C" || g === "A" || g === "1") correctIndex = 0;
+        else if (g === "ERRADO" || g === "E" || g === "B" || g === "2") correctIndex = 1;
+      } else {
+        if (g === "A" || g === "1") correctIndex = 0;
+        else if (g === "B" || g === "2") correctIndex = 1;
+        else if (g === "C" || g === "3") correctIndex = 2;
+        else if (g === "D" || g === "4") correctIndex = 3;
+        else if (g === "E" || g === "5") correctIndex = 4;
+      }
+
+      // Item OPCIONAL: GABARITO_COMENTADO / EXPLICACAO (Não impede a criação da questão)
       const expMatch = blockText.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
       const explanation = expMatch ? expMatch[1].trim() : "";
 
-      if (statement || options.length > 0) {
-        newQuestions.push({
-          id: Date.now() + idx,
-          banca,
-          ano,
-          orgao,
-          type: qType,
-          statement: statement || `Questão ${idx + 1} de Concurso`,
-          options: options.length > 0 ? options : (isCertoErrado ? ["Certo", "Errado"] : ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"]),
-          correctIndex,
-          explanation
-        });
-      }
+      newQuestions.push({
+        id: Date.now() + idx,
+        banca,
+        ano,
+        orgao,
+        type: qType,
+        statement,
+        options,
+        correctIndex,
+        explanation
+      });
     });
 
     if (newQuestions.length > 0) {
       setQuestionsList(prev => [...prev, ...newQuestions]);
       setBulkQuestionsText("");
-      setStatusMessage(`✅ ${newQuestions.length} Questão(ões) de Concurso convertida(s) e adicionada(s) em lote!`);
+      const warnStr = missingErrors.length > 0 ? ` (⚠️ Blocos com campos obrigatórios ausentes: ${missingErrors.join("; ")})` : "";
+      setStatusMessage(`✅ ${newQuestions.length} Questão(ões) de Concurso adicionada(s) com sucesso!${warnStr}`);
     } else {
-      setStatusMessage("⚠️ Nenhuma questão reconhecida no texto.");
+      setStatusMessage(`⚠️ Nenhuma questão convertida. Erros encontrados: ${missingErrors.join("; ")}`);
     }
   };
 
   const handleAddSingleQuestion = () => {
-    if (!formData.questionStatement) return;
+    if (!formData.questionStatement.trim()) {
+      setStatusMessage("⚠️ Campo OBRIGATÓRIO ausente: Preencha o Enunciado da questão!");
+      return;
+    }
+
     const isCertoErrado = formData.questionType === "certo_errado";
-    const opts = isCertoErrado 
-      ? ["Certo", "Errado"]
-      : [
-          formData.questionOptionA || "Opção A",
-          formData.questionOptionB || "Opção B",
-          formData.questionOptionC || "Opção C",
-          formData.questionOptionD || "Opção D",
-          formData.questionOptionE || "Opção E"
-        ];
+    let opts: string[] = [];
+
+    if (isCertoErrado) {
+      opts = ["Certo", "Errado"];
+    } else {
+      if (
+        !formData.questionOptionA.trim() ||
+        !formData.questionOptionB.trim() ||
+        !formData.questionOptionC.trim() ||
+        !formData.questionOptionD.trim() ||
+        !formData.questionOptionE.trim()
+      ) {
+        setStatusMessage("⚠️ Campos OBRIGATÓRIOS ausentes: Preencha todas as 5 alternativas (A, B, C, D, E)!");
+        return;
+      }
+      opts = [
+        formData.questionOptionA.trim(),
+        formData.questionOptionB.trim(),
+        formData.questionOptionC.trim(),
+        formData.questionOptionD.trim(),
+        formData.questionOptionE.trim()
+      ];
+    }
 
     const newQuestion = {
       id: Date.now(),
@@ -640,10 +679,10 @@ export default function AdminPage() {
       ano: "2026",
       orgao: "Concurso Público",
       type: isCertoErrado ? "certo_errado" : "multipla_escolha_5",
-      statement: formData.questionStatement,
+      statement: formData.questionStatement.trim(),
       options: opts,
       correctIndex: parseInt(formData.questionCorrectOption || "0", 10),
-      explanation: formData.questionExplanation
+      explanation: formData.questionExplanation.trim() // OPCIONAL!
     };
 
     setQuestionsList(prev => [...prev, newQuestion]);
@@ -662,11 +701,16 @@ export default function AdminPage() {
 
   // Helper Parser 3: Simulado (Questões Inéditas) (Item 7 - Importação em Lote & Certo/Errado)
   const handleParseBulkSimulados = () => {
-    if (!bulkSimuladosText.trim()) return;
+    if (!bulkSimuladosText.trim()) {
+      setStatusMessage("⚠️ Cole o texto das questões inéditas de simulado para converter!");
+      return;
+    }
     const blocks = bulkSimuladosText.split(/---|\n\n\n|===/).filter(b => b.trim());
     const newSimulados: any[] = [];
+    const missingErrors: string[] = [];
 
     blocks.forEach((blockText, idx) => {
+      const blockNum = idx + 1;
       const tipoMatch = blockText.match(/(?:TIPO|Tipo):\s*([^|\n]+)/i);
       let qType = tipoMatch ? tipoMatch[1].trim() : "multipla_escolha_4";
 
@@ -679,6 +723,19 @@ export default function AdminPage() {
         statement = statementMatch[1].trim();
       } else {
         statement = blockText.split("\nA)")[0].replace(/^TIPO:[^\n]*\n/gi, "").trim();
+      }
+
+      // Validação de Item Obrigatório 1: ENUNCIADO
+      if (!statement) {
+        missingErrors.push(`Bloco ${blockNum}: falta o ENUNCIADO`);
+        return;
+      }
+
+      // Validação de Item Obrigatório 2: GABARITO
+      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-D|Certo|Errado|C|E])/i);
+      if (!gabMatch) {
+        missingErrors.push(`Bloco ${blockNum}: falta o GABARITO (ex: GABARITO: A ou GABARITO: Certo)`);
+        return;
       }
 
       let options: string[] = [];
@@ -695,66 +752,86 @@ export default function AdminPage() {
         if (optBMatch) options.push(optBMatch[1].trim());
         if (optCMatch) options.push(optCMatch[1].trim());
         if (optDMatch) options.push(optDMatch[1].trim());
-      }
 
-      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-D|Certo|Errado|C|E])/i);
-      let correctIndex = 0;
-      if (gabMatch) {
-        const g = gabMatch[1].toUpperCase();
-        if (isCertoErrado) {
-          if (g === "CERTO" || g === "C" || g === "A" || g === "1") correctIndex = 0;
-          else if (g === "ERRADO" || g === "E" || g === "B" || g === "2") correctIndex = 1;
-        } else {
-          if (g === "A") correctIndex = 0;
-          else if (g === "B") correctIndex = 1;
-          else if (g === "C") correctIndex = 2;
-          else if (g === "D") correctIndex = 3;
+        // Validação de Item Obrigatório 3: 4 alternativas para Múltipla Escolha Inédita
+        if (options.length < 4) {
+          missingErrors.push(`Bloco ${blockNum}: múltipla escolha inédita exige as 4 alternativas (A a D)`);
+          return;
         }
       }
 
+      let correctIndex = 0;
+      const g = gabMatch[1].toUpperCase();
+      if (isCertoErrado) {
+        if (g === "CERTO" || g === "C" || g === "A" || g === "1") correctIndex = 0;
+        else if (g === "ERRADO" || g === "E" || g === "B" || g === "2") correctIndex = 1;
+      } else {
+        if (g === "A") correctIndex = 0;
+        else if (g === "B") correctIndex = 1;
+        else if (g === "C") correctIndex = 2;
+        else if (g === "D") correctIndex = 3;
+      }
+
+      // Item OPCIONAL: GABARITO_COMENTADO / EXPLICACAO (Não impede a criação do simulado)
       const expMatch = blockText.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
       const explanation = expMatch ? expMatch[1].trim() : "";
 
-      if (statement || options.length > 0) {
-        newSimulados.push({
-          id: Date.now() + idx,
-          type: qType,
-          statement: statement || `Questão Inédita ${idx + 1} de Simulado`,
-          options: options.length > 0 ? options : (isCertoErrado ? ["Certo", "Errado"] : ["Primeira opção inédita", "Segunda opção inédita", "Terceira opção inédita", "Quarta opção inédita"]),
-          correctIndex,
-          explanation
-        });
-      }
+      newSimulados.push({
+        id: Date.now() + idx,
+        type: qType,
+        statement,
+        options,
+        correctIndex,
+        explanation
+      });
     });
 
     if (newSimulados.length > 0) {
       setSimuladosList(prev => [...prev, ...newSimulados]);
       setBulkSimuladosText("");
-      setStatusMessage(`✅ ${newSimulados.length} Questão(ões) Inédita(s) de Simulado convertida(s) e adicionada(s) em lote!`);
+      const warnStr = missingErrors.length > 0 ? ` (⚠️ Blocos com campos obrigatórios ausentes: ${missingErrors.join("; ")})` : "";
+      setStatusMessage(`✅ ${newSimulados.length} Questão(ões) Inédita(s) de Simulado adicionada(s) com sucesso!${warnStr}`);
     } else {
-      setStatusMessage("⚠️ Nenhuma questão inédita reconhecida no texto.");
+      setStatusMessage(`⚠️ Nenhuma questão inédita convertida. Erros encontrados: ${missingErrors.join("; ")}`);
     }
   };
 
   const handleAddSingleSimulado = () => {
-    if (!formData.simuladoStatement) return;
+    if (!formData.simuladoStatement.trim()) {
+      setStatusMessage("⚠️ Campo OBRIGATÓRIO ausente: Preencha o Enunciado da questão inédita!");
+      return;
+    }
+
     const isCertoErrado = formData.simuladoType === "certo_errado";
-    const opts = isCertoErrado
-      ? ["Certo", "Errado"]
-      : [
-          formData.simuladoOptionA || "Primeira opção inédita",
-          formData.simuladoOptionB || "Segunda opção inédita",
-          formData.simuladoOptionC || "Terceira opção inédita",
-          formData.simuladoOptionD || "Quarta opção inédita"
-        ];
+    let opts: string[] = [];
+
+    if (isCertoErrado) {
+      opts = ["Certo", "Errado"];
+    } else {
+      if (
+        !formData.simuladoOptionA.trim() ||
+        !formData.simuladoOptionB.trim() ||
+        !formData.simuladoOptionC.trim() ||
+        !formData.simuladoOptionD.trim()
+      ) {
+        setStatusMessage("⚠️ Campos OBRIGATÓRIOS ausentes: Preencha todas as 4 alternativas (A, B, C, D)!");
+        return;
+      }
+      opts = [
+        formData.simuladoOptionA.trim(),
+        formData.simuladoOptionB.trim(),
+        formData.simuladoOptionC.trim(),
+        formData.simuladoOptionD.trim()
+      ];
+    }
 
     const newSimulado = {
       id: Date.now(),
       type: isCertoErrado ? "certo_errado" : "multipla_escolha_4",
-      statement: formData.simuladoStatement,
+      statement: formData.simuladoStatement.trim(),
       options: opts,
       correctIndex: parseInt(formData.simuladoCorrectOption || "0", 10),
-      explanation: formData.simuladoExplanation
+      explanation: formData.simuladoExplanation.trim() // OPCIONAL!
     };
 
     setSimuladosList(prev => [...prev, newSimulado]);
@@ -1748,7 +1825,7 @@ export default function AdminPage() {
                       <Sparkles className="w-3.5 h-3.5" /> Importador Inteligente de Questão de Concurso por Texto
                     </label>
                     <p className="text-[11px] text-slate-300">
-                      Cole o texto da questão com <strong>BANCA</strong>, <strong>ANO</strong>, <strong>ÓRGÃO</strong>, <strong>ENUNCIADO</strong>, opções (<strong>A-E</strong>), <strong>GABARITO</strong> e <strong>GABARITO_COMENTADO</strong>:
+                      Cole o texto da questão com <strong>ENUNCIADO</strong>, <strong>GABARITO</strong> e opções (<strong>A-E</strong> ou <strong>Certo/Errado</strong>). <span className="text-emerald-400 font-bold">(💡 GABARITO_COMENTADO é opcional)</span>:
                     </p>
                   </div>
                   <textarea
@@ -1931,7 +2008,7 @@ export default function AdminPage() {
                       <Sparkles className="w-3.5 h-3.5" /> Importador Inteligente de Questão Inédita por Texto
                     </label>
                     <p className="text-[11px] text-slate-300">
-                      Cole o texto da questão inédita com <strong>ENUNCIADO</strong>, opções (<strong>A-D</strong>), <strong>GABARITO</strong> e <strong>GABARITO_COMENTADO</strong>:
+                      Cole o texto da questão inédita com <strong>ENUNCIADO</strong>, <strong>GABARITO</strong> e opções (<strong>A-D</strong> ou <strong>Certo/Errado</strong>). <span className="text-blue-400 font-bold">(💡 GABARITO_COMENTADO é opcional)</span>:
                     </p>
                   </div>
                   <textarea

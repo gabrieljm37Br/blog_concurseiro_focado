@@ -526,8 +526,8 @@ export default function InteractiveStudyModal({
                   })}
                 </div>
 
-                {/* Explanation Box when submitted */}
-                {isAnswerSubmitted && (
+                {/* Explanation Box when submitted (only if explanation exists) */}
+                {isAnswerSubmitted && sampleQuestions[currentQuestionIndex]?.explanation && (
                   <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-sm animate-in fade-in duration-200">
                     <span className="font-bold flex items-center gap-1 mb-1 text-blue-700 dark:text-blue-300">
                       💡 Comentário do Professor:
