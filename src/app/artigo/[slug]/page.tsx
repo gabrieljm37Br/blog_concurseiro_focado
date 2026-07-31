@@ -157,6 +157,7 @@ export default async function ArticlePage({ params }: Props) {
         tags: extractedTags,
         flashcardsCount: dbPost.flashcards_count || 0,
         questionsCount: dbPost.questions_count || 0,
+        simuladosCount: dbPost.simulados_count || 0,
         infographicsCount: dbPost.infographics_count || 0
       };
 

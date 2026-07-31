@@ -87,6 +87,7 @@ function HomeContent() {
               tags: item.tags || [],
               flashcardsCount: item.flashcards_count || 0,
               questionsCount: item.questions_count || 0,
+              simuladosCount: item.simulados_count || 0,
               infographicsCount: item.infographics_count || 0
             };
           });

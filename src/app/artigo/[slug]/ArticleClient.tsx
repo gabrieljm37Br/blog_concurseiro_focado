@@ -18,7 +18,8 @@ import {
   Layers,
   Sparkles,
   Tag,
-  X
+  X,
+  Target
 } from "lucide-react";
 import YouTubeIcon from "@/components/icons/YouTubeIcon";
 
@@ -35,7 +36,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
 
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<"flashcards" | "questions" | "infografico">("flashcards");
+  const [modalType, setModalType] = useState<"flashcards" | "questions" | "simulado" | "infografico">("flashcards");
   
   // Real login status from Supabase Auth
   const [isLoggedInMember, setIsLoggedInMember] = useState(false);
@@ -164,6 +165,11 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
 
   const openQuestions = () => {
     setModalType("questions");
+    setIsModalOpen(true);
+  };
+
+  const openSimulado = () => {
+    setModalType("simulado");
     setIsModalOpen(true);
   };
 
@@ -348,16 +354,31 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                     </button>
                   )}
 
-                  {/* Questões Button */}
+                  {/* Questões Button (Provas Pretéritas) */}
                   {isEstudeCategory && (
                     <button
                       onClick={openQuestions}
+                      title="Questões de concursos anteriores"
                       className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/30 hover:border-emerald-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-md group/btn cursor-pointer"
                     >
                       <div className="w-7 h-7 rounded-xl bg-emerald-500/20 group-hover/btn:bg-slate-950/20 flex items-center justify-center shrink-0">
                         <HelpCircle className="w-4 h-4 text-emerald-400 group-hover/btn:text-slate-950" />
                       </div>
                       <span>Questões ({post.questionsCount || 0})</span>
+                    </button>
+                  )}
+
+                  {/* Simulado Button (Questões Inéditas) */}
+                  {isEstudeCategory && (
+                    <button
+                      onClick={openSimulado}
+                      title="Simulado de questões inéditas baseadas neste artigo"
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-blue-500/15 hover:bg-blue-500 text-blue-400 hover:text-white border border-blue-500/30 hover:border-blue-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-md group/btn cursor-pointer"
+                    >
+                      <div className="w-7 h-7 rounded-xl bg-blue-500/20 group-hover/btn:bg-white/20 flex items-center justify-center shrink-0">
+                        <Target className="w-4 h-4 text-blue-400 group-hover/btn:text-white" />
+                      </div>
+                      <span>Simulado ({post.simuladosCount || 0})</span>
                     </button>
                   )}
 

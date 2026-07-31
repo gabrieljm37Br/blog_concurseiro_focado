@@ -15,7 +15,8 @@ import {
   Image as ImageIcon,
   Sparkles,
   Layers,
-  Check
+  Check,
+  Target
 } from "lucide-react";
 import { InfographicItem } from "@/data/mockPosts";
 
@@ -32,6 +33,7 @@ interface Question {
   options: string[];
   correctIndex: number;
   explanation: string;
+  isSimuladoInedita?: boolean;
 }
 
 interface InteractiveStudyModalProps {
@@ -41,6 +43,7 @@ interface InteractiveStudyModalProps {
   articleTitle: string;
   customFlashcards?: Flashcard[];
   customQuestions?: Question[];
+  customSimulados?: Question[];
   customInfographics?: InfographicItem[];
 }
 
@@ -51,13 +54,14 @@ export default function InteractiveStudyModal({
   articleTitle,
   customFlashcards,
   customQuestions,
+  customSimulados,
   customInfographics,
 }: InteractiveStudyModalProps) {
   // State for Flashcards
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
-  // State for Questions
+  // State for Questions & Simulado
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
@@ -68,9 +72,9 @@ export default function InteractiveStudyModal({
 
   if (!isOpen) return null;
 
-  // Flashcards, Questions & Infographics data
+  // Flashcards, Questions, Simulados & Infographics data
   const sampleFlashcards: Flashcard[] = customFlashcards || [];
-  const sampleQuestions: Question[] = customQuestions || [];
+  const sampleQuestions: Question[] = type === "simulado" ? (customSimulados || []) : (customQuestions || []);
   const sampleInfographics: InfographicItem[] = customInfographics || [];
 
   const handleNextFlashcard = () => {
@@ -142,6 +146,11 @@ export default function InteractiveStudyModal({
                 <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             )}
+            {type === "simulado" && (
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
+                <Target className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+            )}
             {type === "infografico" && (
               <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
                 <Layers className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -150,7 +159,8 @@ export default function InteractiveStudyModal({
             <div className="min-w-0 flex-1">
               <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white capitalize truncate">
                 {type === "flashcards" && "Flashcards de Memorização Ativa"}
-                {type === "questions" && "Questões Práticas de Fixação"}
+                {type === "questions" && "Questões de Provas Pretéritas"}
+                {type === "simulado" && "Simulado de Questões Inéditas"}
                 {type === "infografico" && "Infográfico & Mapa Mental do Artigo"}
               </h3>
               <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
@@ -198,77 +208,48 @@ export default function InteractiveStudyModal({
                 
                 {/* Progress & Anki Export Header */}
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                  <span>Cartão {currentFlashcardIndex + 1} de {sampleFlashcards.length}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
-                      {sampleFlashcards[currentFlashcardIndex]?.category}
-                    </span>
+                  <span>Flashcard {currentFlashcardIndex + 1} de {sampleFlashcards.length}</span>
+                  <button
+                    onClick={exportToAnkiCSV}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Baixar Deck Anki (.csv)
+                  </button>
+                </div>
 
-                    <button
-                      onClick={exportToAnkiCSV}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 font-bold transition-all text-[11px]"
-                      title="Baixar cartões formatados em CSV para o Anki"
-                    >
-                      <Download className="w-3 h-3 text-amber-500" /> Anki (.csv)
-                    </button>
+                {/* Card Container */}
+                <div
+                  onClick={() => setIsFlipped(!isFlipped)}
+                  className="relative min-h-[220px] p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 dark:border-amber-500/20 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-amber-500/50 shadow-md group"
+                >
+                  <div className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2">
+                    {isFlipped ? "Gabarito / Resposta" : "Frente / Pergunta"}
+                  </div>
+
+                  <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white font-outfit leading-relaxed">
+                    {isFlipped
+                      ? sampleFlashcards[currentFlashcardIndex]?.answer
+                      : sampleFlashcards[currentFlashcardIndex]?.question}
+                  </p>
+
+                  <div className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-slate-400 group-hover:text-amber-500 transition-colors">
+                    <RotateCw className="w-3.5 h-3.5 animate-spin-once" /> Clique para virar o card
                   </div>
                 </div>
 
-                {/* The Flip Card */}
-                <div
-                  onClick={() => setIsFlipped(!isFlipped)}
-                  className="min-h-[220px] p-6 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 flex flex-col items-center justify-center text-center cursor-pointer hover:border-amber-500/50 transition-all group"
-                >
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1">
-                    <RotateCw className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-300" />
-                    {isFlipped ? "Resposta (Clique para Virar)" : "Frente (Clique para Revelar a Resposta)"}
-                  </span>
-
-                  {!isFlipped ? (
-                    <p className="text-lg font-medium text-slate-800 dark:text-slate-100">
-                      "{sampleFlashcards[currentFlashcardIndex]?.question}"
-                    </p>
-                  ) : (
-                    <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400 animate-in fade-in zoom-in-95 duration-200">
-                      {sampleFlashcards[currentFlashcardIndex]?.answer}
-                    </p>
-                  )}
-                </div>
-
-                {/* Navigation Controls */}
+                {/* Controls */}
                 <div className="flex items-center justify-between pt-2">
                   <button
                     onClick={handlePrevFlashcard}
                     disabled={currentFlashcardIndex === 0}
-                    className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" /> Anterior
                   </button>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleNextFlashcard}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-200"
-                    >
-                      Difícil
-                    </button>
-                    <button
-                      onClick={handleNextFlashcard}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200"
-                    >
-                      Médio
-                    </button>
-                    <button
-                      onClick={handleNextFlashcard}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200"
-                    >
-                      Fácil
-                    </button>
-                  </div>
-
                   <button
                     onClick={handleNextFlashcard}
-                    className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700"
+                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs shadow-md transition-all flex items-center gap-1 cursor-pointer"
                   >
                     Próximo <ArrowRight className="w-4 h-4" />
                   </button>
@@ -278,19 +259,25 @@ export default function InteractiveStudyModal({
             )
           )}
 
-          {/* RENDER QUESTIONS MODAL */}
-          {type === "questions" && (
+          {/* RENDER QUESTIONS OR SIMULADO MODAL */}
+          {(type === "questions" || type === "simulado") && (
             sampleQuestions.length === 0 ? (
               <div className="py-6 sm:py-10 px-4 text-center space-y-3.5">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto border border-emerald-500/20">
-                  <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8" />
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto border ${
+                  type === "simulado"
+                    ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                    : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                }`}>
+                  {type === "simulado" ? <Target className="w-6 h-6 sm:w-8 sm:h-8" /> : <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8" />}
                 </div>
                 <div className="space-y-1">
                   <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base font-outfit">
-                    Nenhuma Questão Cadastrada
+                    {type === "simulado" ? "Nenhum Simulado Cadastrado" : "Nenhuma Questão Cadastrada"}
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                    Este artigo ainda não possui questões práticas de fixação cadastradas pelo autor.
+                    {type === "simulado"
+                      ? "Este artigo ainda não possui questões inéditas de simulado cadastradas pelo autor."
+                      : "Este artigo ainda não possui questões práticas de concursos anteriores cadastradas pelo autor."}
                   </p>
                 </div>
                 <button
@@ -304,8 +291,17 @@ export default function InteractiveStudyModal({
               <div className="space-y-6">
                 
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                  <span>Questão {currentQuestionIndex + 1} de {sampleQuestions.length}</span>
-                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <span>Questão {currentQuestionIndex + 1} de {sampleQuestions.length}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                      type === "simulado"
+                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                        : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                    }`}>
+                      {type === "simulado" ? "🎯 Questão Inédita (Simulado)" : "🏛️ Prova Pretérita"}
+                    </span>
+                  </span>
+                  <span className={`flex items-center gap-1 font-bold ${type === "simulado" ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                     <Award className="w-4 h-4" /> Acertos: {score}
                   </span>
                 </div>

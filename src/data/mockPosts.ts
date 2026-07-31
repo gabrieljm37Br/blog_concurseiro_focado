@@ -22,11 +22,13 @@ export interface Post {
   youtubeVideoId?: string;
   flashcardsCount?: number;
   questionsCount?: number;
+  simuladosCount?: number;
   infographicsCount?: number;
   featuredImage: string;
   tags?: string[];
   infographics?: InfographicItem[];
   questions?: any[];
+  simulados?: any[];
 }
 
 export interface AppProduct {

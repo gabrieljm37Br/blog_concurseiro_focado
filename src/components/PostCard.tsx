@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Post } from "@/data/mockPosts";
-import { Clock, Layers, HelpCircle, ArrowUpRight, Sparkles } from "lucide-react";
+import { Clock, Layers, HelpCircle, ArrowUpRight, Sparkles, Target } from "lucide-react";
 import YouTubeIcon from "@/components/icons/YouTubeIcon";
 
 interface PostCardProps {
@@ -87,8 +87,14 @@ export default function PostCard({ post }: PostCardProps) {
             ) : null}
 
             {post.questionsCount && post.questionsCount > 0 ? (
-              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold" title={`${post.questionsCount} Questões resolvidas`}>
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold" title={`${post.questionsCount} Questões de Provas Anteriores`}>
                 <HelpCircle className="w-3.5 h-3.5" /> {post.questionsCount} quest.
+              </span>
+            ) : null}
+
+            {post.simuladosCount && post.simuladosCount > 0 ? (
+              <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-semibold" title={`${post.simuladosCount} Questões Inéditas de Simulado`}>
+                <Target className="w-3.5 h-3.5" /> {post.simuladosCount} simul.
               </span>
             ) : null}
 
@@ -100,6 +106,7 @@ export default function PostCard({ post }: PostCardProps) {
 
             {(!post.flashcardsCount || post.flashcardsCount === 0) &&
              (!post.questionsCount || post.questionsCount === 0) &&
+             (!post.simuladosCount || post.simuladosCount === 0) &&
              (!post.infographicsCount || post.infographicsCount === 0) && (
               <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-medium">
                 <Clock className="w-3.5 h-3.5" /> {post.readTime}
