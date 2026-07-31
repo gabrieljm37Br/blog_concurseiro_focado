@@ -510,71 +510,80 @@ export default function AdminPage() {
     setStatusMessage("✅ Flashcard adicionado à lista do artigo!");
   };
 
-  // Helper Parser 2: Questões (Provas Pretéritas) (Item 6)
+  // Helper Parser 2: Questões (Provas Pretéritas) (Item 6 - Importação em Lote)
   const handleParseBulkQuestions = () => {
     if (!bulkQuestionsText.trim()) return;
-    const text = bulkQuestionsText;
+    const blocks = bulkQuestionsText.split(/---|\n\n\n|===/).filter(b => b.trim());
+    const newQuestions: any[] = [];
 
-    const bancaMatch = text.match(/(?:BANCA|Banca):\s*([^|\n]+)/i);
-    const anoMatch = text.match(/(?:ANO|Ano):\s*([^|\n]+)/i);
-    const orgaoMatch = text.match(/(?:ORGAO|ÓRGÃO|Orgao):\s*([^|\n]+)/i);
-    const tipoMatch = text.match(/(?:TIPO|Tipo):\s*([^|\n]+)/i);
+    blocks.forEach((blockText, idx) => {
+      const bancaMatch = blockText.match(/(?:BANCA|Banca):\s*([^|\n]+)/i);
+      const anoMatch = blockText.match(/(?:ANO|Ano):\s*([^|\n]+)/i);
+      const orgaoMatch = blockText.match(/(?:ORGAO|ÓRGÃO|Orgao):\s*([^|\n]+)/i);
+      const tipoMatch = blockText.match(/(?:TIPO|Tipo):\s*([^|\n]+)/i);
 
-    const banca = bancaMatch ? bancaMatch[1].trim() : (formData.banca || "Cebraspe");
-    const ano = anoMatch ? anoMatch[1].trim() : "2026";
-    const orgao = orgaoMatch ? orgaoMatch[1].trim() : "Concurso Público";
-    const qType = tipoMatch ? tipoMatch[1].trim() : "multipla_escolha_5";
+      const banca = bancaMatch ? bancaMatch[1].trim() : (formData.banca || "Cebraspe");
+      const ano = anoMatch ? anoMatch[1].trim() : "2026";
+      const orgao = orgaoMatch ? orgaoMatch[1].trim() : "Concurso Público";
+      const qType = tipoMatch ? tipoMatch[1].trim() : "multipla_escolha_5";
 
-    let statement = "";
-    const statementMatch = text.match(/(?:ENUNCIADO|STATEMENT|Questao|Questão):\s*([\s\S]*?)(?=[A-E]\)|GABARITO:|$)/i);
-    if (statementMatch) {
-      statement = statementMatch[1].trim();
+      let statement = "";
+      const statementMatch = blockText.match(/(?:ENUNCIADO|STATEMENT|Questao|Questão):\s*([\s\S]*?)(?=[A-E]\)|GABARITO:|$)/i);
+      if (statementMatch) {
+        statement = statementMatch[1].trim();
+      } else {
+        statement = blockText.split("\nA)")[0].replace(/^(?:BANCA|TIPO|ANO|ORGAO):[^\n]*\n/gi, "").trim();
+      }
+
+      const options: string[] = [];
+      const optAMatch = blockText.match(/A\)\s*([^\n]+)/i);
+      const optBMatch = blockText.match(/B\)\s*([^\n]+)/i);
+      const optCMatch = blockText.match(/C\)\s*([^\n]+)/i);
+      const optDMatch = blockText.match(/D\)\s*([^\n]+)/i);
+      const optEMatch = blockText.match(/E\)\s*([^\n]+)/i);
+
+      if (optAMatch) options.push(optAMatch[1].trim());
+      if (optBMatch) options.push(optBMatch[1].trim());
+      if (optCMatch) options.push(optCMatch[1].trim());
+      if (optDMatch) options.push(optDMatch[1].trim());
+      if (optEMatch) options.push(optEMatch[1].trim());
+
+      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-E|Certo|Errado|V|F])/i);
+      let correctIndex = 0;
+      if (gabMatch) {
+        const g = gabMatch[1].toUpperCase();
+        if (g === "A" || g === "1") correctIndex = 0;
+        else if (g === "B" || g === "2") correctIndex = 1;
+        else if (g === "C" || g === "3") correctIndex = 2;
+        else if (g === "D" || g === "4") correctIndex = 3;
+        else if (g === "E" || g === "5") correctIndex = 4;
+      }
+
+      const expMatch = blockText.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
+      const explanation = expMatch ? expMatch[1].trim() : "";
+
+      if (statement || options.length > 0) {
+        newQuestions.push({
+          id: Date.now() + idx,
+          banca,
+          ano,
+          orgao,
+          type: qType,
+          statement: statement || `Questão ${idx + 1} de Concurso`,
+          options: options.length > 0 ? options : ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"],
+          correctIndex,
+          explanation
+        });
+      }
+    });
+
+    if (newQuestions.length > 0) {
+      setQuestionsList(prev => [...prev, ...newQuestions]);
+      setBulkQuestionsText("");
+      setStatusMessage(`✅ ${newQuestions.length} Questão(ões) de Concurso convertida(s) e adicionada(s) em lote!`);
     } else {
-      statement = text.split("\nA)")[0].replace(/^(?:BANCA|TIPO):[^\n]*\n/gi, "").trim();
+      setStatusMessage("⚠️ Nenhuma questão reconhecida no texto.");
     }
-
-    const options: string[] = [];
-    const optAMatch = text.match(/A\)\s*([^\n]+)/i);
-    const optBMatch = text.match(/B\)\s*([^\n]+)/i);
-    const optCMatch = text.match(/C\)\s*([^\n]+)/i);
-    const optDMatch = text.match(/D\)\s*([^\n]+)/i);
-    const optEMatch = text.match(/E\)\s*([^\n]+)/i);
-
-    if (optAMatch) options.push(optAMatch[1].trim());
-    if (optBMatch) options.push(optBMatch[1].trim());
-    if (optCMatch) options.push(optCMatch[1].trim());
-    if (optDMatch) options.push(optDMatch[1].trim());
-    if (optEMatch) options.push(optEMatch[1].trim());
-
-    const gabMatch = text.match(/(?:GABARITO|RESPOSTA):\s*([A-E|Certo|Errado|V|F])/i);
-    let correctIndex = 0;
-    if (gabMatch) {
-      const g = gabMatch[1].toUpperCase();
-      if (g === "A" || g === "1") correctIndex = 0;
-      else if (g === "B" || g === "2") correctIndex = 1;
-      else if (g === "C" || g === "3") correctIndex = 2;
-      else if (g === "D" || g === "4") correctIndex = 3;
-      else if (g === "E" || g === "5") correctIndex = 4;
-    }
-
-    const expMatch = text.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
-    const explanation = expMatch ? expMatch[1].trim() : "";
-
-    const newQuestion = {
-      id: Date.now(),
-      banca,
-      ano,
-      orgao,
-      type: qType,
-      statement: statement || "Enunciado da Questão de Concurso Pretérita",
-      options: options.length > 0 ? options : ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"],
-      correctIndex,
-      explanation
-    };
-
-    setQuestionsList(prev => [...prev, newQuestion]);
-    setBulkQuestionsText("");
-    setStatusMessage("✅ Questão de Concurso convertida e adicionada à lista!");
   };
 
   const handleAddSingleQuestion = () => {
@@ -610,54 +619,63 @@ export default function AdminPage() {
     setStatusMessage("✅ Questão adicionada à lista!");
   };
 
-  // Helper Parser 3: Simulado (Questões Inéditas) (Item 7)
+  // Helper Parser 3: Simulado (Questões Inéditas) (Item 7 - Importação em Lote)
   const handleParseBulkSimulados = () => {
     if (!bulkSimuladosText.trim()) return;
-    const text = bulkSimuladosText;
+    const blocks = bulkSimuladosText.split(/---|\n\n\n|===/).filter(b => b.trim());
+    const newSimulados: any[] = [];
 
-    let statement = "";
-    const statementMatch = text.match(/(?:ENUNCIADO|STATEMENT|Questao|Questão):\s*([\s\S]*?)(?=[A-D]\)|GABARITO:|$)/i);
-    if (statementMatch) {
-      statement = statementMatch[1].trim();
+    blocks.forEach((blockText, idx) => {
+      let statement = "";
+      const statementMatch = blockText.match(/(?:ENUNCIADO|STATEMENT|Questao|Questão):\s*([\s\S]*?)(?=[A-D]\)|GABARITO:|$)/i);
+      if (statementMatch) {
+        statement = statementMatch[1].trim();
+      } else {
+        statement = blockText.split("\nA)")[0].replace(/^TIPO:[^\n]*\n/gi, "").trim();
+      }
+
+      const options: string[] = [];
+      const optAMatch = blockText.match(/A\)\s*([^\n]+)/i);
+      const optBMatch = blockText.match(/B\)\s*([^\n]+)/i);
+      const optCMatch = blockText.match(/C\)\s*([^\n]+)/i);
+      const optDMatch = blockText.match(/D\)\s*([^\n]+)/i);
+
+      if (optAMatch) options.push(optAMatch[1].trim());
+      if (optBMatch) options.push(optBMatch[1].trim());
+      if (optCMatch) options.push(optCMatch[1].trim());
+      if (optDMatch) options.push(optDMatch[1].trim());
+
+      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-D|Certo|Errado])/i);
+      let correctIndex = 0;
+      if (gabMatch) {
+        const g = gabMatch[1].toUpperCase();
+        if (g === "A") correctIndex = 0;
+        else if (g === "B") correctIndex = 1;
+        else if (g === "C") correctIndex = 2;
+        else if (g === "D") correctIndex = 3;
+      }
+
+      const expMatch = blockText.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
+      const explanation = expMatch ? expMatch[1].trim() : "";
+
+      if (statement || options.length > 0) {
+        newSimulados.push({
+          id: Date.now() + idx,
+          statement: statement || `Questão Inédita ${idx + 1} de Simulado`,
+          options: options.length > 0 ? options : ["Primeira opção inédita", "Segunda opção inédita", "Terceira opção inédita", "Quarta opção inédita"],
+          correctIndex,
+          explanation
+        });
+      }
+    });
+
+    if (newSimulados.length > 0) {
+      setSimuladosList(prev => [...prev, ...newSimulados]);
+      setBulkSimuladosText("");
+      setStatusMessage(`✅ ${newSimulados.length} Questão(ões) Inédita(s) de Simulado convertida(s) e adicionada(s) em lote!`);
     } else {
-      statement = text.split("\nA)")[0].replace(/^TIPO:[^\n]*\n/gi, "").trim();
+      setStatusMessage("⚠️ Nenhuma questão inédita reconhecida no texto.");
     }
-
-    const options: string[] = [];
-    const optAMatch = text.match(/A\)\s*([^\n]+)/i);
-    const optBMatch = text.match(/B\)\s*([^\n]+)/i);
-    const optCMatch = text.match(/C\)\s*([^\n]+)/i);
-    const optDMatch = text.match(/D\)\s*([^\n]+)/i);
-
-    if (optAMatch) options.push(optAMatch[1].trim());
-    if (optBMatch) options.push(optBMatch[1].trim());
-    if (optCMatch) options.push(optCMatch[1].trim());
-    if (optDMatch) options.push(optDMatch[1].trim());
-
-    const gabMatch = text.match(/(?:GABARITO|RESPOSTA):\s*([A-D|Certo|Errado])/i);
-    let correctIndex = 0;
-    if (gabMatch) {
-      const g = gabMatch[1].toUpperCase();
-      if (g === "A") correctIndex = 0;
-      else if (g === "B") correctIndex = 1;
-      else if (g === "C") correctIndex = 2;
-      else if (g === "D") correctIndex = 3;
-    }
-
-    const expMatch = text.match(/(?:GABARITO_COMENTADO|COMENTARIO|EXPLICACAO):\s*([\s\S]*?)$/i);
-    const explanation = expMatch ? expMatch[1].trim() : "";
-
-    const newSimulado = {
-      id: Date.now(),
-      statement: statement || "Enunciado da Questão Inédita de Simulado",
-      options: options.length > 0 ? options : ["Primeira opção inédita", "Segunda opção inédita", "Terceira opção inédita", "Quarta opção inédita"],
-      correctIndex,
-      explanation
-    };
-
-    setSimuladosList(prev => [...prev, newSimulado]);
-    setBulkSimuladosText("");
-    setStatusMessage("✅ Questão Inédita de Simulado convertida e adicionada!");
   };
 
   const handleAddSingleSimulado = () => {
