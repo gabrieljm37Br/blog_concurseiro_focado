@@ -444,7 +444,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         case "ul": insertTagTextarea("<ul>\n  <li>", "</li>\n</ul>"); break;
         case "ol": insertTagTextarea("<ol>\n  <li>", "</li>\n</ol>"); break;
         case "quote": insertTagTextarea('<blockquote class="border-l-4 border-slate-400 pl-4 italic my-4">\n  ', "\n</blockquote>"); break;
-        case "hr": insertTagTextarea("\n<hr class=\"my-6 border-slate-300 dark:border-slate-700\" />\n"); break;
+        case "hr": insertTagTextarea("\n<hr class=\"my-6 border-0 h-px bg-slate-300 dark:bg-slate-700 opacity-75\" />\n"); break;
       }
     }
   };

@@ -99,6 +99,21 @@ h1, h2, h3, h4, h5, h6 {
   display: list-item !important;
 }
 
+/* Soft & Elegant Horizontal Rule (<hr>) Styling */
+hr, .prose hr, .editor-canvas hr {
+  border: none !important;
+  height: 1px !important;
+  background-color: #cbd5e1 !important;
+  margin-top: 1.75rem !important;
+  margin-bottom: 1.75rem !important;
+  opacity: 0.8 !important;
+}
+
+.dark hr, .dark .prose hr, .dark .editor-canvas hr {
+  background-color: #334155 !important;
+  opacity: 0.7 !important;
+}
+
 /* Blockquote & Mark Styling */
 .prose blockquote, .editor-canvas blockquote {
   border-left-width: 4px !important;
