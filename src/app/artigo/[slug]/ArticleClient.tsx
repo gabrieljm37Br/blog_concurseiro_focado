@@ -12,6 +12,8 @@ import {
   HelpCircle, 
   Zap, 
   ChevronLeft, 
+  ChevronDown,
+  ChevronUp,
   Share2, 
   Bookmark,
   UserCheck,
@@ -19,7 +21,14 @@ import {
   Sparkles,
   Tag,
   X,
-  Target
+  Target,
+  Volume2,
+  VolumeX,
+  Play,
+  Pause,
+  Square,
+  Printer,
+  Download
 } from "lucide-react";
 import YouTubeIcon from "@/components/icons/YouTubeIcon";
 
@@ -38,8 +47,116 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"flashcards" | "questions" | "simulado" | "infografico">("flashcards");
   
+  // Dropdown state for study tools section
+  const [isToolsExpanded, setIsToolsExpanded] = useState(false);
+
   // Real login status from Supabase Auth
   const [isLoggedInMember, setIsLoggedInMember] = useState(false);
+
+  // Accessibility Font Size State
+  const [fontSizeLevel, setFontSizeLevel] = useState<"normal" | "sm" | "lg" | "xl">("normal");
+
+  // Web Speech API Text-to-Speech State
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isAudioPaused, setIsAudioPaused] = useState(false);
+  const [speechRate, setSpeechRate] = useState<number>(1.0);
+  const [speechProgress, setSpeechProgress] = useState<number>(0);
+
+  // Clean up SpeechSynthesis when switching articles or unmounting
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [slug]);
+
+  // Handler for Audio Player (Play / Pause / Resume)
+  const handleToggleAudio = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      alert("Seu navegador não possui suporte à reprodução de áudio por síntese de voz.");
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    if (isPlayingAudio) {
+      if (isAudioPaused) {
+        synth.resume();
+        setIsAudioPaused(false);
+      } else {
+        synth.pause();
+        setIsAudioPaused(true);
+      }
+      return;
+    }
+
+    synth.cancel();
+
+    const articleContainer = document.getElementById("article-content-body");
+    const cleanBodyText = articleContainer
+      ? articleContainer.innerText.replace(/[\r\n]+/g, ". ")
+      : (post?.summary || "") + ". " + (post?.content || "").replace(/<[^>]*>/g, " ");
+
+    const textToRead = `${post?.title}. ${cleanBodyText}`;
+    if (!textToRead.trim()) return;
+
+    const utterance = new SpeechSynthesisUtterance(textToRead);
+    utterance.lang = "pt-BR";
+    utterance.rate = speechRate;
+
+    const voices = synth.getVoices();
+    const ptVoice = voices.find(v => v.lang.includes("pt-BR") || v.lang.includes("pt_BR"));
+    if (ptVoice) utterance.voice = ptVoice;
+
+    utterance.onend = () => {
+      setIsPlayingAudio(false);
+      setIsAudioPaused(false);
+      setSpeechProgress(100);
+    };
+
+    utterance.onerror = () => {
+      setIsPlayingAudio(false);
+      setIsAudioPaused(false);
+      setSpeechProgress(0);
+    };
+
+    utterance.onboundary = (e) => {
+      if (e.name === "word" && textToRead.length > 0) {
+        const pct = Math.min(100, Math.round((e.charIndex / textToRead.length) * 100));
+        setSpeechProgress(pct);
+      }
+    };
+
+    synth.speak(utterance);
+    setIsPlayingAudio(true);
+    setIsAudioPaused(false);
+  };
+
+  const handleStopAudio = () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsPlayingAudio(false);
+    setIsAudioPaused(false);
+    setSpeechProgress(0);
+  };
+
+  const handleRateChange = (newRate: number) => {
+    setSpeechRate(newRate);
+    if (isPlayingAudio && typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsPlayingAudio(false);
+      setIsAudioPaused(false);
+    }
+  };
+
+  // Handler for PDF Print/Export
+  const handlePrintPDF = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
 
   // Keyboard listener to close Focus Mode with ESC
   useEffect(() => {
@@ -111,17 +228,37 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             }
           }
 
-          let parsedStudyData: any = null;
-          if (dbPost.content_html) {
-            const studyMatch = dbPost.content_html.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
-            if (studyMatch && studyMatch[1]) {
-              try {
-                parsedStudyData = JSON.parse(studyMatch[1]);
-              } catch (e) {
-                console.warn("Erro ao fazer parse do STUDY_DATA_JSON no cliente:", e);
-              }
+          const extractStudyDataFromContentHtml = (contentHtml: string): any => {
+            if (!contentHtml) return null;
+            const b64Match = contentHtml.match(/<!-- STUDY_DATA_JSON_B64: ([\s\S]*?) -->/i);
+            if (b64Match && b64Match[1]) {
+              try { return JSON.parse(decodeURIComponent(b64Match[1].trim())); } catch (e) {}
             }
-          }
+            const legacyMatch = contentHtml.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
+            if (legacyMatch && legacyMatch[1]) {
+              try { return JSON.parse(legacyMatch[1].trim()); } catch (e) {}
+            }
+            const startIdx = contentHtml.indexOf("<!-- STUDY_DATA_JSON:");
+            if (startIdx !== -1) {
+              let sub = contentHtml.substring(startIdx + "<!-- STUDY_DATA_JSON:".length);
+              const lastEnd = sub.lastIndexOf("-->");
+              if (lastEnd !== -1) sub = sub.substring(0, lastEnd);
+              sub = sub.trim();
+              try { return JSON.parse(sub); } catch (e) {}
+            }
+            const jsonMatch = contentHtml.match(/\{"flashcards":[\s\S]*?\}(?=\s*(?:-->|$))/i) || contentHtml.match(/\{"flashcards":[\s\S]*/i);
+            if (jsonMatch) {
+              let str = jsonMatch[0].trim().replace(/-->\s*$/g, "").trim();
+              if (!str.endsWith("}")) {
+                const lastCurly = str.lastIndexOf("}");
+                if (lastCurly !== -1) str = str.substring(0, lastCurly + 1);
+              }
+              try { return JSON.parse(str); } catch (e) {}
+            }
+            return null;
+          };
+
+          const parsedStudyData = extractStudyDataFromContentHtml(dbPost.content_html || "");
 
           const flashcardsArr = (parsedStudyData && Array.isArray(parsedStudyData.flashcards)) ? parsedStudyData.flashcards : [];
           const questionsArr = (parsedStudyData && Array.isArray(parsedStudyData.questions)) ? parsedStudyData.questions : [];
@@ -227,10 +364,19 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   return (
     <div className={`transition-all duration-300 py-8 px-4 sm:px-6 lg:px-8 ${isFocusMode ? "bg-amber-50/30 dark:bg-[#070A10]" : ""}`}>
       
+      {/* Printable Brand Header watermark (only visible on print/PDF) */}
+      <div className="hidden print:block mb-6 pb-4 border-b-2 border-slate-900">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-extrabold text-slate-900 font-outfit uppercase">BLOG CONCURSEIRO FOCADO</h2>
+          <span className="text-xs text-slate-600 font-semibold">www.concurseirofocado.com.br</span>
+        </div>
+        <p className="text-xs text-slate-500 mt-1">Material de Estudo de Alta Performance • Impresso em {new Date().toLocaleDateString("pt-BR")}</p>
+      </div>
+
       <div className={`mx-auto space-y-8 ${isFocusMode ? "max-w-3xl focus-mode-active" : "max-w-4xl"}`}>
         
         {/* Top Controls Bar: Back Link & Modo Foco Toggle */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+        <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
           <Link
             href="/"
             className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
@@ -239,23 +385,26 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
           </Link>
 
           <div className="flex items-center justify-between sm:justify-end gap-2.5">
-            {/* Modo Foco Toggle Button */}
+            {/* Modo Foco Toggle Button (High Visibility Highlight - Light & Dark Modes) */}
             <button
               onClick={() => setIsFocusMode(!isFocusMode)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm whitespace-nowrap shrink-0 ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 shadow-md hover:shadow-lg hover:scale-[1.04] active:scale-[0.98] whitespace-nowrap shrink-0 cursor-pointer border ${
                 isFocusMode
-                  ? "bg-amber-500 text-slate-950 ring-2 ring-amber-400"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-amber-100 dark:hover:bg-amber-950/60"
+                  ? "bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400"
+                  : "bg-amber-400 hover:bg-amber-300 text-slate-950 dark:text-slate-950 border-amber-300 dark:border-amber-400 shadow-amber-500/20"
               }`}
+              title="Entrar no Modo Foco para leitura imersiva sem distrações"
             >
-              <Zap className={`w-3.5 h-3.5 ${isFocusMode ? "fill-slate-950" : "text-amber-500"}`} />
-              <span>{isFocusMode ? "Sair do Modo Foco" : "Modo Foco"}</span>
+              <Zap className="w-4 h-4 fill-slate-950 text-slate-950 shrink-0" />
+              <span className="text-slate-950 dark:text-slate-950 font-black">
+                {isFocusMode ? "Sair do Modo Foco" : "Modo Foco"}
+              </span>
             </button>
 
             {/* Simulated Member Status Toggle */}
             <button
               onClick={() => setIsLoggedInMember(!isLoggedInMember)}
-              className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 underline whitespace-nowrap shrink-0"
+              className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 underline whitespace-nowrap shrink-0 cursor-pointer"
             >
               {isLoggedInMember ? "Membro (Sem Ads)" : "Simular Membro"}
             </button>
@@ -265,7 +414,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
         {/* Article Header */}
         <div className="space-y-4">
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
               {post.category}
             </span>
@@ -306,12 +455,155 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               )}
             </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-auto">
+            <div className="no-print flex items-center gap-2 flex-wrap self-end sm:self-auto">
+              {/* Font Size Selector (Acessibilidade) */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 rounded-xl p-1 border border-slate-200 dark:border-slate-700/80">
+                <span className="text-[10px] font-extrabold uppercase px-1 text-slate-400 dark:text-slate-500 hidden sm:inline" title="Acessibilidade: Ajustar Tamanho da Fonte">
+                  Fonte:
+                </span>
+                <button
+                  onClick={() => setFontSizeLevel("sm")}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    fontSizeLevel === "sm"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  }`}
+                  title="Fonte Pequena (14px)"
+                >
+                  A-
+                </button>
+                <button
+                  onClick={() => setFontSizeLevel("normal")}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    fontSizeLevel === "normal"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  }`}
+                  title="Fonte Normal (16px)"
+                >
+                  A
+                </button>
+                <button
+                  onClick={() => setFontSizeLevel("lg")}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    fontSizeLevel === "lg"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  }`}
+                  title="Fonte Grande (18px)"
+                >
+                  A+
+                </button>
+                <button
+                  onClick={() => setFontSizeLevel("xl")}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    fontSizeLevel === "xl"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  }`}
+                  title="Fonte Extra Grande (20px)"
+                >
+                  A++
+                </button>
+              </div>
+
+              <button
+                onClick={handlePrintPDF}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer"
+                title="Baixar em PDF / Imprimir"
+              >
+                <Printer className="w-4 h-4" />
+              </button>
               <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors">
                 <Bookmark className="w-4 h-4" />
               </button>
               <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors">
                 <Share2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* AUDIO PLAYER (Text-to-Speech) & PDF DOWNLOAD BAR (Slim & Compact) */}
+          <div className="no-print p-2.5 sm:px-4 sm:py-2.5 rounded-xl bg-slate-100/90 dark:bg-[#0E1526] text-slate-900 dark:text-white border border-slate-200/90 dark:border-slate-800/80 shadow-xs dark:shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all duration-300">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <button
+                onClick={handleToggleAudio}
+                className={`p-2 rounded-xl transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer ${
+                  isPlayingAudio && !isAudioPaused
+                    ? "bg-amber-500 text-slate-950 hover:bg-amber-400"
+                    : "bg-emerald-600 dark:bg-emerald-500 text-white dark:text-slate-950 hover:bg-emerald-700 dark:hover:bg-emerald-400"
+                }`}
+                title={isPlayingAudio ? (isAudioPaused ? "Continuar Áudio" : "Pausar Áudio") : "Ouvir Artigo em Áudio"}
+              >
+                {isPlayingAudio && !isAudioPaused ? (
+                  <Pause className="w-4 h-4 fill-current" />
+                ) : (
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                )}
+              </button>
+
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 truncate text-[11px] sm:text-xs">
+                    <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? "text-amber-500 animate-pulse" : "text-emerald-600 dark:text-emerald-400"}`} />
+                    {isPlayingAudio
+                      ? isAudioPaused
+                        ? "Leitura Pausada"
+                        : "Narrando Artigo em Voz Alta..."
+                      : "Ouvir este Artigo em Áudio"}
+                  </span>
+                  {isPlayingAudio && (
+                    <span className="font-mono text-amber-600 dark:text-amber-400 text-[10px] shrink-0">{speechProgress}%</span>
+                  )}
+                </div>
+
+                {/* Progress Track */}
+                <div className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all duration-200"
+                    style={{ width: `${isPlayingAudio ? speechProgress : 0}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              {/* Stop Audio Button */}
+              {isPlayingAudio && (
+                <button
+                  onClick={handleStopAudio}
+                  className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                  title="Parar áudio"
+                >
+                  <Square className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Speed Control Selector */}
+              <div className="flex items-center bg-white dark:bg-slate-800/90 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                {[1.0, 1.25, 1.5, 2.0].map((rate) => (
+                  <button
+                    key={rate}
+                    onClick={() => handleRateChange(rate)}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                      speechRate === rate
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {rate}x
+                  </button>
+                ))}
+              </div>
+
+              {/* PDF Print Button */}
+              <button
+                onClick={handlePrintPDF}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 hover:bg-emerald-600 hover:text-white text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-extrabold text-[11px] sm:text-xs transition-all cursor-pointer shadow-xs"
+                title="Baixar ou Imprimir este Artigo em PDF"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Baixar PDF</span>
               </button>
             </div>
           </div>
@@ -331,92 +623,110 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
           </div>
         )}
 
-        {/* INTERACTIVE STUDY TOOLS SECTION (Modern Two-Tier Layout) */}
+        {/* INTERACTIVE STUDY TOOLS SECTION (Dropdown / Collapsible Accordion Layout) */}
         {post.category !== "Estude comigo" && (() => {
           const isEstudeCategory = post.category === "Estude";
           return (
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-slate-900 via-[#0D1322] to-[#0A0E17] text-white p-6 sm:p-7 border border-slate-800/90 shadow-2xl space-y-5 group">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-100/90 via-slate-50 to-emerald-50/40 dark:bg-gradient-to-b dark:from-slate-900 dark:via-[#0D1322] dark:to-[#0A0E17] text-slate-900 dark:text-white border border-slate-200/90 dark:border-slate-800/90 shadow-sm dark:shadow-xl transition-all duration-300">
               
-              {/* Background Accent Glow Lights */}
-              <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-80 h-80 bg-amber-500/10 blur-[100px] rounded-full pointer-events-none" />
+              {/* DROPDOWN TOGGLE TRIGGER HEADER */}
+              <button
+                onClick={() => setIsToolsExpanded(!isToolsExpanded)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left cursor-pointer group hover:bg-slate-200/40 dark:hover:bg-slate-800/40 transition-colors"
+                title="Clique para expandir ou recolher as Ferramentas de Estudo"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                    <BrainCircuit className="w-5 h-5 text-amber-500 dark:text-amber-400 animate-pulse" />
+                  </div>
 
-              {/* TOP PART: SECTION HEADER */}
-              <div className="space-y-1.5 border-b border-slate-800/80 pb-4 relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 shadow-xs mb-1">
-                  <BrainCircuit className="w-4 h-4 text-amber-400 animate-pulse" />
-                  <span>Hub de Treino & Evocação Ativa</span>
-                </div>
-
-                <h3 className="text-xl sm:text-2xl font-extrabold font-outfit text-white tracking-tight flex items-center gap-2">
-                  Ferramentas de Estudo deste Artigo
-                </h3>
-
-                <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
-                  {isEstudeCategory
-                    ? "Pratique a memorização ativa e teste seus conhecimentos com recursos acoplados diretamente a este conteúdo."
-                    : "Visualize mapas mentais, resumos visuais e esquemas acoplados a este artigo."}
-                </p>
-              </div>
-
-              {/* BOTTOM PART: TOOLS MENU BAR */}
-              <div className="relative z-10">
-                <div className="flex flex-wrap items-center gap-3">
-                  
-                  {/* Flashcards Button */}
-                  {isEstudeCategory && (
-                    <button
-                      onClick={openFlashcards}
-                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-amber-500/15 hover:bg-amber-500 text-amber-400 hover:text-slate-950 border border-amber-500/30 hover:border-amber-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-md group/btn cursor-pointer"
-                    >
-                      <div className="w-7 h-7 rounded-xl bg-amber-500/20 group-hover/btn:bg-slate-950/20 flex items-center justify-center shrink-0">
-                        <Layers className="w-4 h-4 text-amber-400 group-hover/btn:text-slate-950" />
-                      </div>
-                      <span>Flashcards ({dbFlashcards.length ?? post.flashcardsCount ?? 0})</span>
-                    </button>
-                  )}
-
-                  {/* Questões Button (Provas Pretéritas) */}
-                  {isEstudeCategory && (
-                    <button
-                      onClick={openQuestions}
-                      title="Questões de concursos anteriores"
-                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/30 hover:border-emerald-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-md group/btn cursor-pointer"
-                    >
-                      <div className="w-7 h-7 rounded-xl bg-emerald-500/20 group-hover/btn:bg-slate-950/20 flex items-center justify-center shrink-0">
-                        <HelpCircle className="w-4 h-4 text-emerald-400 group-hover/btn:text-slate-950" />
-                      </div>
-                      <span>Questões ({post.questionsCount || 0})</span>
-                    </button>
-                  )}
-
-                  {/* Simulado Button (Questões Inéditas) */}
-                  {isEstudeCategory && (
-                    <button
-                      onClick={openSimulado}
-                      title="Simulado de questões inéditas baseadas neste artigo"
-                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-blue-500/15 hover:bg-blue-500 text-blue-400 hover:text-white border border-blue-500/30 hover:border-blue-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-md group/btn cursor-pointer"
-                    >
-                      <div className="w-7 h-7 rounded-xl bg-blue-500/20 group-hover/btn:bg-white/20 flex items-center justify-center shrink-0">
-                        <Target className="w-4 h-4 text-blue-400 group-hover/btn:text-white" />
-                      </div>
-                      <span>Simulado ({post.simuladosCount || 0})</span>
-                    </button>
-                  )}
-
-                  {/* Infográfico Button */}
-                  <button
-                    onClick={openInfographic}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-purple-500/15 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 hover:border-purple-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-md group/btn cursor-pointer"
-                  >
-                    <div className="w-7 h-7 rounded-xl bg-purple-500/20 group-hover/btn:bg-white/20 flex items-center justify-center shrink-0">
-                      <Sparkles className="w-4 h-4 text-purple-400 group-hover/btn:text-white" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base sm:text-lg font-extrabold font-outfit text-slate-900 dark:text-white tracking-tight">
+                        Ferramentas de Estudo deste Artigo
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-extrabold hidden sm:inline-block">
+                        {isToolsExpanded ? "Aberto" : "Clique para Abrir"}
+                      </span>
                     </div>
-                    <span>Infográfico ({post.infographicsCount || 0})</span>
-                  </button>
-
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {isEstudeCategory
+                        ? "Flashcards, Questões, Simulados Inéditos e Infográficos acoplados."
+                        : "Mapas mentais, resumos visuais e esquemas acoplados a este artigo."}
+                    </p>
+                  </div>
                 </div>
-              </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 hidden md:inline">
+                    {isToolsExpanded ? "Ocultar" : "Ver Ferramentas"}
+                  </span>
+                  <div className="p-1.5 rounded-lg bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                    {isToolsExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </div>
+                </div>
+              </button>
+
+              {/* DROPDOWN EXPANDABLE CONTENT */}
+              {isToolsExpanded && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-200/80 dark:border-slate-800/80 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="pt-3 flex flex-wrap items-center gap-3">
+                    
+                    {/* Flashcards Button */}
+                    {isEstudeCategory && (
+                      <button
+                        onClick={openFlashcards}
+                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-700 dark:text-amber-400 hover:text-slate-950 border border-amber-500/30 hover:border-amber-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
+                      >
+                        <div className="w-6 h-6 rounded-lg bg-amber-500/20 group-hover/btn:bg-slate-950/20 flex items-center justify-center shrink-0">
+                          <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 group-hover/btn:text-slate-950" />
+                        </div>
+                        <span>Flashcards ({dbFlashcards.length ?? post.flashcardsCount ?? 0})</span>
+                      </button>
+                    )}
+
+                    {/* Questões Button (Provas Pretéritas) */}
+                    {isEstudeCategory && (
+                      <button
+                        onClick={openQuestions}
+                        title="Questões de concursos anteriores"
+                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500 text-emerald-700 dark:text-emerald-400 hover:text-slate-950 border border-emerald-500/30 hover:border-emerald-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
+                      >
+                        <div className="w-6 h-6 rounded-lg bg-emerald-500/20 group-hover/btn:bg-slate-950/20 flex items-center justify-center shrink-0">
+                          <HelpCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover/btn:text-slate-950" />
+                        </div>
+                        <span>Questões ({post.questionsCount || 0})</span>
+                      </button>
+                    )}
+
+                    {/* Simulado Button (Questões Inéditas) */}
+                    {isEstudeCategory && (
+                      <button
+                        onClick={openSimulado}
+                        title="Simulado de questões inéditas baseadas neste artigo"
+                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500 text-blue-700 dark:text-blue-400 hover:text-white border border-blue-500/30 hover:border-blue-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
+                      >
+                        <div className="w-6 h-6 rounded-lg bg-blue-500/20 group-hover/btn:bg-white/20 flex items-center justify-center shrink-0">
+                          <Target className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 group-hover/btn:text-white" />
+                        </div>
+                        <span>Simulado ({post.simuladosCount || 0})</span>
+                      </button>
+                    )}
+
+                    {/* Infográfico Button */}
+                    <button
+                      onClick={openInfographic}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-purple-500/15 hover:bg-purple-600 text-purple-700 dark:text-purple-300 hover:text-white border border-purple-500/30 hover:border-purple-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
+                    >
+                      <div className="w-6 h-6 rounded-lg bg-purple-500/20 group-hover/btn:bg-white/20 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 group-hover/btn:text-white" />
+                      </div>
+                      <span>Infográfico ({post.infographicsCount || 0})</span>
+                    </button>
+
+                  </div>
+                </div>
+              )}
 
             </div>
           );
@@ -441,9 +751,18 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
 
         {/* Article HTML Body Content */}
         <div 
-          className="prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 leading-relaxed space-y-4"
+          id="article-content-body"
+          className={`prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 leading-relaxed space-y-4 transition-all duration-200 ${
+            fontSizeLevel === "sm" ? "article-font-sm" : fontSizeLevel === "lg" ? "article-font-lg" : fontSizeLevel === "xl" ? "article-font-xl" : ""
+          }`}
           dangerouslySetInnerHTML={{ 
             __html: post.content
+              .replace(/<!-- STUDY_DATA_JSON_B64: [\s\S]*? -->/gi, "")
+              .replace(/<!-- STUDY_DATA_JSON: [\s\S]*? -->/gi, "")
+              .replace(/<!-- TAGS: [\s\S]*? -->/gi, "")
+              .replace(/<!-- STATUS: [\s\S]*? -->/gi, "")
+              .replace(/<!-- SCHEDULED_AT: [\s\S]*? -->/gi, "")
+              .replace(/,"points":\["Revisão rápida de pontos de alta incidência"\]\]\}?\s*-->/gi, "")
               .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<div[^>]*border-b[^>]*>\s*<h1[^>]*>[\s\S]*?<\/h1>\s*<\/div>/gi, "")
               .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<h1[^>]*>[\s\S]*?<\/h1>/gi, "")
               .replace(/<h1([^>]*)>(.*?)<\/h1>/gi, '<h2 class="text-xl sm:text-2xl font-bold font-outfit text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2"$1>$2</h2>')
@@ -498,11 +817,11 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
           
           <button
             onClick={() => setIsFocusMode(false)}
-            className="fixed top-5 right-5 sm:top-8 sm:right-8 z-50 p-3 sm:p-3.5 rounded-full bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-950 hover:bg-emerald-600 dark:hover:bg-emerald-500 dark:hover:text-slate-950 transition-all shadow-2xl hover:scale-110 flex items-center gap-2 group cursor-pointer border border-slate-700/50 dark:border-slate-300/50 backdrop-blur-md"
+            className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 px-2.5 py-1.5 rounded-xl bg-slate-200/60 dark:bg-slate-800/60 hover:bg-slate-300/80 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-300/50 dark:border-slate-700/50 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer backdrop-blur-xs text-xs font-semibold"
             title="Sair do Modo Foco (ESC)"
           >
-            <X className="w-5 h-5 sm:w-6 sm:h-6 transition-transform group-hover:rotate-90 stroke-[2.5]" />
-            <span className="text-xs font-black tracking-wide pr-1 hidden md:inline">Sair (ESC)</span>
+            <X className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-medium opacity-80">Sair (ESC)</span>
           </button>
 
           <article className="max-w-3xl mx-auto space-y-8 py-6 px-2">

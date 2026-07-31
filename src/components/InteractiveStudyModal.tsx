@@ -19,7 +19,12 @@ import {
   Target,
   Maximize2,
   Minimize2,
-  RotateCcw
+  RotateCcw,
+  Shuffle,
+  SquareStack,
+  Building2,
+  Calendar,
+  Landmark
 } from "lucide-react";
 import { InfographicItem } from "@/data/mockPosts";
 import MathRenderer from "@/components/MathRenderer";
@@ -38,6 +43,11 @@ interface Question {
   correctIndex: number;
   explanation: string;
   isSimuladoInedita?: boolean;
+  banca?: string;
+  ano?: string | number;
+  year?: string | number;
+  orgao?: string;
+  cargo?: string;
 }
 
 interface InteractiveStudyModalProps {
@@ -51,6 +61,16 @@ interface InteractiveStudyModalProps {
   customInfographics?: InfographicItem[];
 }
 
+// Fisher-Yates array shuffle helper
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export default function InteractiveStudyModal({
   isOpen,
   onClose,
@@ -61,6 +81,12 @@ export default function InteractiveStudyModal({
   customSimulados,
   customInfographics,
 }: InteractiveStudyModalProps) {
+  // Active dynamic datasets (allows shuffling without mutating original props)
+  const [activeFlashcards, setActiveFlashcards] = useState<Flashcard[]>([]);
+  const [activeQuestions, setActiveQuestions] = useState<Question[]>([]);
+  const [isFlashcardsShuffled, setIsFlashcardsShuffled] = useState(false);
+  const [isQuestionsShuffled, setIsQuestionsShuffled] = useState(false);
+
   // State for Flashcards (Gemini 3D Style & Immersive Mode)
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -73,18 +99,66 @@ export default function InteractiveStudyModal({
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [score, setScore] = useState(0);
+  const [isQuizCompleted, setIsQuizCompleted] = useState(false);
 
   // State for Infographics
   const [currentInfographicIndex, setCurrentInfographicIndex] = useState(0);
 
-  // Flashcards, Questions, Simulados & Infographics data
-  const sampleFlashcards: Flashcard[] = customFlashcards || [];
-  const sampleQuestions: Question[] = type === "simulado" ? (customSimulados || []) : (customQuestions || []);
   const sampleInfographics: InfographicItem[] = customInfographics || [];
 
-  const handleNextFlashcard = () => {
+  // Reset ALL state & load initial datasets whenever modal opens, type changes, or articleTitle changes
+  React.useEffect(() => {
+    if (isOpen) {
+      const fc = customFlashcards || [];
+      const q = type === "simulado" ? (customSimulados || []) : (customQuestions || []);
+
+      setActiveFlashcards(fc);
+      setActiveQuestions(q);
+      setIsFlashcardsShuffled(false);
+      setIsQuestionsShuffled(false);
+
+      setCurrentFlashcardIndex(0);
+      setIsFlipped(false);
+      setWrongCount(0);
+      setCorrectCount(0);
+
+      setCurrentQuestionIndex(0);
+      setSelectedOption(null);
+      setIsAnswerSubmitted(false);
+      setScore(0);
+      setIsQuizCompleted(false);
+
+      setCurrentInfographicIndex(0);
+    }
+  }, [isOpen, type, articleTitle, customFlashcards, customQuestions, customSimulados]);
+
+  // Handler to shuffle Flashcards
+  const handleShuffleFlashcards = () => {
+    if (activeFlashcards.length === 0) return;
+    setActiveFlashcards(shuffleArray(activeFlashcards));
+    setCurrentFlashcardIndex(0);
     setIsFlipped(false);
-    if (currentFlashcardIndex < sampleFlashcards.length - 1) {
+    setWrongCount(0);
+    setCorrectCount(0);
+    setIsFlashcardsShuffled(true);
+  };
+
+  // Handler to shuffle Questions / Simulado
+  const handleShuffleQuestions = () => {
+    if (activeQuestions.length === 0) return;
+    setActiveQuestions(shuffleArray(activeQuestions));
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setIsAnswerSubmitted(false);
+    setScore(0);
+    setIsQuizCompleted(false);
+    setIsQuestionsShuffled(true);
+  };
+
+  const handleNextFlashcard = () => {
+    if (activeFlashcards.length === 0) return;
+    setIsFlipped(false);
+    if (currentFlashcardIndex < activeFlashcards.length - 1) {
       setCurrentFlashcardIndex(currentFlashcardIndex + 1);
     } else {
       setCurrentFlashcardIndex(0);
@@ -92,6 +166,7 @@ export default function InteractiveStudyModal({
   };
 
   const handlePrevFlashcard = () => {
+    if (activeFlashcards.length === 0) return;
     setIsFlipped(false);
     if (currentFlashcardIndex > 0) {
       setCurrentFlashcardIndex(currentFlashcardIndex - 1);
@@ -115,37 +190,78 @@ export default function InteractiveStudyModal({
     setIsFlipped(false);
   };
 
+  // Keyboard navigation
   React.useEffect(() => {
-    if (!isOpen || type !== "flashcards") return;
+    if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === " " || e.key === "Enter") {
+      // Don't intercept shortcuts when typing in inputs/textareas
+      const activeElement = document.activeElement;
+      if (
+        activeElement &&
+        (activeElement.tagName === "INPUT" ||
+          activeElement.tagName === "TEXTAREA" ||
+          activeElement.getAttribute("contenteditable") === "true")
+      ) {
+        return;
+      }
+
+      if (e.key === "Escape") {
         e.preventDefault();
-        setIsFlipped(prev => !prev);
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        handleNextFlashcard();
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        handlePrevFlashcard();
-      } else if (e.key === "1") {
-        e.preventDefault();
-        handleMarkWrong();
-      } else if (e.key === "2") {
-        e.preventDefault();
-        handleMarkCorrect();
+        onClose();
+        return;
+      }
+
+      if (type === "flashcards" && activeFlashcards.length > 0) {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          setIsFlipped(prev => !prev);
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          handleNextFlashcard();
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          handlePrevFlashcard();
+        } else if (e.key === "1") {
+          e.preventDefault();
+          handleMarkWrong();
+        } else if (e.key === "2") {
+          e.preventDefault();
+          handleMarkCorrect();
+        }
+      } else if ((type === "questions" || type === "simulado") && activeQuestions.length > 0 && !isQuizCompleted) {
+        if (["1", "2", "3", "4", "5", "a", "A", "b", "B", "c", "C", "d", "D", "e", "E"].includes(e.key)) {
+          let idx = -1;
+          if (["1", "a", "A"].includes(e.key)) idx = 0;
+          else if (["2", "b", "B"].includes(e.key)) idx = 1;
+          else if (["3", "c", "C"].includes(e.key)) idx = 2;
+          else if (["4", "d", "D"].includes(e.key)) idx = 3;
+          else if (["5", "e", "E"].includes(e.key)) idx = 4;
+
+          if (idx >= 0 && idx < (activeQuestions[currentQuestionIndex]?.options.length || 0)) {
+            e.preventDefault();
+            handleSelectOption(idx);
+          }
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          if (!isAnswerSubmitted && selectedOption !== null) {
+            handleSubmitAnswer();
+          } else if (isAnswerSubmitted) {
+            handleNextQuestion();
+          }
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, type, currentFlashcardIndex, sampleFlashcards.length]);
+  }, [isOpen, type, currentFlashcardIndex, activeFlashcards.length, currentQuestionIndex, activeQuestions, selectedOption, isAnswerSubmitted, isQuizCompleted]);
 
   if (!isOpen) return null;
 
   const exportToAnkiCSV = () => {
     const csvHeader = "Pergunta,Resposta,Categoria\n";
-    const csvRows = sampleFlashcards
+    const csvRows = activeFlashcards
       .map(card => `"${card.question.replace(/"/g, '""')}","${card.answer.replace(/"/g, '""')}","${card.category}"`)
       .join("\n");
     const blob = new Blob([csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
@@ -166,17 +282,27 @@ export default function InteractiveStudyModal({
   const handleSubmitAnswer = () => {
     if (selectedOption === null) return;
     setIsAnswerSubmitted(true);
-    if (selectedOption === sampleQuestions[currentQuestionIndex].correctIndex) {
-      setScore(score + 1);
+    if (selectedOption === activeQuestions[currentQuestionIndex].correctIndex) {
+      setScore(prev => prev + 1);
     }
   };
 
   const handleNextQuestion = () => {
     setSelectedOption(null);
     setIsAnswerSubmitted(false);
-    if (currentQuestionIndex < sampleQuestions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    if (currentQuestionIndex < activeQuestions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    } else {
+      setIsQuizCompleted(true);
     }
+  };
+
+  const handleRestartQuiz = () => {
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setIsAnswerSubmitted(false);
+    setScore(0);
+    setIsQuizCompleted(false);
   };
 
   return (
@@ -184,7 +310,7 @@ export default function InteractiveStudyModal({
       <div className={`relative w-full bg-white dark:bg-[#0B0F17] shadow-2xl border border-slate-200 dark:border-slate-800/80 overflow-hidden flex flex-col transition-all duration-300 ${
         isFocusMode && type === "flashcards"
           ? "w-screen h-screen max-w-none max-h-none rounded-none border-none"
-          : "max-w-2xl rounded-2xl max-h-[92vh]"
+          : "max-w-2xl md:max-w-4xl lg:max-w-5xl rounded-2xl max-h-[92vh]"
       }`}>
         
         {/* Header Modal */}
@@ -192,7 +318,7 @@ export default function InteractiveStudyModal({
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             {type === "flashcards" && (
               <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 shrink-0">
-                <BrainCircuit className="w-4 h-4 sm:w-5 sm:h-5" />
+                <SquareStack className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             )}
             {type === "questions" && (
@@ -213,7 +339,7 @@ export default function InteractiveStudyModal({
             <div className="min-w-0 flex-1">
               <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white capitalize truncate">
                 {type === "flashcards" && "Flashcards de Memorização Ativa (Estilo Gemini)"}
-                {type === "questions" && "Questões de Provas Pretéritas"}
+                {type === "questions" && "Questões de Provas"}
                 {type === "simulado" && "Simulado de Questões Inéditas"}
                 {type === "infografico" && "Infográfico & Mapa Mental do Artigo"}
               </h3>
@@ -237,10 +363,10 @@ export default function InteractiveStudyModal({
           
           {/* RENDER FLASHCARDS MODAL (Gemini 3D Flip Experience) */}
           {type === "flashcards" && (
-            sampleFlashcards.length === 0 ? (
+            activeFlashcards.length === 0 ? (
               <div className="py-6 sm:py-10 px-4 text-center space-y-3.5 my-auto">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto border border-amber-500/20">
-                  <BrainCircuit className="w-6 h-6 sm:w-8 sm:h-8" />
+                  <SquareStack className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
                 <div className="space-y-1">
                   <h4 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base font-outfit">
@@ -260,24 +386,41 @@ export default function InteractiveStudyModal({
             ) : (
               <div className="flex-1 flex flex-col justify-between space-y-4 py-1">
                 
-                {/* Gemini Top Header Bar: Progress track + Counters + Focus Mode */}
-                <div className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-400 bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/80">
+                {/* Gemini Top Header Bar: Progress track + Counters + Shuffle + Focus Mode */}
+                <div className={`flex items-center justify-between gap-3 text-xs font-semibold text-slate-400 bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/80 w-full ${
+                  isFocusMode ? "max-w-2xl sm:max-w-3xl md:max-w-4xl mx-auto" : ""
+                }`}>
                   
                   {/* Segmented Track & Number */}
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden flex gap-1 p-0.5">
                       <div 
                         className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full transition-all duration-300" 
-                        style={{ width: `${((currentFlashcardIndex + 1) / sampleFlashcards.length) * 100}%` }}
+                        style={{ width: `${activeFlashcards.length > 0 ? ((currentFlashcardIndex + 1) / activeFlashcards.length) * 100 : 0}%` }}
                       />
                     </div>
                     <span className="text-xs font-mono font-bold text-amber-400 shrink-0">
-                      {currentFlashcardIndex + 1}/{sampleFlashcards.length}
+                      {currentFlashcardIndex + 1}/{activeFlashcards.length}
                     </span>
                   </div>
 
-                  {/* Red (Wrong) & Green (Correct) Badges */}
+                  {/* Badges + Shuffle Button + Focus Mode */}
                   <div className="flex items-center gap-2 shrink-0">
+                    
+                    {/* Shuffle Button */}
+                    <button
+                      onClick={handleShuffleFlashcards}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border ${
+                        isFlashcardsShuffled
+                          ? "bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow-sm"
+                          : "bg-slate-800 hover:bg-slate-700 text-amber-400 border-amber-500/30"
+                      }`}
+                      title="Embaralhar ordem dos Flashcards"
+                    >
+                      <Shuffle className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{isFlashcardsShuffled ? "Embaralhado" : "Embaralhar"}</span>
+                    </button>
+
                     <button
                       onClick={handleMarkWrong}
                       className="px-2.5 py-1 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 font-mono text-xs font-black transition-all flex items-center gap-1 cursor-pointer"
@@ -315,18 +458,16 @@ export default function InteractiveStudyModal({
 
                 {/* Gemini 3D Flip Card Component Stage */}
                 <div
-                  className={`relative w-full my-auto cursor-pointer select-none ${
+                  className={`relative w-full my-auto cursor-pointer select-none max-w-2xl sm:max-w-3xl mx-auto ${
                     isFocusMode
-                      ? "max-w-2xl sm:max-w-3xl mx-auto h-[340px] sm:h-[400px]"
-                      : "min-h-[220px] sm:min-h-[260px]"
+                      ? "h-[340px] sm:h-[400px] md:h-[460px]"
+                      : "h-[320px] sm:h-[380px] md:h-[420px]"
                   }`}
                   style={{ perspective: "1000px" }}
                   onClick={() => setIsFlipped(!isFlipped)}
                 >
                   <div
-                    className={`relative w-full h-full rounded-3xl transition-transform duration-600 shadow-2xl ${
-                      !isFocusMode ? "min-h-[220px] sm:min-h-[260px]" : ""
-                    }`}
+                    className="relative w-full h-full rounded-3xl transition-transform duration-600 shadow-2xl"
                     style={{
                       transformStyle: "preserve-3d",
                       transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
@@ -335,49 +476,54 @@ export default function InteractiveStudyModal({
                   >
                     {/* FRONT FACE (PERGUNTA) */}
                     <div
-                      className="absolute inset-0 w-full h-full p-6 sm:p-10 rounded-3xl bg-[#141B2D] border border-amber-500/25 flex flex-col items-center justify-between text-center shadow-xl hover:border-amber-500/40 transition-colors group"
+                      className="absolute inset-0 w-full h-full p-6 sm:p-10 md:p-12 rounded-3xl bg-[#141B2D] border border-amber-500/25 flex flex-col items-center justify-between text-center shadow-xl hover:border-amber-500/40 transition-colors group"
                       style={{ backfaceVisibility: "hidden" }}
                     >
-                      <div className="w-full flex items-center justify-between text-[11px] font-black uppercase tracking-widest text-amber-400">
+                      <div className="w-full flex items-center justify-between text-[11px] sm:text-xs font-black uppercase tracking-widest text-amber-400">
                         <span className="flex items-center gap-1.5">
-                          <BrainCircuit className="w-4 h-4 text-amber-400" /> Memorização Ativa
+                          <SquareStack className="w-4 h-4 text-amber-400" /> Memorização Ativa
+                          {isFlashcardsShuffled && (
+                            <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold normal-case">
+                              ⚡ Aleatório
+                            </span>
+                          )}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px]">
+                        <span className="px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] sm:text-xs font-bold">
                           Frente / Pergunta
                         </span>
                       </div>
 
-                      <div className="my-auto py-4">
-                        <h3 className="text-base sm:text-xl font-bold font-outfit text-white leading-relaxed">
-                          <MathRenderer content={sampleFlashcards[currentFlashcardIndex]?.question || ""} />
+                      <div className="my-auto py-4 max-w-3xl">
+                        <h3 className="text-base sm:text-xl md:text-2xl font-bold font-outfit text-white leading-relaxed">
+                          <MathRenderer content={activeFlashcards[currentFlashcardIndex]?.question || ""} />
                         </h3>
                       </div>
 
-                      <div className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 group-hover:text-amber-400 transition-colors">
+                      <div className="text-[11px] sm:text-xs font-semibold text-slate-400 flex items-center gap-1.5 group-hover:text-amber-400 transition-colors">
                         <RotateCw className="w-3.5 h-3.5 text-amber-400 animate-spin-once" /> Clique no cartão para virar (ou barra de Espaço)
                       </div>
                     </div>
 
                     {/* BACK FACE (RESPOSTA / GABARITO) */}
                     <div
-                      className="absolute inset-0 w-full h-full p-6 sm:p-10 rounded-3xl bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#172136] border border-emerald-500/30 flex flex-col items-center justify-between text-center shadow-2xl"
+                      className="absolute inset-0 w-full h-full p-6 sm:p-10 md:p-12 rounded-3xl bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#172136] border border-emerald-500/30 flex flex-col items-center justify-between text-center shadow-2xl"
                       style={{
                         backfaceVisibility: "hidden",
                         transform: "rotateY(180deg)",
                       }}
                     >
-                      <div className="w-full flex items-center justify-between text-[11px] font-black uppercase tracking-widest text-emerald-400">
+                      <div className="w-full flex items-center justify-between text-[11px] sm:text-xs font-black uppercase tracking-widest text-emerald-400">
                         <span className="flex items-center gap-1.5">
                           <Sparkles className="w-4 h-4 text-amber-400" /> Gabarito / Resposta
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px]">
+                        <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] sm:text-xs font-bold">
                           Verso / Resposta
                         </span>
                       </div>
 
-                      <div className="my-auto py-4">
-                        <div className="text-base sm:text-lg font-bold font-outfit text-emerald-100 leading-relaxed">
-                          <MathRenderer content={sampleFlashcards[currentFlashcardIndex]?.answer || ""} />
+                      <div className="my-auto py-4 max-w-3xl">
+                        <div className="text-base sm:text-lg md:text-xl font-bold font-outfit text-emerald-100 leading-relaxed">
+                          <MathRenderer content={activeFlashcards[currentFlashcardIndex]?.answer || ""} />
                         </div>
                       </div>
 
@@ -387,18 +533,18 @@ export default function InteractiveStudyModal({
                             e.stopPropagation();
                             handleMarkWrong();
                           }}
-                          className="px-3.5 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer"
                         >
-                          <X className="w-3.5 h-3.5" /> Errei (1)
+                          <X className="w-4 h-4" /> Errei
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleMarkCorrect();
                           }}
-                          className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer"
                         >
-                          <Check className="w-3.5 h-3.5" /> Acertei (2)
+                          <Check className="w-4 h-4" /> Acertei
                         </button>
                       </div>
                     </div>
@@ -406,11 +552,13 @@ export default function InteractiveStudyModal({
                 </div>
 
                 {/* Navigation Controls & Restart */}
-                <div className="flex items-center justify-between pt-1">
+                <div className={`flex items-center justify-between pt-1 w-full ${
+                  isFocusMode ? "max-w-2xl sm:max-w-3xl md:max-w-4xl mx-auto" : ""
+                }`}>
                   <button
                     onClick={handlePrevFlashcard}
                     disabled={currentFlashcardIndex === 0}
-                    className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold text-xs sm:text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" /> Anterior
                   </button>
@@ -425,7 +573,7 @@ export default function InteractiveStudyModal({
 
                   <button
                     onClick={handleNextFlashcard}
-                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     Próximo <ArrowRight className="w-4 h-4" />
                   </button>
@@ -437,8 +585,8 @@ export default function InteractiveStudyModal({
 
           {/* RENDER QUESTIONS OR SIMULADO MODAL */}
           {(type === "questions" || type === "simulado") && (
-            sampleQuestions.length === 0 ? (
-              <div className="py-6 sm:py-10 px-4 text-center space-y-3.5">
+            activeQuestions.length === 0 ? (
+              <div className="py-6 sm:py-10 px-4 text-center space-y-3.5 my-auto">
                 <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto border ${
                   type === "simulado"
                     ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
@@ -463,33 +611,131 @@ export default function InteractiveStudyModal({
                   Fechar Janela
                 </button>
               </div>
-            ) : (
-              <div className="space-y-6">
-                
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                  <span className="flex items-center gap-1.5">
-                    <span>Questão {currentQuestionIndex + 1} de {sampleQuestions.length}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                      type === "simulado"
-                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
-                        : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                    }`}>
-                      {type === "simulado" ? "🎯 Questão Inédita (Simulado)" : "🏛️ Prova Pretérita"}
-                    </span>
-                  </span>
-                  <span className={`flex items-center gap-1 font-bold ${type === "simulado" ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}>
-                    <Award className="w-4 h-4" /> Acertos: {score}
-                  </span>
+            ) : isQuizCompleted ? (
+              /* Quiz / Simulado Finished Score Summary Screen */
+              <div className="py-8 px-4 text-center space-y-5 my-auto animate-in fade-in duration-300">
+                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto border shadow-lg ${
+                  score / activeQuestions.length >= 0.7
+                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                    : score / activeQuestions.length >= 0.5
+                    ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                    : "bg-red-500/10 text-red-500 border-red-500/30"
+                }`}>
+                  <Award className="w-8 h-8 sm:w-10 sm:h-10" />
                 </div>
+
+                <div className="space-y-2">
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    {type === "simulado" ? "Desempenho no Simulado" : "Desempenho nas Questões"}
+                  </span>
+                  <h4 className="font-extrabold text-slate-900 dark:text-white text-xl sm:text-2xl font-outfit">
+                    {score / activeQuestions.length >= 0.7
+                      ? "🎉 Excelente Resultado!"
+                      : score / activeQuestions.length >= 0.5
+                      ? "👍 Bom Treino!"
+                      : "📚 Continue Revisando!"}
+                  </h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                    Você acertou <strong className="text-slate-900 dark:text-white font-black">{score}</strong> de <strong className="text-slate-900 dark:text-white font-black">{activeQuestions.length}</strong> questões ({Math.round((score / activeQuestions.length) * 100)}% de aproveitamento).
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={handleRestartQuiz}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-4 h-4" /> Refazer Treino
+                  </button>
+
+                  <button
+                    onClick={handleShuffleQuestions}
+                    className="px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Shuffle className="w-4 h-4" /> Refazer em Ordem Aleatória
+                  </button>
+
+                  <button
+                    onClick={onClose}
+                    className={`px-6 py-2.5 rounded-xl text-white font-bold text-xs shadow-md transition-all cursor-pointer ${
+                      type === "simulado"
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-emerald-600 hover:bg-emerald-700"
+                    }`}
+                  >
+                    Concluir e Fechar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 gap-2 flex-wrap">
+                  <span className="flex items-center gap-1.5 flex-wrap">
+                    <span>Questão {currentQuestionIndex + 1} de {activeQuestions.length}</span>
+                    {type === "simulado" && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                        🎯 Questão Inédita (Simulado)
+                      </span>
+                    )}
+                  </span>
+
+                  <div className="flex items-center gap-3">
+                    {/* Shuffle Button */}
+                    <button
+                      onClick={handleShuffleQuestions}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border ${
+                        isQuestionsShuffled
+                          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                          : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
+                      }`}
+                      title="Embaralhar ordem das questões"
+                    >
+                      <Shuffle className="w-3.5 h-3.5 text-amber-500" />
+                      <span>{isQuestionsShuffled ? "Ordem Aleatória" : "Embaralhar"}</span>
+                    </button>
+
+                    <span className={`flex items-center gap-1 font-bold ${type === "simulado" ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                      <Award className="w-4 h-4" /> Acertos: {score}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Question Metadata Badges: Banca, Ano, Órgão */}
+                {(() => {
+                  const currentQ = activeQuestions[currentQuestionIndex];
+                  const bancaVal = currentQ?.banca || "Cebraspe";
+                  const anoVal = currentQ?.ano || currentQ?.year || "2026";
+                  const orgaoVal = currentQ?.orgao || "Concurso Público";
+
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 shadow-xs font-bold">
+                        <Building2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-slate-400 dark:text-slate-500 font-semibold">Banca:</span> {bancaVal}
+                      </span>
+
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 shadow-xs font-bold">
+                        <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-slate-400 dark:text-slate-500 font-semibold">Ano:</span> {anoVal}
+                      </span>
+
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 shadow-xs font-bold">
+                        <Landmark className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="text-slate-400 dark:text-slate-500 font-semibold">Órgão:</span> {orgaoVal}
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 {/* Statement */}
                 <div className="text-base font-medium text-slate-900 dark:text-slate-100 leading-relaxed bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <MathRenderer content={sampleQuestions[currentQuestionIndex]?.statement || ""} />
+                  <MathRenderer content={activeQuestions[currentQuestionIndex]?.statement || ""} />
                 </div>
 
                 {/* Options */}
                 <div className="space-y-2.5">
-                  {sampleQuestions[currentQuestionIndex]?.options.map((option, idx) => {
+                  {activeQuestions[currentQuestionIndex]?.options.map((option, idx) => {
                     let optionStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-amber-500/50";
                     let badgeStyle = "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300";
                     
@@ -499,7 +745,7 @@ export default function InteractiveStudyModal({
                     }
 
                     if (isAnswerSubmitted) {
-                      if (idx === sampleQuestions[currentQuestionIndex].correctIndex) {
+                      if (idx === activeQuestions[currentQuestionIndex].correctIndex) {
                         optionStyle = "border-emerald-600 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 font-bold";
                         badgeStyle = "border-emerald-500 bg-emerald-600 text-white font-black";
                       } else if (selectedOption === idx) {
@@ -515,17 +761,17 @@ export default function InteractiveStudyModal({
                         key={idx}
                         onClick={() => handleSelectOption(idx)}
                         disabled={isAnswerSubmitted}
-                        className={`w-full text-left p-3.5 rounded-xl border text-sm transition-all flex items-start gap-3 ${optionStyle}`}
+                        className={`w-full text-left p-3.5 rounded-xl border text-sm transition-all flex items-start gap-3 cursor-pointer ${optionStyle}`}
                       >
                         <span className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 font-bold text-xs transition-colors ${badgeStyle}`}>
                           {String.fromCharCode(65 + idx)}
                         </span>
                         <MathRenderer content={option} inline className="flex-1" />
                         
-                        {isAnswerSubmitted && idx === sampleQuestions[currentQuestionIndex].correctIndex && (
+                        {isAnswerSubmitted && idx === activeQuestions[currentQuestionIndex].correctIndex && (
                           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                         )}
-                        {isAnswerSubmitted && selectedOption === idx && idx !== sampleQuestions[currentQuestionIndex].correctIndex && (
+                        {isAnswerSubmitted && selectedOption === idx && idx !== activeQuestions[currentQuestionIndex].correctIndex && (
                           <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                         )}
                       </button>
@@ -534,12 +780,12 @@ export default function InteractiveStudyModal({
                 </div>
 
                 {/* Explanation Box when submitted (only if explanation exists) */}
-                {isAnswerSubmitted && sampleQuestions[currentQuestionIndex]?.explanation && (
+                {isAnswerSubmitted && activeQuestions[currentQuestionIndex]?.explanation && (
                   <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-sm animate-in fade-in duration-200">
                     <span className="font-bold flex items-center gap-1 mb-1 text-blue-700 dark:text-blue-300">
                       💡 Comentário do Professor:
                     </span>
-                    <MathRenderer content={sampleQuestions[currentQuestionIndex]?.explanation || ""} />
+                    <MathRenderer content={activeQuestions[currentQuestionIndex]?.explanation || ""} />
                   </div>
                 )}
 
@@ -549,16 +795,16 @@ export default function InteractiveStudyModal({
                     <button
                       onClick={handleSubmitAnswer}
                       disabled={selectedOption === null}
-                      className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm shadow-md transition-all"
+                      className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
                     >
                       Responder Questão
                     </button>
                   ) : (
                     <button
                       onClick={handleNextQuestion}
-                      className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 font-semibold text-sm shadow-md transition-all"
+                      className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 font-semibold text-sm shadow-md transition-all cursor-pointer"
                     >
-                      {currentQuestionIndex < sampleQuestions.length - 1 ? "Próxima Questão" : "Finalizar Treino"}
+                      {currentQuestionIndex < activeQuestions.length - 1 ? "Próxima Questão" : "Finalizar Treino"}
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   )}
@@ -571,7 +817,7 @@ export default function InteractiveStudyModal({
           {/* RENDER INFOGRAFICO MODAL */}
           {type === "infografico" && (
             sampleInfographics.length === 0 ? (
-              <div className="py-6 sm:py-10 px-4 text-center space-y-3.5">
+              <div className="py-6 sm:py-10 px-4 text-center space-y-3.5 my-auto">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mx-auto border border-purple-500/20">
                   <Layers className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
@@ -594,9 +840,9 @@ export default function InteractiveStudyModal({
               <div className="space-y-6">
                 
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                  <span>Esquema Visual {currentInfographicIndex + 1} de {sampleInfographics.length}</span>
+                  <span>Esquema Visual {Math.min(currentInfographicIndex + 1, sampleInfographics.length)} de {sampleInfographics.length}</span>
                   <span className="px-2.5 py-1 rounded bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 uppercase font-bold text-[10px]">
-                    {sampleInfographics[currentInfographicIndex]?.type?.replace("_", " ")}
+                    {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.type?.replace("_", " ")}
                   </span>
                 </div>
 
@@ -608,26 +854,26 @@ export default function InteractiveStudyModal({
                       <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Mapa Mental / Resumo Visual
                     </span>
                     <h3 className="text-xl font-bold font-outfit text-white">
-                      {sampleInfographics[currentInfographicIndex]?.title}
+                      {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.title}
                     </h3>
                     <p className="text-xs text-slate-300">
-                      {sampleInfographics[currentInfographicIndex]?.subtitle}
+                      {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.subtitle}
                     </p>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-200 leading-relaxed italic">
-                    "{sampleInfographics[currentInfographicIndex]?.summary}"
+                    "{(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.summary}"
                   </div>
 
                   {/* Key Points Flow */}
-                  {sampleInfographics[currentInfographicIndex]?.points && sampleInfographics[currentInfographicIndex].points.length > 0 && (
+                  {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.points && (sampleInfographics[currentInfographicIndex] || sampleInfographics[0]).points!.length > 0 && (
                     <div className="space-y-3 pt-2">
                       <h4 className="text-xs font-bold uppercase text-emerald-400 tracking-wider">
                         Pontos Chaves de Prova:
                       </h4>
 
                       <div className="grid grid-cols-1 gap-2.5">
-                        {sampleInfographics[currentInfographicIndex]?.points.map((pt, i) => (
+                        {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.points!.map((pt, i) => (
                           <div key={i} className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 flex items-start gap-3 text-xs text-slate-100">
                             <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0 font-bold text-[10px]">
                               {i + 1}
@@ -640,7 +886,7 @@ export default function InteractiveStudyModal({
                   )}
 
                   {/* Render Code/HTML Content if present */}
-                  {sampleInfographics[currentInfographicIndex]?.codeContent && (
+                  {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.codeContent && (
                     <div className="space-y-2 pt-2">
                       <h4 className="text-xs font-bold uppercase text-purple-400 tracking-wider">
                         Conteúdo Visual / Código Esquematizado:
@@ -648,7 +894,7 @@ export default function InteractiveStudyModal({
                       <div className="p-4 rounded-xl bg-slate-950 border border-purple-500/30 text-xs font-mono text-slate-100 overflow-x-auto">
                         <div 
                           className="prose dark:prose-invert max-w-none"
-                          dangerouslySetInnerHTML={{ __html: sampleInfographics[currentInfographicIndex].codeContent || "" }} 
+                          dangerouslySetInnerHTML={{ __html: (sampleInfographics[currentInfographicIndex] || sampleInfographics[0]).codeContent || "" }} 
                         />
                       </div>
                     </div>
@@ -661,7 +907,7 @@ export default function InteractiveStudyModal({
                   <button
                     onClick={() => setCurrentInfographicIndex(Math.max(0, currentInfographicIndex - 1))}
                     disabled={currentInfographicIndex === 0}
-                    className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" /> Esquema Anterior
                   </button>
@@ -669,7 +915,7 @@ export default function InteractiveStudyModal({
                   <button
                     onClick={() => setCurrentInfographicIndex(Math.min(sampleInfographics.length - 1, currentInfographicIndex + 1))}
                     disabled={currentInfographicIndex === sampleInfographics.length - 1}
-                    className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     Próximo Esquema <ArrowRight className="w-4 h-4" />
                   </button>

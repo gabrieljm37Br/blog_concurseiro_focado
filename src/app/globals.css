@@ -204,6 +204,22 @@ hr, .prose hr, .editor-canvas hr {
   line-height: 1.8 !important;
 }
 
+/* Accessibility Font Scaling Classes */
+.article-font-sm p, .article-font-sm li, .article-font-sm span, .article-font-sm td, .article-font-sm div:not(.no-print) {
+  font-size: 0.9rem !important;
+  line-height: 1.6 !important;
+}
+
+.article-font-lg p, .article-font-lg li, .article-font-lg span, .article-font-lg td, .article-font-lg div:not(.no-print) {
+  font-size: 1.22rem !important;
+  line-height: 1.85 !important;
+}
+
+.article-font-xl p, .article-font-xl li, .article-font-xl span, .article-font-xl td, .article-font-xl div:not(.no-print) {
+  font-size: 1.42rem !important;
+  line-height: 1.95 !important;
+}
+
 /* Smooth transitions */
 .transition-theme {
   transition: all 0.2s ease-in-out;
@@ -403,3 +419,38 @@ hr, .prose hr, .editor-canvas hr {
 .dark .border-dashed {
   border-color: #334155 !important;
 }
+
+/* ==========================================================================
+   PRINT & PDF GENERATOR STYLES
+   ========================================================================== */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+  }
+
+  header, footer, nav, button, .no-print, [title="Fechar modal"] {
+    display: none !important;
+  }
+
+  .print-only-header {
+    display: block !important;
+  }
+
+  .prose {
+    color: #0f172a !important;
+    max-width: 100% !important;
+  }
+
+  .prose h1, .prose h2, .prose h3 {
+    color: #0f172a !important;
+    page-break-after: avoid;
+  }
+
+  .prose blockquote, .prose div, .prose table {
+    page-break-inside: avoid;
+  }
+}
+

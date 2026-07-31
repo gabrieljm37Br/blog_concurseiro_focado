@@ -136,17 +136,37 @@ export default async function ArticlePage({ params }: Props) {
         }
       }
 
-      let parsedStudyData: any = null;
-      if (dbPost.content_html) {
-        const studyMatch = dbPost.content_html.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
-        if (studyMatch && studyMatch[1]) {
-          try {
-            parsedStudyData = JSON.parse(studyMatch[1]);
-          } catch (e) {
-            console.warn("Erro ao fazer parse do STUDY_DATA_JSON:", e);
-          }
+      const extractStudyDataFromContentHtml = (contentHtml: string): any => {
+        if (!contentHtml) return null;
+        const b64Match = contentHtml.match(/<!-- STUDY_DATA_JSON_B64: ([\s\S]*?) -->/i);
+        if (b64Match && b64Match[1]) {
+          try { return JSON.parse(decodeURIComponent(b64Match[1].trim())); } catch (e) {}
         }
-      }
+        const legacyMatch = contentHtml.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
+        if (legacyMatch && legacyMatch[1]) {
+          try { return JSON.parse(legacyMatch[1].trim()); } catch (e) {}
+        }
+        const startIdx = contentHtml.indexOf("<!-- STUDY_DATA_JSON:");
+        if (startIdx !== -1) {
+          let sub = contentHtml.substring(startIdx + "<!-- STUDY_DATA_JSON:".length);
+          const lastEnd = sub.lastIndexOf("-->");
+          if (lastEnd !== -1) sub = sub.substring(0, lastEnd);
+          sub = sub.trim();
+          try { return JSON.parse(sub); } catch (e) {}
+        }
+        const jsonMatch = contentHtml.match(/\{"flashcards":[\s\S]*?\}(?=\s*(?:-->|$))/i) || contentHtml.match(/\{"flashcards":[\s\S]*/i);
+        if (jsonMatch) {
+          let str = jsonMatch[0].trim().replace(/-->\s*$/g, "").trim();
+          if (!str.endsWith("}")) {
+            const lastCurly = str.lastIndexOf("}");
+            if (lastCurly !== -1) str = str.substring(0, lastCurly + 1);
+          }
+          try { return JSON.parse(str); } catch (e) {}
+        }
+        return null;
+      };
+
+      const parsedStudyData = extractStudyDataFromContentHtml(dbPost.content_html || "");
 
       const flashcardsArr = (parsedStudyData && Array.isArray(parsedStudyData.flashcards) && parsedStudyData.flashcards.length > 0)
         ? parsedStudyData.flashcards

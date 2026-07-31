@@ -40,7 +40,9 @@ import {
   Activity,
   Flame,
   HelpCircle,
-  Target
+  Target,
+  Search,
+  X
 } from "lucide-react";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 
@@ -84,6 +86,13 @@ export default function AdminPage() {
   const [autoSaveMessage, setAutoSaveMessage] = useState("");
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
 
+  // Rich Filter & Search State for Articles List
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<"all" | "published" | "draft" | "review" | "scheduled">("all");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("all");
+  const [selectedBancaFilter, setSelectedBancaFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title_asc">("newest");
+
   // Auth & Admin State
   const [userSession, setUserSession] = useState<any>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -105,6 +114,12 @@ export default function AdminPage() {
   const [bulkQuestionsText, setBulkQuestionsText] = useState("");
   const [bulkSimuladosText, setBulkSimuladosText] = useState("");
   const [infographicCode, setInfographicCode] = useState("");
+
+  // Item Editing States
+  const [editingFlashcardIndex, setEditingFlashcardIndex] = useState<number | null>(null);
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
+  const [editingSimuladoIndex, setEditingSimuladoIndex] = useState<number | null>(null);
+  const [editingInfographicIndex, setEditingInfographicIndex] = useState<number | null>(null);
 
   const initialFormDataState = {
     title: "",
@@ -392,8 +407,65 @@ export default function AdminPage() {
       .replace(/<!-- TAGS: [\s\S]*? -->/gi, "")
       .replace(/<!-- STATUS: [\s\S]*? -->/gi, "")
       .replace(/<!-- SCHEDULED_AT: [\s\S]*? -->/gi, "")
+      .replace(/<!-- STUDY_DATA_JSON_B64: [\s\S]*? -->/gi, "")
       .replace(/<!-- STUDY_DATA_JSON: [\s\S]*? -->/gi, "")
+      .replace(/,"points":\["Revisão rápida de pontos de alta incidência"\]\]\}?\s*-->/gi, "")
       .trim();
+  };
+
+  const extractStudyDataFromContentHtml = (contentHtml: string): any => {
+    if (!contentHtml) return null;
+
+    // 1. Check STUDY_DATA_JSON_B64
+    const b64Match = contentHtml.match(/<!-- STUDY_DATA_JSON_B64: ([\s\S]*?) -->/i);
+    if (b64Match && b64Match[1]) {
+      try {
+        return JSON.parse(decodeURIComponent(b64Match[1].trim()));
+      } catch (e) {
+        console.warn("Erro ao decodificar B64:", e);
+      }
+    }
+
+    // 2. Check legacy STUDY_DATA_JSON
+    const legacyMatch = contentHtml.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
+    if (legacyMatch && legacyMatch[1]) {
+      try {
+        return JSON.parse(legacyMatch[1].trim());
+      } catch (e) {
+        console.warn("Erro ao decodificar legacy JSON direto:", e);
+      }
+    }
+
+    // 3. Relaxed recovery: Find substring starting with "<!-- STUDY_DATA_JSON:" up to the last "-->"
+    const startIdx = contentHtml.indexOf("<!-- STUDY_DATA_JSON:");
+    if (startIdx !== -1) {
+      let sub = contentHtml.substring(startIdx + "<!-- STUDY_DATA_JSON:".length);
+      const lastEnd = sub.lastIndexOf("-->");
+      if (lastEnd !== -1) sub = sub.substring(0, lastEnd);
+      sub = sub.trim();
+      try {
+        return JSON.parse(sub);
+      } catch (e) {
+        console.warn("Erro no parser relaxado:", e);
+      }
+    }
+
+    // 4. Ultimate recovery: Extract any {"flashcards":...} JSON structure anywhere in HTML
+    const jsonMatch = contentHtml.match(/\{"flashcards":[\s\S]*?\}(?=\s*(?:-->|$))/i) || contentHtml.match(/\{"flashcards":[\s\S]*/i);
+    if (jsonMatch) {
+      let str = jsonMatch[0].trim().replace(/-->\s*$/g, "").trim();
+      if (!str.endsWith("}")) {
+        const lastCurly = str.lastIndexOf("}");
+        if (lastCurly !== -1) str = str.substring(0, lastCurly + 1);
+      }
+      try {
+        return JSON.parse(str);
+      } catch (e) {
+        console.warn("Erro no parser ultimate:", e);
+      }
+    }
+
+    return null;
   };
 
   const handleStartEditPost = (post: DbPost) => {
@@ -419,17 +491,14 @@ export default function AdminPage() {
         scheduledAtStr = schedMatch[1].trim();
       }
 
-      const studyMatch = post.content_html.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
-      if (studyMatch && studyMatch[1]) {
-        try {
-          const parsed = JSON.parse(studyMatch[1]);
-          if (Array.isArray(parsed.flashcards)) setFlashcardsList(parsed.flashcards);
-          if (Array.isArray(parsed.questions)) setQuestionsList(parsed.questions);
-          if (Array.isArray(parsed.simulados)) setSimuladosList(parsed.simulados);
-          if (Array.isArray(parsed.infographics)) setInfographicsList(parsed.infographics);
-        } catch (e) {
-          console.warn("Erro ao restaurar STUDY_DATA_JSON no editor:", e);
-        }
+      // Extract Study Data with 4-level resilient parser
+      const parsed = extractStudyDataFromContentHtml(post.content_html);
+
+      if (parsed) {
+        if (Array.isArray(parsed.flashcards)) setFlashcardsList(parsed.flashcards);
+        if (Array.isArray(parsed.questions)) setQuestionsList(parsed.questions);
+        if (Array.isArray(parsed.simulados)) setSimuladosList(parsed.simulados);
+        if (Array.isArray(parsed.infographics)) setInfographicsList(parsed.infographics);
       }
     }
 
@@ -441,7 +510,7 @@ export default function AdminPage() {
       subcategory: post.subcategory || "",
       banca: post.banca || "",
       summary: post.summary || "",
-      content_html: post.content_html || "",
+      content_html: cleanArticleHtmlForStorage(post.content_html || ""),
       read_time: post.read_time || "6 min de leitura",
       featured_image: post.featured_image || "",
       youtube_video_id: post.youtube_video_id || "",
@@ -518,17 +587,79 @@ export default function AdminPage() {
     }
   };
 
+  // Flashcard Handlers (Add + Edit)
+  const handleStartEditFlashcard = (index: number) => {
+    const card = flashcardsList[index];
+    if (!card) return;
+    setFormData(prev => ({
+      ...prev,
+      flashcardQuestion: card.question || "",
+      flashcardAnswer: card.answer || ""
+    }));
+    setEditingFlashcardIndex(index);
+    setStudyToolTab("flashcards");
+  };
+
+  const handleCancelEditFlashcard = () => {
+    setEditingFlashcardIndex(null);
+    setFormData(prev => ({ ...prev, flashcardQuestion: "", flashcardAnswer: "" }));
+  };
+
   const handleAddSingleFlashcard = () => {
     if (!formData.flashcardQuestion || !formData.flashcardAnswer) return;
+    const targetId = editingFlashcardIndex !== null && flashcardsList[editingFlashcardIndex]?.id ? flashcardsList[editingFlashcardIndex].id : Date.now();
     const newCard = {
-      id: Date.now(),
+      id: targetId,
       question: formData.flashcardQuestion,
       answer: formData.flashcardAnswer,
       category: formData.subcategory || "Geral"
     };
-    setFlashcardsList(prev => [...prev, newCard]);
+
+    if (editingFlashcardIndex !== null) {
+      setFlashcardsList(prev => prev.map((item, idx) => idx === editingFlashcardIndex ? newCard : item));
+      setStatusMessage("✅ Flashcard atualizado com sucesso!");
+      setEditingFlashcardIndex(null);
+    } else {
+      setFlashcardsList(prev => [...prev, newCard]);
+      setStatusMessage("✅ Flashcard adicionado à lista do artigo!");
+    }
     setFormData(prev => ({ ...prev, flashcardQuestion: "", flashcardAnswer: "" }));
-    setStatusMessage("✅ Flashcard adicionado à lista do artigo!");
+  };
+
+  // Question Handlers (Add + Edit)
+  const handleStartEditQuestion = (index: number) => {
+    const q = questionsList[index];
+    if (!q) return;
+    const isCE = q.type === "certo_errado";
+    setFormData(prev => ({
+      ...prev,
+      questionStatement: q.statement || "",
+      questionType: isCE ? "certo_errado" : "multipla_escolha_5",
+      questionOptionA: isCE ? "" : (q.options[0] || ""),
+      questionOptionB: isCE ? "" : (q.options[1] || ""),
+      questionOptionC: isCE ? "" : (q.options[2] || ""),
+      questionOptionD: isCE ? "" : (q.options[3] || ""),
+      questionOptionE: isCE ? "" : (q.options[4] || ""),
+      questionCorrectOption: (q.correctIndex !== undefined ? q.correctIndex : 0).toString(),
+      questionExplanation: q.explanation || "",
+      banca: q.banca || prev.banca
+    }));
+    setEditingQuestionIndex(index);
+    setStudyToolTab("questions");
+  };
+
+  const handleCancelEditQuestion = () => {
+    setEditingQuestionIndex(null);
+    setFormData(prev => ({
+      ...prev,
+      questionStatement: "",
+      questionOptionA: "",
+      questionOptionB: "",
+      questionOptionC: "",
+      questionOptionD: "",
+      questionOptionE: "",
+      questionExplanation: ""
+    }));
   };
 
   // Helper Parser 2: Questões (Provas Pretéritas) (Item 6 - Importação em Lote & Certo/Errado)
@@ -673,8 +804,9 @@ export default function AdminPage() {
       ];
     }
 
+    const targetId = editingQuestionIndex !== null && questionsList[editingQuestionIndex]?.id ? questionsList[editingQuestionIndex].id : Date.now();
     const newQuestion = {
-      id: Date.now(),
+      id: targetId,
       banca: formData.banca || "Cebraspe",
       ano: "2026",
       orgao: "Concurso Público",
@@ -682,10 +814,18 @@ export default function AdminPage() {
       statement: formData.questionStatement.trim(),
       options: opts,
       correctIndex: parseInt(formData.questionCorrectOption || "0", 10),
-      explanation: formData.questionExplanation.trim() // OPCIONAL!
+      explanation: formData.questionExplanation.trim()
     };
 
-    setQuestionsList(prev => [...prev, newQuestion]);
+    if (editingQuestionIndex !== null) {
+      setQuestionsList(prev => prev.map((item, idx) => idx === editingQuestionIndex ? newQuestion : item));
+      setStatusMessage("✅ Questão atualizada com sucesso!");
+      setEditingQuestionIndex(null);
+    } else {
+      setQuestionsList(prev => [...prev, newQuestion]);
+      setStatusMessage("✅ Questão adicionada à lista!");
+    }
+
     setFormData(prev => ({
       ...prev,
       questionStatement: "",
@@ -696,7 +836,39 @@ export default function AdminPage() {
       questionOptionE: "",
       questionExplanation: ""
     }));
-    setStatusMessage("✅ Questão adicionada à lista!");
+  };
+
+  // Simulado Handlers (Add + Edit)
+  const handleStartEditSimulado = (index: number) => {
+    const s = simuladosList[index];
+    if (!s) return;
+    const isCE = s.type === "certo_errado";
+    setFormData(prev => ({
+      ...prev,
+      simuladoStatement: s.statement || "",
+      simuladoType: isCE ? "certo_errado" : "multipla_escolha_4",
+      simuladoOptionA: isCE ? "" : (s.options[0] || ""),
+      simuladoOptionB: isCE ? "" : (s.options[1] || ""),
+      simuladoOptionC: isCE ? "" : (s.options[2] || ""),
+      simuladoOptionD: isCE ? "" : (s.options[3] || ""),
+      simuladoCorrectOption: (s.correctIndex !== undefined ? s.correctIndex : 0).toString(),
+      simuladoExplanation: s.explanation || ""
+    }));
+    setEditingSimuladoIndex(index);
+    setStudyToolTab("simulado");
+  };
+
+  const handleCancelEditSimulado = () => {
+    setEditingSimuladoIndex(null);
+    setFormData(prev => ({
+      ...prev,
+      simuladoStatement: "",
+      simuladoOptionA: "",
+      simuladoOptionB: "",
+      simuladoOptionC: "",
+      simuladoOptionD: "",
+      simuladoExplanation: ""
+    }));
   };
 
   // Helper Parser 3: Simulado (Questões Inéditas) (Item 7 - Importação em Lote & Certo/Errado)
@@ -825,16 +997,25 @@ export default function AdminPage() {
       ];
     }
 
+    const targetId = editingSimuladoIndex !== null && simuladosList[editingSimuladoIndex]?.id ? simuladosList[editingSimuladoIndex].id : Date.now();
     const newSimulado = {
-      id: Date.now(),
+      id: targetId,
       type: isCertoErrado ? "certo_errado" : "multipla_escolha_4",
       statement: formData.simuladoStatement.trim(),
       options: opts,
       correctIndex: parseInt(formData.simuladoCorrectOption || "0", 10),
-      explanation: formData.simuladoExplanation.trim() // OPCIONAL!
+      explanation: formData.simuladoExplanation.trim()
     };
 
-    setSimuladosList(prev => [...prev, newSimulado]);
+    if (editingSimuladoIndex !== null) {
+      setSimuladosList(prev => prev.map((item, idx) => idx === editingSimuladoIndex ? newSimulado : item));
+      setStatusMessage("✅ Questão inédita atualizada com sucesso!");
+      setEditingSimuladoIndex(null);
+    } else {
+      setSimuladosList(prev => [...prev, newSimulado]);
+      setStatusMessage("✅ Questão inédita de simulado adicionada à lista!");
+    }
+
     setFormData(prev => ({
       ...prev,
       simuladoStatement: "",
@@ -844,14 +1025,40 @@ export default function AdminPage() {
       simuladoOptionD: "",
       simuladoExplanation: ""
     }));
-    setStatusMessage("✅ Questão inédita de simulado adicionada à lista!");
   };
 
-  // Helper Parser 4: Infográficos com Código (Item 8)
+  // Infographic Handlers (Add + Edit)
+  const handleStartEditInfographic = (index: number) => {
+    const info = infographicsList[index];
+    if (!info) return;
+    setFormData(prev => ({
+      ...prev,
+      infographicTitle: info.title || "",
+      infographicSubtitle: info.subtitle || "",
+      infographicSummary: info.summary || "",
+      infographicType: info.type || "resumo_visual"
+    }));
+    setInfographicCode(info.codeContent || "");
+    setEditingInfographicIndex(index);
+    setStudyToolTab("infographic");
+  };
+
+  const handleCancelEditInfographic = () => {
+    setEditingInfographicIndex(null);
+    setInfographicCode("");
+    setFormData(prev => ({
+      ...prev,
+      infographicTitle: "",
+      infographicSubtitle: "",
+      infographicSummary: ""
+    }));
+  };
+
   const handleAddInfographic = () => {
     if (!formData.infographicTitle && !infographicCode) return;
+    const targetId = editingInfographicIndex !== null && infographicsList[editingInfographicIndex]?.id ? infographicsList[editingInfographicIndex].id : Date.now();
     const newInfo = {
-      id: Date.now(),
+      id: targetId,
       title: formData.infographicTitle || "Infográfico Acoplado",
       subtitle: formData.infographicSubtitle || "Resumo Esquematizado",
       summary: formData.infographicSummary || "Conteúdo visual explicativo sobre os pontos chave.",
@@ -863,7 +1070,15 @@ export default function AdminPage() {
       ]
     };
 
-    setInfographicsList(prev => [...prev, newInfo]);
+    if (editingInfographicIndex !== null) {
+      setInfographicsList(prev => prev.map((item, idx) => idx === editingInfographicIndex ? newInfo : item));
+      setStatusMessage("✅ Infográfico atualizado com sucesso!");
+      setEditingInfographicIndex(null);
+    } else {
+      setInfographicsList(prev => [...prev, newInfo]);
+      setStatusMessage("✅ Infográfico / Código adicionado à lista do artigo!");
+    }
+
     setInfographicCode("");
     setFormData(prev => ({
       ...prev,
@@ -871,8 +1086,9 @@ export default function AdminPage() {
       infographicSubtitle: "",
       infographicSummary: ""
     }));
-    setStatusMessage("✅ Infográfico / Código adicionado à lista do artigo!");
   };
+
+
 
   const handleSavePost = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -895,7 +1111,8 @@ export default function AdminPage() {
       infographics: infographicsList.length > 0 ? infographicsList : (formData.infographicTitle ? [{ id: Date.now(), title: formData.infographicTitle, subtitle: formData.infographicSubtitle, summary: formData.infographicSummary, type: formData.infographicType, codeContent: infographicCode, points: ["Revisão rápida de alta incidência"] }] : [])
     };
 
-    cleanContentHtml += `\n<!-- STUDY_DATA_JSON: ${JSON.stringify(studyDataJson)} -->`;
+    const studyDataB64Str = encodeURIComponent(JSON.stringify(studyDataJson));
+    cleanContentHtml += `\n<!-- STUDY_DATA_JSON_B64: ${studyDataB64Str} -->`;
 
     const isPublishedBool = formData.status === "published" || (
       formData.status === "scheduled" && formData.scheduled_at && new Date(formData.scheduled_at) <= new Date()
@@ -1228,117 +1445,334 @@ export default function AdminPage() {
       )}
 
       {/* TAB 1: LIST POSTS */}
-      {activeTab === "list" && (
-        <div className="space-y-4">
-          {loading ? (
-            <div className="p-8 text-center text-sm text-slate-500">Carregando artigos do Supabase...</div>
-          ) : posts.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500 bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800">
-              Nenhum post encontrado no banco de dados. Clique em "Novo Artigo" para publicar o primeiro!
-            </div>
-          ) : (
-            <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                  <thead className="bg-slate-50 dark:bg-slate-900/60 text-xs font-bold text-slate-500 uppercase border-b border-slate-200 dark:border-slate-800">
-                    <tr>
-                      <th className="px-6 py-3.5">Título / Slug</th>
-                      <th className="px-6 py-3.5">Categoria</th>
-                      <th className="px-6 py-3.5">Banca / Subcat</th>
-                      <th className="px-6 py-3.5">Status</th>
-                      <th className="px-6 py-3.5 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                    {posts.map((post) => (
-                      <tr key={post.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-slate-900 dark:text-white font-outfit">
-                            {post.title}
-                          </div>
-                          <div className="text-xs text-slate-400 font-mono">
-                            /artigo/{post.slug}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                            {post.category_slug}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-xs font-medium">
-                          {post.banca ? `Banca ${post.banca}` : post.subcategory || "-"}
-                        </td>
-                        <td className="px-6 py-4">
-                          {(() => {
-                            let status = post.is_published ? "published" : "draft";
-                            let schedAt = "";
-                            if (post.content_html) {
-                              const sMatch = post.content_html.match(/<!-- STATUS: ([\s\S]*?) -->/i);
-                              if (sMatch && sMatch[1]) status = sMatch[1].trim();
-                              const scMatch = post.content_html.match(/<!-- SCHEDULED_AT: ([\s\S]*?) -->/i);
-                              if (scMatch && scMatch[1]) schedAt = scMatch[1].trim();
-                            }
+      {activeTab === "list" && (() => {
+        const getPostStatus = (p: DbPost): "published" | "draft" | "review" | "scheduled" => {
+          let status: any = p.is_published ? "published" : "draft";
+          if (p.content_html) {
+            const sMatch = p.content_html.match(/<!-- STATUS: ([\s\S]*?) -->/i);
+            if (sMatch && sMatch[1]) status = sMatch[1].trim();
+          }
+          return status;
+        };
 
-                            if (status === "published" || post.is_published) {
-                              return (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/30">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Publicado
-                                </span>
-                              );
-                            } else if (status === "review") {
-                              return (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg border border-amber-500/30">
-                                  <Clock className="w-3.5 h-3.5" /> Em Revisão
-                                </span>
-                              );
-                            } else if (status === "scheduled") {
-                              return (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg border border-purple-500/30">
-                                  <Calendar className="w-3.5 h-3.5" /> Agendado ({schedAt ? new Date(schedAt).toLocaleDateString("pt-BR") : "Data"})
-                                </span>
-                              );
-                            } else {
-                              return (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700">
-                                  <FileEdit className="w-3.5 h-3.5" /> Rascunho
-                                </span>
-                              );
-                            }
-                          })()}
-                        </td>
-                        <td className="px-6 py-4 text-right space-x-2">
-                          <Link
-                            href={`/artigo/${post.slug}`}
-                            target="_blank"
-                            className="inline-flex items-center p-2 rounded-lg text-slate-500 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            title="Ver no site"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
-                          <button
-                            onClick={() => handleStartEditPost(post)}
-                            className="inline-flex items-center p-2 rounded-lg text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            title="Editar artigo"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeletePost(post.id)}
-                            className="inline-flex items-center p-2 rounded-lg text-slate-500 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            title="Excluir post"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        const statusCounts = {
+          all: posts.length,
+          published: posts.filter(p => getPostStatus(p) === "published").length,
+          draft: posts.filter(p => getPostStatus(p) === "draft").length,
+          review: posts.filter(p => getPostStatus(p) === "review").length,
+          scheduled: posts.filter(p => getPostStatus(p) === "scheduled").length,
+        };
+
+        const filteredPosts = posts.filter(p => {
+          const status = getPostStatus(p);
+          if (selectedStatusFilter !== "all" && status !== selectedStatusFilter) return false;
+          if (selectedCategoryFilter !== "all" && p.category_slug !== selectedCategoryFilter) return false;
+          if (selectedBancaFilter !== "all") {
+            const b = (p.banca || p.subcategory || "").toLowerCase();
+            if (!b.includes(selectedBancaFilter.toLowerCase())) return false;
+          }
+          if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase().trim();
+            const titleMatch = p.title.toLowerCase().includes(q);
+            const slugMatch = p.slug.toLowerCase().includes(q);
+            const bancaMatch = (p.banca || "").toLowerCase().includes(q);
+            const subMatch = (p.subcategory || "").toLowerCase().includes(q);
+            const sumMatch = (p.summary || "").toLowerCase().includes(q);
+            if (!titleMatch && !slugMatch && !bancaMatch && !subMatch && !sumMatch) return false;
+          }
+          return true;
+        }).sort((a, b) => {
+          if (sortBy === "newest") return (b.id || "").localeCompare(a.id || "");
+          if (sortBy === "oldest") return (a.id || "").localeCompare(b.id || "");
+          if (sortBy === "title_asc") return a.title.localeCompare(b.title);
+          return 0;
+        });
+
+        return (
+          <div className="space-y-4">
+            {/* RICH FILTER & SEARCH CONTROL BAR */}
+            <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-xs">
+              
+              {/* Status Pills / Quick Filter Row */}
+              <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-100 dark:border-slate-800/80 pb-4">
+                <div className="flex items-center gap-1.5 flex-wrap text-xs font-bold">
+                  <span className="text-slate-400 uppercase text-[10px] tracking-wider mr-1 hidden sm:inline">Status:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStatusFilter("all")}
+                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                      selectedStatusFilter === "all"
+                        ? "bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-xs"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    Todos ({statusCounts.all})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStatusFilter("published")}
+                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                      selectedStatusFilter === "published"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Publicados ({statusCounts.published})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStatusFilter("draft")}
+                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                      selectedStatusFilter === "draft"
+                        ? "bg-slate-700 text-white shadow-xs"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                    }`}
+                  >
+                    Rascunhos ({statusCounts.draft})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStatusFilter("review")}
+                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                      selectedStatusFilter === "review"
+                        ? "bg-amber-500 text-slate-950 shadow-xs"
+                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-100"
+                    }`}
+                  >
+                    Em Revisão ({statusCounts.review})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStatusFilter("scheduled")}
+                    className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                      selectedStatusFilter === "scheduled"
+                        ? "bg-purple-600 text-white shadow-xs"
+                        : "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border border-purple-500/20 hover:bg-purple-100"
+                    }`}
+                  >
+                    Agendados ({statusCounts.scheduled})
+                  </button>
+                </div>
+
+                {/* Reset Filters button */}
+                {(searchQuery || selectedStatusFilter !== "all" || selectedCategoryFilter !== "all" || selectedBancaFilter !== "all") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedStatusFilter("all");
+                      setSelectedCategoryFilter("all");
+                      setSelectedBancaFilter("all");
+                      setSortBy("newest");
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                    title="Limpar todos os filtros de busca"
+                  >
+                    <X className="w-3.5 h-3.5" /> Limpar Filtros
+                  </button>
+                )}
               </div>
+
+              {/* Search Inputs and Dropdowns Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                
+                {/* Real-time Text Search Input */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Buscar por título, slug ou banca..."
+                    className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Category Selector */}
+                <div>
+                  <select
+                    value={selectedCategoryFilter}
+                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                  >
+                    <option value="all">Todas as Categorias</option>
+                    <option value="estude">Estude (AFO, Direito, etc)</option>
+                    <option value="aprenda">Aprenda</option>
+                    <option value="estude-comigo">Estude Comigo</option>
+                    <option value="informe-se">Informe-se</option>
+                    <option value="rotina">Rotina</option>
+                  </select>
+                </div>
+
+                {/* Banca / Subcategory Filter */}
+                <div>
+                  <select
+                    value={selectedBancaFilter}
+                    onChange={(e) => setSelectedBancaFilter(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                  >
+                    <option value="all">Todas as Disciplinas / Bancas</option>
+                    {customSubcategories.map(sub => (
+                      <option key={sub} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sort Selector */}
+                <div>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                  >
+                    <option value="newest">Mais Recentes Primeiro</option>
+                    <option value="oldest">Mais Antigos Primeiro</option>
+                    <option value="title_asc">Título (A-Z)</option>
+                  </select>
+                </div>
+
+              </div>
+
+              {/* Results Count Footer */}
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                <span>
+                  Exibindo <strong className="text-slate-900 dark:text-white font-bold">{filteredPosts.length}</strong> de <strong className="text-slate-900 dark:text-white font-bold">{posts.length}</strong> artigos cadastrados
+                </span>
+              </div>
+
             </div>
-          )}
-        </div>
-      )}
+
+            {loading ? (
+              <div className="p-8 text-center text-sm text-slate-500">Carregando artigos do Supabase...</div>
+            ) : filteredPosts.length === 0 ? (
+              <div className="p-8 text-center text-sm text-slate-500 bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+                <p className="font-bold text-slate-800 dark:text-slate-200">Nenhum artigo encontrado com os filtros aplicados.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedStatusFilter("all");
+                    setSelectedCategoryFilter("all");
+                    setSelectedBancaFilter("all");
+                  }}
+                  className="text-xs text-emerald-600 dark:text-emerald-400 font-bold underline cursor-pointer"
+                >
+                  Limpar Filtros e Ver Todos
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                    <thead className="bg-slate-50 dark:bg-slate-900/60 text-xs font-bold text-slate-500 uppercase border-b border-slate-200 dark:border-slate-800">
+                      <tr>
+                        <th className="px-6 py-3.5">Título / Slug</th>
+                        <th className="px-6 py-3.5">Categoria</th>
+                        <th className="px-6 py-3.5">Banca / Subcat</th>
+                        <th className="px-6 py-3.5">Status</th>
+                        <th className="px-6 py-3.5 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                      {filteredPosts.map((post) => (
+                        <tr key={post.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-slate-900 dark:text-white font-outfit">
+                              {post.title}
+                            </div>
+                            <div className="text-xs text-slate-400 font-mono">
+                              /artigo/{post.slug}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                              {post.category_slug}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-medium">
+                            {post.banca ? `Banca ${post.banca}` : post.subcategory || "-"}
+                          </td>
+                          <td className="px-6 py-4">
+                            {(() => {
+                              const status = getPostStatus(post);
+                              let schedAt = "";
+                              if (post.content_html) {
+                                const scMatch = post.content_html.match(/<!-- SCHEDULED_AT: ([\s\S]*?) -->/i);
+                                if (scMatch && scMatch[1]) schedAt = scMatch[1].trim();
+                              }
+
+                              if (status === "published") {
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Publicado
+                                  </span>
+                                );
+                              } else if (status === "review") {
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg border border-amber-500/30">
+                                    <Clock className="w-3.5 h-3.5" /> Em Revisão
+                                  </span>
+                                );
+                              } else if (status === "scheduled") {
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg border border-purple-500/30">
+                                    <Calendar className="w-3.5 h-3.5" /> Agendado ({schedAt ? new Date(schedAt).toLocaleDateString("pt-BR") : "Data"})
+                                  </span>
+                                );
+                              } else {
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700">
+                                    <FileEdit className="w-3.5 h-3.5" /> Rascunho
+                                  </span>
+                                );
+                              }
+                            })()}
+                          </td>
+                          <td className="px-6 py-4 text-right space-x-2">
+                            <Link
+                              href={`/artigo/${post.slug}`}
+                              target="_blank"
+                              className="inline-flex items-center p-2 rounded-lg text-slate-500 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              title="Ver no site"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditPost(post)}
+                              className="inline-flex items-center p-2 rounded-lg text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              title="Editar artigo"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePost(post.id)}
+                              className="inline-flex items-center p-2 rounded-lg text-slate-500 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              title="Excluir post"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* TAB 2: CREATE / EDIT POST FORM */}
       {activeTab === "create" && (
@@ -1775,13 +2209,37 @@ export default function AdminPage() {
                       />
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleAddSingleFlashcard}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4 text-amber-400" /> + Adicionar Flashcard à Lista
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddSingleFlashcard}
+                      className={`px-4 py-2 rounded-xl text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                        editingFlashcardIndex !== null
+                          ? "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md font-black"
+                          : "bg-slate-800 hover:bg-slate-700"
+                      }`}
+                    >
+                      {editingFlashcardIndex !== null ? (
+                        <>
+                          <Pencil className="w-4 h-4 text-slate-950" /> ✏️ Salvar Alterações no Flashcard
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 text-amber-400" /> + Adicionar Flashcard à Lista
+                        </>
+                      )}
+                    </button>
+
+                    {editingFlashcardIndex !== null && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditFlashcard}
+                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all cursor-pointer"
+                      >
+                        Cancelar Edição
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Cards List Preview */}
@@ -1790,18 +2248,39 @@ export default function AdminPage() {
                     <span className="text-xs font-bold text-amber-400">Flashcards Acoplados ao Artigo ({flashcardsList.length}):</span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-1">
                       {flashcardsList.map((fc, i) => (
-                        <div key={fc.id || i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-2 text-xs">
-                          <div className="space-y-1">
+                        <div
+                          key={fc.id || i}
+                          className={`p-3 rounded-xl bg-slate-950 border transition-all flex items-start justify-between gap-2 text-xs ${
+                            editingFlashcardIndex === i
+                              ? "border-amber-500 ring-2 ring-amber-500/50 shadow-lg"
+                              : "border-slate-800"
+                          }`}
+                        >
+                          <div className="space-y-1 flex-1 pr-2">
                             <p className="font-bold text-amber-300">P: {fc.question}</p>
                             <p className="text-slate-300">R: {fc.answer}</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setFlashcardsList(flashcardsList.filter((_, idx) => idx !== i))}
-                            className="text-slate-500 hover:text-red-400 text-xs font-bold shrink-0"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditFlashcard(i)}
+                              title="Editar este flashcard"
+                              className="p-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/30 text-amber-400 font-bold transition-all cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFlashcardsList(flashcardsList.filter((_, idx) => idx !== i));
+                                if (editingFlashcardIndex === i) handleCancelEditFlashcard();
+                              }}
+                              title="Excluir este flashcard"
+                              className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500/30 text-red-400 font-bold transition-all cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1955,13 +2434,37 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleAddSingleQuestion}
-                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4 text-emerald-400" /> + Adicionar Questão à Lista
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddSingleQuestion}
+                        className={`px-4 py-2 rounded-xl text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                          editingQuestionIndex !== null
+                            ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md font-black"
+                            : "bg-slate-800 hover:bg-slate-700"
+                        }`}
+                      >
+                        {editingQuestionIndex !== null ? (
+                          <>
+                            <Pencil className="w-4 h-4 text-slate-950" /> ✏️ Salvar Alterações na Questão
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 text-emerald-400" /> + Adicionar Questão à Lista
+                          </>
+                        )}
+                      </button>
+
+                      {editingQuestionIndex !== null && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditQuestion}
+                          className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all cursor-pointer"
+                        >
+                          Cancelar Edição
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1971,20 +2474,41 @@ export default function AdminPage() {
                     <span className="text-xs font-bold text-emerald-400">Questões de Concursos Cadastradas ({questionsList.length}):</span>
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                       {questionsList.map((q, i) => (
-                        <div key={q.id || i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-2 text-xs">
-                          <div className="space-y-1">
+                        <div
+                          key={q.id || i}
+                          className={`p-3 rounded-xl bg-slate-950 border transition-all flex items-start justify-between gap-2 text-xs ${
+                            editingQuestionIndex === i
+                              ? "border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg"
+                              : "border-slate-800"
+                          }`}
+                        >
+                          <div className="space-y-1 flex-1 pr-2">
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
                               🏛️ {q.banca} / {q.ano} - {q.orgao}
                             </span>
                             <p className="font-bold text-slate-200">{q.statement}</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setQuestionsList(questionsList.filter((_, idx) => idx !== i))}
-                            className="text-slate-500 hover:text-red-400 text-xs font-bold shrink-0"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditQuestion(i)}
+                              title="Editar esta questão"
+                              className="p-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/30 text-emerald-400 font-bold transition-all cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuestionsList(questionsList.filter((_, idx) => idx !== i));
+                                if (editingQuestionIndex === i) handleCancelEditQuestion();
+                              }}
+                              title="Excluir esta questão"
+                              className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500/30 text-red-400 font-bold transition-all cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2121,13 +2645,37 @@ export default function AdminPage() {
                       />
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleAddSingleSimulado}
-                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4 text-blue-400" /> + Adicionar Questão Inédita à Lista
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddSingleSimulado}
+                        className={`px-4 py-2 rounded-xl text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                          editingSimuladoIndex !== null
+                            ? "bg-blue-500 hover:bg-blue-400 text-slate-950 shadow-md font-black"
+                            : "bg-slate-800 hover:bg-slate-700"
+                        }`}
+                      >
+                        {editingSimuladoIndex !== null ? (
+                          <>
+                            <Pencil className="w-4 h-4 text-slate-950" /> ✏️ Salvar Alterações na Questão Inédita
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 text-blue-400" /> + Adicionar Questão Inédita à Lista
+                          </>
+                        )}
+                      </button>
+
+                      {editingSimuladoIndex !== null && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditSimulado}
+                          className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all cursor-pointer"
+                        >
+                          Cancelar Edição
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -2137,20 +2685,41 @@ export default function AdminPage() {
                     <span className="text-xs font-bold text-blue-400">Questões Inéditas Cadastradas ({simuladosList.length}):</span>
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                       {simuladosList.map((s, i) => (
-                        <div key={s.id || i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-2 text-xs">
-                          <div className="space-y-1">
+                        <div
+                          key={s.id || i}
+                          className={`p-3 rounded-xl bg-slate-950 border transition-all flex items-start justify-between gap-2 text-xs ${
+                            editingSimuladoIndex === i
+                              ? "border-blue-500 ring-2 ring-blue-500/50 shadow-lg"
+                              : "border-slate-800"
+                          }`}
+                        >
+                          <div className="space-y-1 flex-1 pr-2">
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
                               🎯 Questão Inédita {i + 1}
                             </span>
                             <p className="font-bold text-slate-200">{s.statement}</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setSimuladosList(simuladosList.filter((_, idx) => idx !== i))}
-                            className="text-slate-500 hover:text-red-400 text-xs font-bold shrink-0"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditSimulado(i)}
+                              title="Editar esta questão inédita"
+                              className="p-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/30 text-blue-400 font-bold transition-all cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSimuladosList(simuladosList.filter((_, idx) => idx !== i));
+                                if (editingSimuladoIndex === i) handleCancelEditSimulado();
+                              }}
+                              title="Excluir esta questão inédita"
+                              className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500/30 text-red-400 font-bold transition-all cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2222,13 +2791,37 @@ export default function AdminPage() {
                     />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleAddInfographic}
-                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
-                  >
-                    <Plus className="w-4 h-4" /> + Adicionar Infográfico / Código à Lista
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddInfographic}
+                      className={`px-4 py-2 rounded-xl text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md ${
+                        editingInfographicIndex !== null
+                          ? "bg-purple-500 hover:bg-purple-400 text-white font-black"
+                          : "bg-purple-600 hover:bg-purple-500"
+                      }`}
+                    >
+                      {editingInfographicIndex !== null ? (
+                        <>
+                          <Pencil className="w-4 h-4 text-white" /> ✏️ Salvar Alterações no Infográfico
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 text-purple-300" /> + Adicionar Infográfico / Código à Lista
+                        </>
+                      )}
+                    </button>
+
+                    {editingInfographicIndex !== null && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditInfographic}
+                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all cursor-pointer"
+                      >
+                        Cancelar Edição
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Infographics List Preview */}
@@ -2237,8 +2830,15 @@ export default function AdminPage() {
                     <span className="text-xs font-bold text-purple-400">Infográficos Cadastrados ({infographicsList.length}):</span>
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                       {infographicsList.map((info, i) => (
-                        <div key={info.id || i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-2 text-xs">
-                          <div className="space-y-1">
+                        <div
+                          key={info.id || i}
+                          className={`p-3 rounded-xl bg-slate-950 border transition-all flex items-start justify-between gap-2 text-xs ${
+                            editingInfographicIndex === i
+                              ? "border-purple-500 ring-2 ring-purple-500/50 shadow-lg"
+                              : "border-slate-800"
+                          }`}
+                        >
+                          <div className="space-y-1 flex-1 pr-2">
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 uppercase">
                               ✨ {info.type?.replace("_", " ")}
                             </span>
@@ -2247,13 +2847,27 @@ export default function AdminPage() {
                               <p className="text-[10px] font-mono text-emerald-400">Código personalizável incluído ({info.codeContent.length} chars)</p>
                             )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setInfographicsList(infographicsList.filter((_, idx) => idx !== i))}
-                            className="text-slate-500 hover:text-red-400 text-xs font-bold shrink-0"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditInfographic(i)}
+                              title="Editar este infográfico"
+                              className="p-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/30 text-purple-400 font-bold transition-all cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInfographicsList(infographicsList.filter((_, idx) => idx !== i));
+                                if (editingInfographicIndex === i) handleCancelEditInfographic();
+                              }}
+                              title="Excluir este infográfico"
+                              className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500/30 text-red-400 font-bold transition-all cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
