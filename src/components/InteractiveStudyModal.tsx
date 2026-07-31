@@ -314,12 +314,18 @@ export default function InteractiveStudyModal({
 
                 {/* Gemini 3D Flip Card Component Stage */}
                 <div
-                  className="relative w-full max-w-xl mx-auto h-[320px] sm:h-[360px] my-auto cursor-pointer select-none"
+                  className={`relative w-full my-auto cursor-pointer select-none ${
+                    isFocusMode
+                      ? "max-w-2xl sm:max-w-3xl mx-auto h-[340px] sm:h-[400px]"
+                      : "min-h-[220px] sm:min-h-[260px]"
+                  }`}
                   style={{ perspective: "1000px" }}
                   onClick={() => setIsFlipped(!isFlipped)}
                 >
                   <div
-                    className="relative w-full h-full rounded-3xl transition-transform duration-600 shadow-2xl"
+                    className={`relative w-full h-full rounded-3xl transition-transform duration-600 shadow-2xl ${
+                      !isFocusMode ? "min-h-[220px] sm:min-h-[260px]" : ""
+                    }`}
                     style={{
                       transformStyle: "preserve-3d",
                       transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
