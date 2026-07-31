@@ -22,6 +22,7 @@ import {
   RotateCcw
 } from "lucide-react";
 import { InfographicItem } from "@/data/mockPosts";
+import MathRenderer from "@/components/MathRenderer";
 
 interface Flashcard {
   id: number;
@@ -348,7 +349,7 @@ export default function InteractiveStudyModal({
 
                       <div className="my-auto py-4">
                         <h3 className="text-base sm:text-xl font-bold font-outfit text-white leading-relaxed">
-                          {sampleFlashcards[currentFlashcardIndex]?.question}
+                          <MathRenderer content={sampleFlashcards[currentFlashcardIndex]?.question || ""} />
                         </h3>
                       </div>
 
@@ -375,9 +376,9 @@ export default function InteractiveStudyModal({
                       </div>
 
                       <div className="my-auto py-4">
-                        <p className="text-base sm:text-lg font-bold font-outfit text-emerald-100 leading-relaxed">
-                          {sampleFlashcards[currentFlashcardIndex]?.answer}
-                        </p>
+                        <div className="text-base sm:text-lg font-bold font-outfit text-emerald-100 leading-relaxed">
+                          <MathRenderer content={sampleFlashcards[currentFlashcardIndex]?.answer || ""} />
+                        </div>
                       </div>
 
                       <div className="w-full flex items-center justify-center gap-3 pt-2">
@@ -483,7 +484,7 @@ export default function InteractiveStudyModal({
 
                 {/* Statement */}
                 <div className="text-base font-medium text-slate-900 dark:text-slate-100 leading-relaxed bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                  {sampleQuestions[currentQuestionIndex]?.statement}
+                  <MathRenderer content={sampleQuestions[currentQuestionIndex]?.statement || ""} />
                 </div>
 
                 {/* Options */}
@@ -513,7 +514,7 @@ export default function InteractiveStudyModal({
                         <span className="w-6 h-6 rounded-full border border-slate-300 dark:border-slate-700 flex items-center justify-center shrink-0 font-bold text-xs">
                           {String.fromCharCode(65 + idx)}
                         </span>
-                        <span className="flex-1">{option}</span>
+                        <MathRenderer content={option} inline className="flex-1" />
                         
                         {isAnswerSubmitted && idx === sampleQuestions[currentQuestionIndex].correctIndex && (
                           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -532,7 +533,7 @@ export default function InteractiveStudyModal({
                     <span className="font-bold flex items-center gap-1 mb-1 text-blue-700 dark:text-blue-300">
                       💡 Comentário do Professor:
                     </span>
-                    {sampleQuestions[currentQuestionIndex]?.explanation}
+                    <MathRenderer content={sampleQuestions[currentQuestionIndex]?.explanation || ""} />
                   </div>
                 )}
 
