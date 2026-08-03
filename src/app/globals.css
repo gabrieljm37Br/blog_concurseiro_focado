@@ -421,6 +421,145 @@ hr, .prose hr, .editor-canvas hr {
 }
 
 /* ==========================================================================
+   DESIGN SYSTEM DE ARTIGOS — BLOG CONCURSEIRO FOCADO
+   ========================================================================== */
+
+/* Caixas de Chamada (Callouts) */
+.callout-dica {
+  @apply my-6 p-5 rounded-2xl bg-emerald-500/10 border-l-4 border-emerald-500 text-slate-800 dark:text-slate-200 transition-all duration-200 hover:shadow-lg hover:border-emerald-400;
+}
+.callout-dica .callout-header {
+  @apply text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-2 mb-2 text-sm uppercase tracking-wider;
+}
+
+.callout-pegadinha {
+  @apply my-6 p-5 rounded-2xl bg-amber-500/10 border-l-4 border-amber-500 text-slate-800 dark:text-slate-200 transition-all duration-200 hover:shadow-lg hover:border-amber-400;
+}
+.callout-pegadinha .callout-header {
+  @apply text-amber-600 dark:text-amber-400 font-bold flex items-center gap-2 mb-2 text-sm uppercase tracking-wider;
+}
+
+.callout-lei {
+  @apply my-6 p-5 rounded-2xl bg-purple-500/10 border-l-4 border-purple-500 text-slate-800 dark:text-slate-200 relative;
+}
+.callout-lei .lei-header {
+  @apply font-bold text-purple-600 dark:text-purple-400 text-xs flex justify-between items-center mb-2 border-b border-purple-500/20 pb-2;
+}
+.callout-lei blockquote {
+  @apply italic text-sm sm:text-base border-none pl-0 my-0 text-slate-700 dark:text-purple-100;
+}
+.btn-copiar-lei, .btn-copy-math {
+  @apply px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500 text-purple-700 dark:text-purple-300 hover:text-white text-xs font-bold transition-all cursor-pointer;
+}
+
+/* Evocação Ativa / Spoilers Nativos */
+.estudo-spoiler {
+  @apply my-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 overflow-hidden transition-all duration-200;
+}
+.estudo-spoiler summary {
+  @apply p-4 font-bold text-sm sm:text-base text-slate-900 dark:text-white cursor-pointer select-none bg-slate-100/80 dark:bg-slate-800/60 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center justify-between;
+}
+.estudo-spoiler .spoiler-conteudo {
+  @apply p-4 text-xs sm:text-sm text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-800/60 bg-white dark:bg-[#0B0F19];
+}
+
+/* Cards Mnemônicos */
+.mnemonico-card {
+  @apply my-6 p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-xl space-y-3;
+}
+.mnemonico-title {
+  @apply text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5;
+}
+.mnemonico-grid {
+  @apply flex flex-wrap gap-2 pt-1;
+}
+.mnemonico-grid span {
+  @apply px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-emerald-500 hover:text-slate-950 border border-slate-700 text-xs font-semibold transition-all cursor-pointer;
+}
+.mnemonico-grid span strong {
+  @apply text-emerald-400 font-black text-sm pr-0.5;
+}
+
+/* MATEMÁTICA & RLM MODERNOS (KaTeX) */
+.math-card-block {
+  @apply my-6 p-5 rounded-2xl bg-slate-950 text-white border border-emerald-500/30 shadow-2xl space-y-3 relative overflow-hidden;
+}
+.math-card-header {
+  @apply flex items-center justify-between border-b border-slate-800 pb-2 text-xs font-bold;
+}
+.math-badge {
+  @apply text-emerald-400 font-extrabold uppercase tracking-wider;
+}
+.math-card-body {
+  @apply text-base sm:text-lg text-emerald-100 overflow-x-auto py-2 text-center;
+}
+
+/* GRÁFICOS DE BARRAS DE INCIDÊNCIA (SVG/CSS) */
+.chart-card {
+  @apply my-6 p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-xl space-y-4;
+}
+.chart-title {
+  @apply text-xs font-extrabold uppercase tracking-wider text-emerald-400 border-b border-slate-800 pb-2;
+}
+.chart-row {
+  @apply flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-medium;
+}
+.chart-label {
+  @apply w-48 shrink-0 text-slate-300 font-bold;
+}
+.chart-bar-bg {
+  @apply flex-1 h-3.5 rounded-full bg-slate-800 overflow-hidden border border-slate-700/50;
+}
+.chart-bar-fill {
+  @apply h-full rounded-full transition-all duration-1000 ease-out;
+}
+.chart-val {
+  @apply text-slate-400 font-mono text-[11px] shrink-0;
+}
+
+/* FLUXOGRAMAS DE PROCESSO STEPPER */
+.process-stepper {
+  @apply my-6 p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-xl space-y-4;
+}
+.process-title {
+  @apply text-xs font-extrabold uppercase tracking-wider text-blue-400 border-b border-slate-800 pb-2;
+}
+.stepper-grid {
+  @apply flex flex-col sm:flex-row items-center justify-between gap-3;
+}
+.step-card {
+  @apply flex-1 p-3 rounded-xl bg-slate-800 border border-slate-700/70 text-xs space-y-1 w-full text-center sm:text-left transition-all hover:border-emerald-500;
+}
+.step-card.active {
+  @apply bg-emerald-500/15 border-emerald-500/50;
+}
+.step-num {
+  @apply inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs mb-1;
+}
+.step-arrow {
+  @apply text-slate-500 font-black hidden sm:block;
+}
+
+/* DIAGRAMAS DE VENN (RLM) */
+.venn-diagram-card {
+  @apply my-6 p-5 rounded-2xl bg-slate-950 text-white border border-purple-500/30 shadow-xl text-center space-y-3;
+}
+.venn-title {
+  @apply text-xs font-extrabold uppercase tracking-wider text-purple-400 border-b border-slate-800 pb-2;
+}
+.venn-circle {
+  fill-opacity: 0.25;
+  stroke-width: 2.5;
+  transition: all 0.3s ease;
+}
+.venn-left { fill: #10b981; stroke: #34d399; }
+.venn-right { fill: #8b5cf6; stroke: #c084fc; }
+.venn-circle:hover { fill-opacity: 0.5; cursor: pointer; }
+.venn-text { fill: #ffffff; font-size: 11px; font-weight: bold; text-anchor: middle; }
+.venn-inter-text { fill: #fbbf24; font-size: 16px; font-weight: 900; text-anchor: middle; }
+.venn-caption { @apply text-xs text-slate-400 italic pt-2; }
+
+/* ==========================================================================
    PRINT & PDF GENERATOR STYLES
    ========================================================================== */
 @media print {

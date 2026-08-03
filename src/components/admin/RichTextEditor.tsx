@@ -37,7 +37,11 @@ import {
   Undo2,
   Redo2,
   Eraser,
-  Pin
+  Pin,
+  Brain,
+  BarChart2,
+  GitMerge,
+  HelpCircle
 } from "lucide-react";
 import ImageUploadModal from "./ImageUploadModal";
 
@@ -469,33 +473,113 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     }
   };
 
-  // Helper to insert special concurseiro callout blocks
-  const insertCallout = (type: "dica" | "alerta" | "lei" | "formula" | "tabela") => {
+  // Helper to insert special concurseiro callout blocks & interactive design components
+  const insertCallout = (type: "dica" | "alerta" | "lei" | "spoiler" | "mnemonico" | "formula" | "grafico" | "fluxograma" | "venn" | "tabela") => {
     let snippet = "";
     if (type === "dica") {
-      snippet = `<div class="my-6 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border-l-4 border-emerald-500 text-slate-800 dark:text-slate-200">
-  <strong class="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mb-1 text-sm font-bold">
-    💡 DICA DE PROVA
-  </strong>
-  <p class="text-xs sm:text-sm">Escreva aqui a dica estratégica ou macete para a prova...</p>
+      snippet = `<div class="callout-dica">
+  <div class="callout-header">💡 DICA DE PROVA</div>
+  <p>Escreva aqui a dica estratégica ou macete para a prova...</p>
 </div>`;
     } else if (type === "alerta") {
-      snippet = `<div class="my-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 text-slate-800 dark:text-slate-200">
-  <strong class="text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1 text-sm font-bold">
-    ⚠️ PEGADINHA DA BANCA
-  </strong>
-  <p class="text-xs sm:text-sm">Cuidado com termos como 'exclusivamente' ou 'vedado' nesta hipótese...</p>
+      snippet = `<div class="callout-pegadinha">
+  <div class="callout-header">⚠️ CUIDADO COM A BANCA!</div>
+  <p>Cuidado com a troca de termos como 'é vedado' por 'é facultado' nesta hipótese...</p>
 </div>`;
     } else if (type === "lei") {
-      snippet = `<div class="my-6 p-4 rounded-xl bg-purple-50 dark:bg-purple-950/40 border-l-4 border-purple-500 text-slate-800 dark:text-slate-200">
-  <strong class="text-purple-600 dark:text-purple-400 flex items-center gap-1.5 mb-1 text-sm font-bold">
-    📌 DISPOSITIVO LEGAL (CF/88 Art. 5º)
-  </strong>
-  <p class="text-xs sm:text-sm italic">"Todos são iguais perante a lei, sem distinção de qualquer natureza..."</p>
+      snippet = `<div class="callout-lei">
+  <div class="lei-header">
+    <span>📜 CONSTITUIÇÃO FEDERAL — Art. 5º, LVII</span>
+    <button onclick="navigator.clipboard.writeText(this.closest('.callout-lei').querySelector('blockquote').innerText)" class="btn-copiar-lei">📋 Copiar</button>
+  </div>
+  <blockquote>"Ninguém será considerado culpado até o trânsito em julgado de sentença penal condenatória."</blockquote>
+</div>`;
+    } else if (type === "spoiler") {
+      snippet = `<details class="estudo-spoiler">
+  <summary>❓ Pergunta de Fixação: Qual o prazo da posse após a nomeação no RJU?</summary>
+  <div class="spoiler-conteudo">
+    <p>✅ <strong>Resposta:</strong> O prazo é de <strong>30 dias</strong> (improrrogáveis), contados da publicação do ato de provimento (Lei 8.112/90, Art. 13, §1º).</p>
+  </div>
+</details>`;
+    } else if (type === "mnemonico") {
+      snippet = `<div class="mnemonico-card">
+  <div class="mnemonico-title">🧠 Mnemônico: Princípios Expressos da Adm. Pública (LIMPE)</div>
+  <div class="mnemonico-grid">
+    <span title="Legalidade"><strong>L</strong>egalidade</span>
+    <span title="Impessoalidade"><strong>I</strong>mpessoalidade</span>
+    <span title="Moralidade"><strong>M</strong>oralidade</span>
+    <span title="Publicidade"><strong>P</strong>ublicidade</span>
+    <span title="Eficiência"><strong>E</strong>ficiência</span>
+  </div>
 </div>`;
     } else if (type === "formula") {
-      snippet = `<div class="my-4 p-3 rounded-xl bg-slate-900 text-emerald-400 font-mono text-sm text-center">
-  \\( P \\rightarrow Q \\equiv \\neg P \\vee Q \\) (Equivalência da Condicional)
+      snippet = `<div class="math-card-block" data-latex="P \\rightarrow Q \\equiv \\neg P \\vee Q">
+  <div class="math-card-header">
+    <span class="math-badge">⚡ RLM — Equivalência da Condicional</span>
+    <button class="btn-copy-math" onclick="navigator.clipboard.writeText('P \\rightarrow Q \\equiv \\neg P \\vee Q')">📋 Copiar LaTeX</button>
+  </div>
+  <div class="math-card-body">
+    $$ P \\rightarrow Q \\equiv \\neg P \\vee Q $$
+  </div>
+</div>`;
+    } else if (type === "grafico") {
+      snippet = `<div class="chart-card">
+  <div class="chart-title">📊 Incidência deste Assunto na Banca FGV (Últimos 3 Anos)</div>
+  <div class="chart-bars">
+    <div class="chart-row">
+      <span class="chart-label">Atos Administrativos</span>
+      <div class="chart-bar-bg"><div class="chart-bar-fill bg-emerald-500" style="width: 85%;"></div></div>
+      <span class="chart-val">85% (42 questões)</span>
+    </div>
+    <div class="chart-row">
+      <span class="chart-label">Licitações (Lei 14.133)</span>
+      <div class="chart-bar-bg"><div class="chart-bar-fill bg-blue-500" style="width: 65%;"></div></div>
+      <span class="chart-val">65% (31 questões)</span>
+    </div>
+  </div>
+</div>`;
+    } else if (type === "fluxograma") {
+      snippet = `<div class="process-stepper">
+  <div class="process-title">🔄 Fases do Processo Administrativo Disciplinar (PAD)</div>
+  <div class="stepper-grid">
+    <div class="step-card active">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <strong>Instauração</strong>
+        <span>Publicação da portaria</span>
+      </div>
+    </div>
+    <div class="step-arrow">➔</div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <strong>Inquérito</strong>
+        <span>Instrução, defesa e relatório (60 dias)</span>
+      </div>
+    </div>
+    <div class="step-arrow">➔</div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <strong>Julgamento</strong>
+        <span>Decisão (20 dias)</span>
+      </div>
+    </div>
+  </div>
+</div>`;
+    } else if (type === "venn") {
+      snippet = `<div class="venn-diagram-card">
+  <div class="venn-title">🔮 Representação Gráfica: "Algum Advogado é Concurseiro"</div>
+  <div class="venn-svg-wrapper">
+    <svg viewBox="0 0 300 160" class="w-full max-w-sm mx-auto">
+      <circle cx="100" cy="80" r="60" class="venn-circle venn-left" />
+      <circle cx="200" cy="80" r="60" class="venn-circle venn-right" />
+      <text x="70" y="85" class="venn-text">Advogados</text>
+      <text x="210" y="85" class="venn-text">Concurseiros</text>
+      <text x="145" y="85" class="venn-inter-text">X</text>
+    </svg>
+  </div>
+  <p class="venn-caption">💡 O <strong>"X"</strong> representa a existência de pelo menos um indivíduo que pertence a ambos os conjuntos.</p>
 </div>`;
     } else if (type === "tabela") {
       snippet = `<table class="w-full my-6 border-collapse text-xs sm:text-sm">
@@ -869,10 +953,10 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           </button>
         </div>
 
-        {/* GRUPO 6: Caixas Especiais para Concursos */}
+        {/* GRUPO 6: Caixas Especiais & Elementos Interativos de Estudo */}
         <div className="flex flex-wrap items-center gap-1.5 pl-1">
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Ferramentas de Estudo:
+            Elementos Interativos:
           </span>
 
           <button
@@ -888,7 +972,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             type="button"
             onClick={() => insertCallout("alerta")}
             className="px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 text-xs font-black shadow-md hover:bg-amber-400 transition-all flex items-center gap-1"
-            title="Inserir caixa Alerta da Banca"
+            title="Inserir caixa Pegadinha da Banca"
           >
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Pegadinha
           </button>
@@ -897,18 +981,63 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             type="button"
             onClick={() => insertCallout("lei")}
             className="px-2.5 py-1 rounded-xl bg-purple-600 text-white text-xs font-black shadow-md hover:bg-purple-500 transition-all flex items-center gap-1"
-            title="Inserir citação de Dispositivo Legal"
+            title="Inserir citação de Dispositivo Legal com Copiador"
           >
             <BookOpen className="w-3.5 h-3.5 shrink-0" /> Artigo de Lei
           </button>
 
           <button
             type="button"
+            onClick={() => insertCallout("spoiler")}
+            className="px-2.5 py-1 rounded-xl bg-teal-600 text-white text-xs font-black shadow-md hover:bg-teal-500 transition-all flex items-center gap-1"
+            title="Inserir Pergunta / Resposta Sanfonada (Evocação Ativa)"
+          >
+            <HelpCircle className="w-3.5 h-3.5 shrink-0" /> Pergunta Spoiler
+          </button>
+
+          <button
+            type="button"
+            onClick={() => insertCallout("mnemonico")}
+            className="px-2.5 py-1 rounded-xl bg-indigo-600 text-white text-xs font-black shadow-md hover:bg-indigo-500 transition-all flex items-center gap-1"
+            title="Inserir Card Mnemônico Interativo"
+          >
+            <Brain className="w-3.5 h-3.5 shrink-0" /> Mnemônico
+          </button>
+
+          <button
+            type="button"
             onClick={() => insertCallout("formula")}
             className="px-2.5 py-1 rounded-xl bg-slate-900 text-emerald-400 border border-emerald-500/50 text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1"
-            title="Inserir Fórmula Matemática / Raciocínio Lógico (LaTeX)"
+            title="Inserir Card de Fórmula Matemática / RLM (KaTeX)"
           >
-            <Sigma className="w-3.5 h-3.5 shrink-0" /> Fórmula
+            <Sigma className="w-3.5 h-3.5 shrink-0" /> Fórmula KaTeX
+          </button>
+
+          <button
+            type="button"
+            onClick={() => insertCallout("grafico")}
+            className="px-2.5 py-1 rounded-xl bg-cyan-700 text-white text-xs font-bold hover:bg-cyan-600 transition-all flex items-center gap-1"
+            title="Inserir Gráfico de Incidência de Temas na Banca"
+          >
+            <BarChart2 className="w-3.5 h-3.5 shrink-0" /> Incidência
+          </button>
+
+          <button
+            type="button"
+            onClick={() => insertCallout("fluxograma")}
+            className="px-2.5 py-1 rounded-xl bg-blue-700 text-white text-xs font-bold hover:bg-blue-600 transition-all flex items-center gap-1"
+            title="Inserir Fluxograma de Processo Stepper"
+          >
+            <GitMerge className="w-3.5 h-3.5 shrink-0" /> Fluxograma
+          </button>
+
+          <button
+            type="button"
+            onClick={() => insertCallout("venn")}
+            className="px-2.5 py-1 rounded-xl bg-violet-700 text-white text-xs font-bold hover:bg-violet-600 transition-all flex items-center gap-1"
+            title="Inserir Diagrama de Venn para Raciocínio Lógico"
+          >
+            <Sparkles className="w-3.5 h-3.5 shrink-0" /> Diagrama Venn
           </button>
 
           <button

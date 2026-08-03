@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Post } from "@/data/mockPosts";
 import { supabase } from "@/lib/supabaseClient";
 import InteractiveStudyModal from "@/components/InteractiveStudyModal";
+import katex from "katex";
 import { 
   Clock, 
   BrainCircuit, 
@@ -70,6 +71,89 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
       }
     };
   }, [slug]);
+
+  // Automatic KaTeX hydration for Math cards & Inline LaTeX formulas in article content
+  useEffect(() => {
+    if (typeof window === "undefined" || !post?.content) return;
+    const container = document.getElementById("article-content-body");
+    if (!container) return;
+
+    // Render KaTeX for .math-card-body elements
+    const mathCardBodies = container.querySelectorAll(".math-card-body");
+    mathCardBodies.forEach((el) => {
+      const text = el.textContent || "";
+      let mathCode = text;
+      if (text.includes("$$")) {
+        const match = text.match(/\$\$([\s\S]+?)\$\$/);
+        if (match && match[1]) mathCode = match[1].trim();
+      }
+      if (mathCode) {
+        try {
+          el.innerHTML = katex.renderToString(mathCode, { displayMode: true, throwOnError: false });
+        } catch (e) {}
+      }
+    });
+
+    // Render inline KaTeX for $...$ or $$...$$
+    const mathRegex = /(\$\$[\s\S]+?\$\$|\$[^\$\n]+?\$)/g;
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    const nodesToReplace: { node: Node; parent: Node; text: string }[] = [];
+
+    let currentNode = walker.nextNode();
+    while (currentNode) {
+      if (
+        currentNode.nodeValue &&
+        mathRegex.test(currentNode.nodeValue) &&
+        currentNode.parentElement &&
+        !currentNode.parentElement.closest(".katex") &&
+        !currentNode.parentElement.closest(".math-card-body") &&
+        !currentNode.parentElement.closest("script")
+      ) {
+        nodesToReplace.push({
+          node: currentNode,
+          parent: currentNode.parentElement,
+          text: currentNode.nodeValue,
+        });
+      }
+      currentNode = walker.nextNode();
+    }
+
+    nodesToReplace.forEach(({ node, parent, text }) => {
+      const parts = text.split(mathRegex);
+      const spanContainer = document.createElement("span");
+      parts.forEach((part) => {
+        if (!part) return;
+        let isMath = false;
+        let isDisplay = false;
+        let mathCode = "";
+
+        if (part.startsWith("$$") && part.endsWith("$$") && part.length > 4) {
+          isMath = true;
+          isDisplay = true;
+          mathCode = part.slice(2, -2).trim();
+        } else if (part.startsWith("$") && part.endsWith("$") && part.length > 2) {
+          isMath = true;
+          isDisplay = false;
+          mathCode = part.slice(1, -1).trim();
+        }
+
+        if (isMath && mathCode) {
+          try {
+            const mathSpan = document.createElement("span");
+            mathSpan.innerHTML = katex.renderToString(mathCode, { displayMode: isDisplay, throwOnError: false });
+            spanContainer.appendChild(mathSpan);
+          } catch (e) {
+            spanContainer.appendChild(document.createTextNode(part));
+          }
+        } else {
+          spanContainer.appendChild(document.createTextNode(part));
+        }
+      });
+      if (parent.contains(node)) {
+        parent.replaceChild(spanContainer, node);
+      }
+    });
+  }, [post?.content]);
 
   // Handler for Audio Player (Play / Pause / Resume)
   const handleToggleAudio = () => {
