@@ -90,7 +90,7 @@ Utilize os delimitadores $$ ... $$ para KaTeX dentro do container:
 <div class="process-stepper">
   <div class="process-title">🔄 Fases do Processo Administrativo Disciplinar (PAD)</div>
   <div class="stepper-grid">
-    <div class="step-card active">
+    <div class="step-card">
       <div class="step-num">1</div>
       <div class="step-text">
         <strong>Instauração</strong>

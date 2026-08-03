@@ -1,11 +1,34 @@
+export interface InfographicHotspot {
+  id: string | number;
+  x: number; // Percentage 0 - 100
+  y: number; // Percentage 0 - 100
+  title: string;
+  description: string;
+  bancaTip?: string;
+  badge?: string;
+}
+
+export interface InfographicSplitSlider {
+  beforeTitle: string;
+  beforeSubtitle?: string;
+  beforeContent: string;
+  afterTitle: string;
+  afterSubtitle?: string;
+  afterContent: string;
+  bancaHighlight?: string;
+}
+
 export interface InfographicItem {
   id: number;
   title: string;
   subtitle: string;
   summary: string;
   points: string[];
-  type: "mapa_mental" | "resumo_visual" | "tabela_comparativa" | "codigo_html";
+  type: "mapa_mental" | "resumo_visual" | "tabela_comparativa" | "codigo_html" | "hotspots_interativos" | "comparativo_antes_depois";
   codeContent?: string;
+  imageUrl?: string;
+  hotspots?: InfographicHotspot[];
+  splitSlider?: InfographicSplitSlider;
 }
 
 export interface Post {

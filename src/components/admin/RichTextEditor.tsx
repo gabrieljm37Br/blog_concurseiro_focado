@@ -44,6 +44,14 @@ import {
   HelpCircle
 } from "lucide-react";
 import ImageUploadModal from "./ImageUploadModal";
+import katex from "katex";
+import { 
+  DicaGradientIcon, 
+  PegadinhaGradientIcon, 
+  LeiGradientIcon, 
+  BrainGradientIcon, 
+  MathGradientIcon 
+} from "@/components/icons/GradientIcons";
 
 interface RichTextEditorProps {
   value: string;
@@ -271,6 +279,32 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       }
     }
   }, [value, editorMode]);
+
+  // Auto-render KaTeX math in Live Preview & Visual Editor
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const containers = [
+      document.getElementById("editor-live-preview"),
+      editableRef.current
+    ].filter(Boolean) as HTMLElement[];
+
+    containers.forEach((container) => {
+      const mathCardBodies = container.querySelectorAll(".math-card-body");
+      mathCardBodies.forEach((el) => {
+        const text = el.textContent || "";
+        let mathCode = text;
+        if (text.includes("$$")) {
+          const match = text.match(/\$\$([\s\S]+?)\$\$/);
+          if (match && match[1]) mathCode = match[1].trim();
+        }
+        if (mathCode && !el.querySelector(".katex")) {
+          try {
+            el.innerHTML = katex.renderToString(mathCode, { displayMode: true, throwOnError: false });
+          } catch (e) {}
+        }
+      });
+    });
+  }, [value, showPreview, editorMode]);
 
   // Handle user typing inside contentEditable Visual mode
   const handleEditableInput = () => {
@@ -542,7 +576,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       snippet = `<div class="process-stepper">
   <div class="process-title">🔄 Fases do Processo Administrativo Disciplinar (PAD)</div>
   <div class="stepper-grid">
-    <div class="step-card active">
+    <div class="step-card">
       <div class="step-num">1</div>
       <div class="step-text">
         <strong>Instauração</strong>
@@ -965,7 +999,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             className="px-2.5 py-1 rounded-xl bg-emerald-600 text-white dark:bg-emerald-500 dark:text-slate-950 text-xs font-black shadow-md hover:opacity-90 transition-all flex items-center gap-1"
             title="Inserir caixa Dica de Prova"
           >
-            <Lightbulb className="w-3.5 h-3.5 shrink-0" /> Dica de Prova
+            <DicaGradientIcon className="w-4 h-4 shrink-0" /> Dica de Prova
           </button>
 
           <button
@@ -974,7 +1008,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             className="px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 text-xs font-black shadow-md hover:bg-amber-400 transition-all flex items-center gap-1"
             title="Inserir caixa Pegadinha da Banca"
           >
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Pegadinha
+            <PegadinhaGradientIcon className="w-4 h-4 shrink-0" /> Pegadinha
           </button>
 
           <button
@@ -983,7 +1017,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             className="px-2.5 py-1 rounded-xl bg-purple-600 text-white text-xs font-black shadow-md hover:bg-purple-500 transition-all flex items-center gap-1"
             title="Inserir citação de Dispositivo Legal com Copiador"
           >
-            <BookOpen className="w-3.5 h-3.5 shrink-0" /> Artigo de Lei
+            <LeiGradientIcon className="w-4 h-4 shrink-0" /> Artigo de Lei
           </button>
 
           <button
@@ -1001,7 +1035,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             className="px-2.5 py-1 rounded-xl bg-indigo-600 text-white text-xs font-black shadow-md hover:bg-indigo-500 transition-all flex items-center gap-1"
             title="Inserir Card Mnemônico Interativo"
           >
-            <Brain className="w-3.5 h-3.5 shrink-0" /> Mnemônico
+            <BrainGradientIcon className="w-4 h-4 shrink-0" /> Mnemônico
           </button>
 
           <button
@@ -1010,7 +1044,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             className="px-2.5 py-1 rounded-xl bg-slate-900 text-emerald-400 border border-emerald-500/50 text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1"
             title="Inserir Card de Fórmula Matemática / RLM (KaTeX)"
           >
-            <Sigma className="w-3.5 h-3.5 shrink-0" /> Fórmula KaTeX
+            <MathGradientIcon className="w-4 h-4 shrink-0" /> Fórmula KaTeX
           </button>
 
           <button
@@ -1084,7 +1118,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 
         {/* Live Preview Panel */}
         {showPreview && (
-          <div className="p-5 bg-slate-50 dark:bg-[#070A10] overflow-y-auto max-h-[520px] space-y-4 border-t md:border-t-0">
+          <div id="editor-live-preview" className="p-5 bg-slate-50 dark:bg-[#070A10] overflow-y-auto max-h-[520px] space-y-4 border-t md:border-t-0">
             <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 pb-2">
               <Sparkles className="w-3.5 h-3.5" /> Pré-visualização do Artigo no Site:
             </div>

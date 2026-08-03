@@ -24,7 +24,18 @@ import {
   SquareStack,
   Building2,
   Calendar,
-  Landmark
+  Landmark,
+  Eye,
+  EyeOff,
+  MoveHorizontal,
+  Info,
+  SlidersHorizontal,
+  Zap,
+  Volume2,
+  VolumeX,
+  Pause,
+  Play,
+  FileSpreadsheet
 } from "lucide-react";
 import { InfographicItem } from "@/data/mockPosts";
 import MathRenderer from "@/components/MathRenderer";
@@ -101,10 +112,103 @@ export default function InteractiveStudyModal({
   const [score, setScore] = useState(0);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
 
-  // State for Infographics
+  // State for Infographics (Fase 1, 2 e 3: Teste de Memória, Banca, Hotspots, Split Slider, TTS Áudio & Anki Export)
   const [currentInfographicIndex, setCurrentInfographicIndex] = useState(0);
+  const [isMemoryTestMode, setIsMemoryTestMode] = useState(false);
+  const [selectedBancaFilter, setSelectedBancaFilter] = useState<"todas" | "cebraspe" | "fgv" | "fcc" | "vunesp">("todas");
+  const [revealedPoints, setRevealedPoints] = useState<Record<number, boolean>>({});
+  const [activeHotspotId, setActiveHotspotId] = useState<string | number | null>(null);
+  const [splitSliderPos, setSplitSliderPos] = useState(50); // percentage 0-100
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isAudioPaused, setIsAudioPaused] = useState(false);
 
-  const sampleInfographics: InfographicItem[] = customInfographics || [];
+  // Default Infographics Fallback for Demo (Mental Map, Hotspots, Split Slider, Code HTML)
+  const DEFAULT_INFOGRAPHICS: InfographicItem[] = [
+    {
+      id: 101,
+      title: "Anatomia do Ato Administrativo (Art. 2º da Lei 4.717/65)",
+      subtitle: "Passe o cursor ou toque nos pontos pulsantes para explorar os 5 elementos de validade (COFIFOMOB)",
+      summary: "Esquema gráfico dos 5 elementos de formação do Ato Administrativo: Competência, Finalidade, Forma, Motivo e Objeto.",
+      points: [
+        "Competência e Forma são elementos que admitem CONVALIDAÇÃO (regra geral).",
+        "Finalidade e Motivo NUNCA admitem convalidação se houver vício insanável.",
+        "Objeto deve ser lícito, possível, determinado e moral."
+      ],
+      type: "hotspots_interativos",
+      hotspots: [
+        {
+          id: "hs-1",
+          x: 20,
+          y: 35,
+          title: "1. Competência (Sujeito)",
+          description: "Poder legal conferido ao agente público para praticar o ato. É vinculado, irrenunciável e imprescritível.",
+          bancaTip: "CEBRASPE: Vício de competência por excesso de poder admite convalidação se não for de competência exclusiva.",
+          badge: "Convalidável"
+        },
+        {
+          id: "hs-2",
+          x: 48,
+          y: 22,
+          title: "2. Finalidade",
+          description: "Objetivo de interesse público a ser alcançado. O desvio de finalidade torna o ato nulo de pleno direito.",
+          bancaTip: "FGV: Desvio de poder/finalidade é vício insanável. Jamais admite convalidação!",
+          badge: "Vício Insanável"
+        },
+        {
+          id: "hs-3",
+          x: 80,
+          y: 35,
+          title: "3. Forma",
+          description: "Modo de exteriorização da vontade da Administração (escrita, símbolos ou ordens verbais).",
+          bancaTip: "VUNESP: Vício de forma em ato não solene admite convalidação por ratificação formal.",
+          badge: "Convalidável"
+        },
+        {
+          id: "hs-4",
+          x: 35,
+          y: 72,
+          title: "4. Motivo",
+          description: "Situação de fato e de direito que autoriza ou determina a prática do ato administrativo.",
+          bancaTip: "FCC (Teoria dos Motivos Determinantes): Se o motivo alegado for falso, o ato é nulo!",
+          badge: "Teoria dos Motivos"
+        },
+        {
+          id: "hs-5",
+          x: 65,
+          y: 72,
+          title: "5. Objeto (Conteúdo)",
+          description: "Efeito jurídico imediato que o ato produz no ordenamento (criação, alteração ou extinção de direitos).",
+          bancaTip: "CEBRASPE: Objeto juridicamente impossível gera nulidade absoluta e insanável.",
+          badge: "Efeito Imediato"
+        }
+      ]
+    },
+    {
+      id: 102,
+      title: "Comparativo: Lei 8.666/93 (Antiga) vs Lei 14.133/21 (Nova Lei de Licitações)",
+      subtitle: "Arraste o slider central para comparar lado a lado as mudanças essenciais exigidas em provas",
+      summary: "Quadro comparativo dinâmico das modalidades, ritos processuais e extinções de leis.",
+      points: [
+        "Pregão e Concorrência agora utilizam o mesmo procedimento comum na Lei 14.133/21.",
+        "As modalidades Convite e Tomada de Preços foram EXTINTAS na Nova Lei.",
+        "A modalidade Diálogo Competitivo foi INCLUÍDA exclusivamente na Lei 14.133/21."
+      ],
+      type: "comparativo_antes_depois",
+      splitSlider: {
+        beforeTitle: "📜 Regime Antigo (Lei 8.666/93)",
+        beforeSubtitle: "Procedimento burocrático e regras revogadas",
+        beforeContent: "• **Modalidades:** Convite, Tomada de Preços, Concorrência, Leilão, Concurso e Pregão.\n• **Fase Inicial:** Habilitação documental realizada ANTES da abertura de propostas.\n• **Publicidade:** Publicação em jornais de grande circulação impressos e diários oficiais.",
+        afterTitle: "🚀 Nova Lei de Licitações (Lei 14.133/21)",
+        afterSubtitle: "Marco moderno com inversão de fases e hub digital",
+        afterContent: "• **Modalidades:** Pregão, Concorrência, Concurso, Leilão e DIÁLOGO COMPETITIVO (Convite e Tomada de Preços EXTINTOS!).\n• **Inversão de Fases:** Julgamento de propostas ANTES da Habilitação (Regra Geral).\n• **Hub Digital:** Criação do Portal Nacional de Contratações Públicas (PNCP).",
+        bancaHighlight: "FGV e CEBRASPE adoram cobrar a extinção do Convite/Tomada de Preços e a criação do Diálogo Competitivo!"
+      }
+    }
+  ];
+
+  const sampleInfographics: InfographicItem[] = (customInfographics && customInfographics.length > 0) 
+    ? customInfographics 
+    : DEFAULT_INFOGRAPHICS;
 
   // Reset ALL state & load initial datasets whenever modal opens, type changes, or articleTitle changes
   React.useEffect(() => {
@@ -129,8 +233,130 @@ export default function InteractiveStudyModal({
       setIsQuizCompleted(false);
 
       setCurrentInfographicIndex(0);
+      setIsMemoryTestMode(false);
+      setSelectedBancaFilter("todas");
+      setRevealedPoints({});
+      setActiveHotspotId(null);
+      setSplitSliderPos(50);
+      setIsSpeaking(false);
+      setIsAudioPaused(false);
+    } else {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
     }
   }, [isOpen, type, articleTitle, customFlashcards, customQuestions, customSimulados]);
+
+  // TTS (Web Speech API) handlers
+  const handleToggleSpeak = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      alert("A síntese de voz não é suportada neste navegador.");
+      return;
+    }
+
+    if (isSpeaking) {
+      if (isAudioPaused) {
+        window.speechSynthesis.resume();
+        setIsAudioPaused(false);
+      } else {
+        window.speechSynthesis.pause();
+        setIsAudioPaused(true);
+      }
+    } else {
+      window.speechSynthesis.cancel();
+      const info = sampleInfographics[currentInfographicIndex] || sampleInfographics[0];
+      if (!info) return;
+
+      let speechText = `Infográfico: ${info.title}. Subtítulo: ${info.subtitle}. Resumo: ${info.summary}. `;
+      if (info.points && info.points.length > 0) {
+        speechText += "Pontos chaves de prova: " + info.points.join(". ") + ". ";
+      }
+      if (info.hotspots && info.hotspots.length > 0) {
+        speechText += "Hotspots interativos: " + info.hotspots.map(h => `${h.title}: ${h.description}. Dica da banca: ${h.bancaTip || ''}`).join(". ") + ". ";
+      }
+      if (info.splitSlider) {
+        speechText += `Comparativo. ${info.splitSlider.beforeTitle}: ${info.splitSlider.beforeContent}. ${info.splitSlider.afterTitle}: ${info.splitSlider.afterContent}. Dica de prova: ${info.splitSlider.bancaHighlight || ''}`;
+      }
+
+      const cleanText = speechText.replace(/\*/g, "").replace(/#/g, "");
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = "pt-BR";
+      utterance.rate = 0.95;
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setIsAudioPaused(false);
+      };
+
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        setIsAudioPaused(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+      setIsAudioPaused(false);
+    }
+  };
+
+  const handleStopAudio = () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+    setIsAudioPaused(false);
+  };
+
+  // Anki CSV Deck Exporter handler
+  const handleExportAnki = () => {
+    const info = sampleInfographics[currentInfographicIndex] || sampleInfographics[0];
+    if (!info) return;
+
+    let csvRows: string[] = [];
+    csvRows.push('"Frente (Pergunta/Conceito)","Verso (Gabarito/Dica de Prova)"');
+
+    // Item 1: Summary Card
+    const summaryFront = `[${articleTitle || "Concurso Público"}] - ${info.title}`;
+    const summaryBack = `${info.summary}<br><br><b>Subtítulo:</b> ${info.subtitle}`;
+    csvRows.push(`"${summaryFront.replace(/"/g, '""')}","${summaryBack.replace(/"/g, '""')}"`);
+
+    // Key Points
+    if (info.points && info.points.length > 0) {
+      info.points.forEach((pt, idx) => {
+        const ptFront = `[${info.title}] - Ponto Chave de Prova ${idx + 1}`;
+        const ptBack = `${pt}<br><br><b>Foco Banca:</b> ${selectedBancaFilter !== "todas" ? selectedBancaFilter.toUpperCase() : "Geral"}`;
+        csvRows.push(`"${ptFront.replace(/"/g, '""')}","${ptBack.replace(/"/g, '""')}"`);
+      });
+    }
+
+    // Hotspots
+    if (info.hotspots && info.hotspots.length > 0) {
+      info.hotspots.forEach((hs) => {
+        const hsFront = `[${info.title}] - ${hs.title}`;
+        const hsBack = `${hs.description}<br><br>💡 <b>Dica de Prova:</b> ${hs.bancaTip || 'Atenção às pegadinhas formais!'}`;
+        csvRows.push(`"${hsFront.replace(/"/g, '""')}","${hsBack.replace(/"/g, '""')}"`);
+      });
+    }
+
+    // Split Slider
+    if (info.splitSlider) {
+      const splitFront = `[${info.title}] - Comparativo: ${info.splitSlider.beforeTitle} vs ${info.splitSlider.afterTitle}`;
+      const splitBack = `<b>${info.splitSlider.beforeTitle}:</b><br>${info.splitSlider.beforeContent.replace(/\n/g, '<br>')}<br><br><b>${info.splitSlider.afterTitle}:</b><br>${info.splitSlider.afterContent.replace(/\n/g, '<br>')}<br><br>📌 <b>Pegadinha:</b> ${info.splitSlider.bancaHighlight || ''}`;
+      csvRows.push(`"${splitFront.replace(/"/g, '""')}","${splitBack.replace(/"/g, '""')}"`);
+    }
+
+    const csvString = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeTitle = info.title.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    link.href = url;
+    link.download = `anki_deck_${safeTitle}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Handler to shuffle Flashcards
   const handleShuffleFlashcards = () => {
@@ -839,6 +1065,101 @@ export default function InteractiveStudyModal({
             ) : (
               <div className="space-y-6">
                 
+                {/* TOOLBAR DE ESTUDO ATIVO: TESTE DE MEMÓRIA, FILTRO POR BANCA, ÁUDIO TTS & EXPORTAÇÃO ANKI (FASE 1, 2 e 3) */}
+                <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-[#0F172A]/90 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                  
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Botão Alternador do Modo Teste de Memória (Active Recall) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMemoryTestMode(!isMemoryTestMode);
+                        setRevealedPoints({});
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                        isMemoryTestMode
+                          ? "bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:border-amber-500"
+                      }`}
+                      title={isMemoryTestMode ? "Modo Teste de Memória ativo. Clique para retornar ao modo leitura." : "Ocultar pontos-chave para testar sua memória antes de revelar"}
+                    >
+                      {isMemoryTestMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-amber-500" />}
+                      <span>{isMemoryTestMode ? "🧠 Teste Ativo" : "🧠 Teste Memória"}</span>
+                    </button>
+
+                    {/* Botão de Narração em Áudio por Voz (TTS - Text to Speech) */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={handleToggleSpeak}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer border ${
+                          isSpeaking
+                            ? isAudioPaused
+                              ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                              : "bg-emerald-600 text-white border-emerald-500 shadow-md animate-pulse"
+                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:border-emerald-500"
+                        }`}
+                        title="Ouvir a narração em áudio por voz deste infográfico"
+                      >
+                        {isSpeaking ? (
+                          isAudioPaused ? <Play className="w-3.5 h-3.5 text-amber-400" /> : <Pause className="w-3.5 h-3.5 text-white" />
+                        ) : (
+                          <Volume2 className="w-3.5 h-3.5 text-emerald-500" />
+                        )}
+                        <span>{isSpeaking ? (isAudioPaused ? "Continuar Áudio" : "Pausar Áudio") : "🔊 Narração Áudio"}</span>
+                      </button>
+
+                      {isSpeaking && (
+                        <button
+                          type="button"
+                          onClick={handleStopAudio}
+                          className="p-1.5 rounded-xl bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30 transition-all cursor-pointer"
+                          title="Parar áudio"
+                        >
+                          <VolumeX className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Botão Exportador de Baralho para o ANKI (.CSV) */}
+                    <button
+                      type="button"
+                      onClick={handleExportAnki}
+                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer border border-purple-500"
+                      title="Gerar e baixar arquivo CSV formatado para importação direta no ANKI"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-purple-200" />
+                      <span>Exportar p/ Anki (.csv)</span>
+                    </button>
+
+                    {/* Seletor de Filtro por Banca Examinadora */}
+                    <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] font-black uppercase text-slate-400 px-1.5 hidden lg:inline">Banca:</span>
+                      {(["todas", "cebraspe", "fgv", "fcc", "vunesp"] as const).map((banca) => (
+                        <button
+                          key={banca}
+                          type="button"
+                          onClick={() => setSelectedBancaFilter(banca)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer ${
+                            selectedBancaFilter === banca
+                              ? banca === "fgv" ? "bg-amber-500 text-slate-950 shadow-xs"
+                                : banca === "cebraspe" ? "bg-emerald-600 text-white shadow-xs"
+                                : banca === "fcc" ? "bg-purple-600 text-white shadow-xs"
+                                : banca === "vunesp" ? "bg-blue-600 text-white shadow-xs"
+                                : "bg-slate-700 text-white shadow-xs"
+                              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                          }`}
+                        >
+                          {banca}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
                   <span>Esquema Visual {Math.min(currentInfographicIndex + 1, sampleInfographics.length)} de {sampleInfographics.length}</span>
                   <span className="px-2.5 py-1 rounded bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 uppercase font-bold text-[10px]">
@@ -850,9 +1171,16 @@ export default function InteractiveStudyModal({
                 <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-[#0F172A] text-white border border-slate-800 space-y-5 shadow-xl">
                   
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Mapa Mental / Resumo Visual
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Mapa Mental / Resumo Visual
+                      </span>
+                      {selectedBancaFilter !== "todas" && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Foco: {selectedBancaFilter}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="text-xl font-bold font-outfit text-white">
                       {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.title}
                     </h3>
@@ -868,20 +1196,263 @@ export default function InteractiveStudyModal({
                   {/* Key Points Flow */}
                   {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.points && (sampleInfographics[currentInfographicIndex] || sampleInfographics[0]).points!.length > 0 && (
                     <div className="space-y-3 pt-2">
-                      <h4 className="text-xs font-bold uppercase text-emerald-400 tracking-wider">
-                        Pontos Chaves de Prova:
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase text-emerald-400 tracking-wider">
+                          Pontos Chaves de Prova:
+                        </h4>
+                        {isMemoryTestMode && (
+                          <span className="text-[10px] text-amber-400 font-bold">
+                            (Clique em cada ponto para revelar)
+                          </span>
+                        )}
+                      </div>
 
                       <div className="grid grid-cols-1 gap-2.5">
-                        {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.points!.map((pt, i) => (
-                          <div key={i} className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 flex items-start gap-3 text-xs text-slate-100">
-                            <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0 font-bold text-[10px]">
-                              {i + 1}
-                            </span>
-                            <span className="flex-1 leading-relaxed">{pt}</span>
-                          </div>
-                        ))}
+                        {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.points!.map((pt, i) => {
+                          const isHidden = isMemoryTestMode && !revealedPoints[i];
+
+                          return (
+                            <div 
+                              key={i} 
+                              onClick={() => {
+                                if (isMemoryTestMode && isHidden) {
+                                  setRevealedPoints(prev => ({ ...prev, [i]: true }));
+                                }
+                              }}
+                              className={`p-3.5 rounded-xl transition-all flex items-start gap-3 text-xs ${
+                                isHidden 
+                                  ? "bg-amber-500/10 border border-amber-500/30 cursor-pointer hover:bg-amber-500/20" 
+                                  : "bg-slate-800/40 border border-slate-700/60 text-slate-100"
+                              }`}
+                            >
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold text-[10px] ${
+                                isHidden
+                                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                                  : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                              }`}>
+                                {i + 1}
+                              </span>
+
+                              {isHidden ? (
+                                <div className="flex-1 flex items-center justify-between text-amber-300 font-medium">
+                                  <span className="flex items-center gap-1.5">
+                                    <EyeOff className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                    <span>Ponto {i + 1}: Conteúdo oculto para Teste de Memória</span>
+                                  </span>
+                                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-slate-950 shrink-0">
+                                    Revelar
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex-1 space-y-1">
+                                  <span className="leading-relaxed block">{pt}</span>
+                                  {selectedBancaFilter !== "todas" && (
+                                    <div className="pt-1 flex items-center gap-2">
+                                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                        📌 Alta Incidência na {selectedBancaFilter.toUpperCase()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
+                    </div>
+                  )}
+
+                  {/* RENDER HOTSPOTS PULSANTES (FASE 2) */}
+                  {((sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.hotspots || (sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.type === "hotspots_interativos") && (
+                    <div className="space-y-4 pt-2 animate-in fade-in duration-300">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                          <Zap className="w-4 h-4 text-amber-400 animate-pulse" /> Hotspots Interativos de Estudo:
+                        </h4>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          Passe o mouse ou toque nos pontos pulsantes
+                        </span>
+                      </div>
+
+                      {/* Hotspot Interactive Canvas Container */}
+                      <div className="relative w-full h-64 sm:h-80 rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] border border-amber-500/30 overflow-hidden shadow-inner flex items-center justify-center p-4">
+                        {/* Background Grid Pattern */}
+                        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:16px_16px]" />
+                        
+                        {/* Interactive Markers */}
+                        {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.hotspots?.map((hs) => {
+                          const isActive = activeHotspotId === hs.id;
+
+                          return (
+                            <div 
+                              key={hs.id}
+                              style={{ left: `${hs.x}%`, top: `${hs.y}%` }}
+                              className="absolute -translate-x-1/2 -translate-y-1/2 z-10 group"
+                            >
+                              {/* Pulse Ring */}
+                              <span className="absolute -inset-2 rounded-full bg-amber-500/30 animate-ping" />
+                              
+                              {/* Hotspot Trigger Button */}
+                              <button
+                                type="button"
+                                onClick={() => setActiveHotspotId(isActive ? null : hs.id)}
+                                onMouseEnter={() => setActiveHotspotId(hs.id)}
+                                className={`relative w-8 h-8 rounded-full border-2 flex items-center justify-center font-black text-xs transition-all shadow-lg cursor-pointer ${
+                                  isActive
+                                    ? "bg-amber-400 border-white text-slate-950 scale-125 ring-4 ring-amber-500/50 z-20"
+                                    : "bg-slate-900/90 border-amber-400 text-amber-400 hover:scale-110 hover:bg-amber-400 hover:text-slate-950"
+                                }`}
+                              >
+                                {hs.id.toString().replace("hs-", "")}
+                              </button>
+
+                              {/* Hover Floating Tooltip Preview */}
+                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block z-30 pointer-events-none min-w-[160px] p-2 rounded-xl bg-slate-900 border border-amber-500/40 text-center shadow-xl">
+                                <span className="text-[11px] font-bold text-amber-300 block">{hs.title}</span>
+                                {hs.badge && (
+                                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 inline-block mt-0.5">
+                                    {hs.badge}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Central Visual Watermark / Instruction if no active hotspot */}
+                        {!activeHotspotId && (
+                          <div className="text-center space-y-1.5 p-4 rounded-xl bg-slate-900/60 backdrop-blur-xs border border-slate-700/50 max-w-xs z-0 pointer-events-none">
+                            <Info className="w-6 h-6 text-amber-400 mx-auto animate-bounce" />
+                            <p className="text-xs font-bold text-slate-200">
+                              Selecione um ponto pulsante acima
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              Para explorar os conceitos jurídicos e pegadinhas de concurso em detalhe
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Active Hotspot Detailed Detail Card */}
+                      {activeHotspotId && (() => {
+                        const activeHs = (sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.hotspots?.find(h => h.id === activeHotspotId);
+                        if (!activeHs) return null;
+
+                        return (
+                          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/40 text-slate-100 space-y-2.5 animate-in slide-in-from-bottom-2 duration-200 shadow-md">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <h5 className="font-extrabold text-amber-300 text-sm flex items-center gap-1.5 font-outfit">
+                                <Zap className="w-4 h-4 text-amber-400" /> {activeHs.title}
+                              </h5>
+                              {activeHs.badge && (
+                                <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] uppercase shadow-xs">
+                                  {activeHs.badge}
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                              {activeHs.description}
+                            </p>
+
+                            {activeHs.bancaTip && (
+                              <div className="p-3 rounded-xl bg-slate-900/90 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2">
+                                <span className="font-black text-amber-400 shrink-0">💡 Dica de Prova:</span>
+                                <span className="leading-relaxed">{activeHs.bancaTip}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* RENDER SLIDER COMPARATIVO ANTES X DEPOIS (FASE 2) */}
+                  {((sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.splitSlider || (sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.type === "comparativo_antes_depois") && (
+                    <div className="space-y-4 pt-2 animate-in fade-in duration-300">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <h4 className="text-xs font-bold uppercase text-purple-300 tracking-wider flex items-center gap-1.5">
+                          <SlidersHorizontal className="w-4 h-4 text-purple-400" /> Comparativo Lado a Lado (Antes x Depois):
+                        </h4>
+                        <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                          {splitSliderPos}% Antigo / {100 - splitSliderPos}% Novo
+                        </span>
+                      </div>
+
+                      {/* Interactive Range Control Slider */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-black uppercase text-slate-400">
+                          <span>📜 Regime Antigo</span>
+                          <span className="flex items-center gap-1 text-purple-400">
+                            <MoveHorizontal className="w-4 h-4" /> Arraste para comparar
+                          </span>
+                          <span>🚀 Nova Regra</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="90"
+                          value={splitSliderPos}
+                          onChange={(e) => setSplitSliderPos(Number(e.target.value))}
+                          className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500 border border-slate-700"
+                        />
+                      </div>
+
+                      {/* Split Side-by-Side Comparison Container */}
+                      {(() => {
+                        const splitData = (sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.splitSlider;
+                        if (!splitData) return null;
+
+                        return (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                              {/* Left Side: Before / Regime Antigo */}
+                              <div 
+                                style={{ opacity: Math.max(0.35, splitSliderPos / 60) }}
+                                className="p-4 rounded-2xl bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 text-slate-100 space-y-2 transition-all shadow-md"
+                              >
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-block">
+                                  {splitData.beforeTitle}
+                                </span>
+                                {splitData.beforeSubtitle && (
+                                  <p className="text-[11px] font-medium text-slate-400 italic">
+                                    {splitData.beforeSubtitle}
+                                  </p>
+                                )}
+                                <div className="text-xs text-slate-200 leading-relaxed pt-1 space-y-1">
+                                  <MathRenderer content={splitData.beforeContent} />
+                                </div>
+                              </div>
+
+                              {/* Right Side: After / Nova Regra */}
+                              <div 
+                                style={{ opacity: Math.max(0.35, (100 - splitSliderPos) / 60) }}
+                                className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 text-slate-100 space-y-2 transition-all shadow-md"
+                              >
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-block">
+                                  {splitData.afterTitle}
+                                </span>
+                                {splitData.afterSubtitle && (
+                                  <p className="text-[11px] font-medium text-slate-400 italic">
+                                    {splitData.afterSubtitle}
+                                  </p>
+                                )}
+                                <div className="text-xs text-slate-200 leading-relaxed pt-1 space-y-1">
+                                  <MathRenderer content={splitData.afterContent} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Banca Highlight Box */}
+                            {splitData.bancaHighlight && (
+                              <div className="p-3.5 rounded-xl bg-purple-950/50 border border-purple-500/30 text-xs text-purple-200 flex items-start gap-2">
+                                <span className="font-black text-purple-400 shrink-0">📌 Pegadinha de Prova:</span>
+                                <span className="leading-relaxed">{splitData.bancaHighlight}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 

@@ -465,7 +465,7 @@ hr, .prose hr, .editor-canvas hr {
 
 /* Cards Mnemônicos */
 .mnemonico-card {
-  @apply my-6 p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-xl space-y-3;
+  @apply my-6 p-5 rounded-2xl bg-[#0b0f19] dark:bg-[#070a10] text-white border border-slate-800 shadow-xl space-y-3;
 }
 .mnemonico-title {
   @apply text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5;
@@ -474,10 +474,25 @@ hr, .prose hr, .editor-canvas hr {
   @apply flex flex-wrap gap-2 pt-1;
 }
 .mnemonico-grid span {
-  @apply px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-emerald-500 hover:text-slate-950 border border-slate-700 text-xs font-semibold transition-all cursor-pointer;
+  @apply px-3.5 py-2 rounded-xl bg-slate-800/90 text-slate-100 hover:bg-emerald-500 hover:text-slate-950 border border-slate-700 text-xs font-bold transition-all cursor-pointer shadow-sm;
 }
 .mnemonico-grid span strong {
-  @apply text-emerald-400 font-black text-sm pr-0.5;
+  @apply text-emerald-400 font-black text-sm pr-0.5 transition-colors;
+}
+
+/* Garantir 100% de alto contraste apenas ao passar o mouse ou ativar a pílula do mnemônico */
+.mnemonico-grid span:hover,
+.mnemonico-grid span.active {
+  background-color: #10b981 !important;
+  color: #020617 !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.mnemonico-grid span:hover strong,
+.mnemonico-grid span.active strong {
+  color: #020617 !important;
+  font-weight: 900 !important;
 }
 
 /* MATEMÁTICA & RLM MODERNOS (KaTeX) */
@@ -558,6 +573,53 @@ hr, .prose hr, .editor-canvas hr {
 .venn-text { fill: #ffffff; font-size: 11px; font-weight: bold; text-anchor: middle; }
 .venn-inter-text { fill: #fbbf24; font-size: 16px; font-weight: 900; text-anchor: middle; }
 .venn-caption { @apply text-xs text-slate-400 italic pt-2; }
+
+/* ==========================================================================
+   MICRO-ANIMAÇÕES DE ÍCONES E GLASSMORPHISM 3D
+   ========================================================================== */
+@keyframes iconGlowPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4)); }
+  50% { transform: scale(1.06); filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8)); }
+}
+
+@keyframes iconFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes iconShakeHover {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-6deg); }
+  75% { transform: rotate(6deg); }
+}
+
+.icon-glow-pulse {
+  animation: iconGlowPulse 2.5s infinite ease-in-out;
+}
+
+.icon-float {
+  animation: iconFloat 3s infinite ease-in-out;
+}
+
+.callout-pegadinha:hover svg, .callout-pegadinha:hover .callout-header {
+  animation: iconShakeHover 0.4s ease-in-out;
+}
+
+.callout-dica:hover svg {
+  animation: iconGlowPulse 1.2s infinite ease-in-out;
+}
+
+.mnemonico-card:hover svg, .math-card-block:hover svg {
+  animation: iconFloat 2s infinite ease-in-out;
+}
+
+/* Glassmorphic 3D Card Header Badges */
+.badge-3d-glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
 
 /* ==========================================================================
    PRINT & PDF GENERATOR STYLES
