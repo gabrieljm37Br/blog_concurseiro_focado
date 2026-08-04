@@ -206,7 +206,7 @@ export default function InteractiveStudyModal({
     }
   ];
 
-  const sampleInfographics: InfographicItem[] = (customInfographics && customInfographics.length > 0) 
+  const sampleInfographics: InfographicItem[] = Array.isArray(customInfographics) 
     ? customInfographics 
     : DEFAULT_INFOGRAPHICS;
 

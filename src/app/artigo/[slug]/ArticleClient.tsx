@@ -155,6 +155,64 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
     });
   }, [post?.content]);
 
+  // Web Speech API Refs for stable chunk-by-chunk audio reading
+  const speechChunksRef = React.useRef<string[]>([]);
+  const speechIndexRef = React.useRef<number>(0);
+  const currentUtteranceRef = React.useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Helper to get available pt-BR voice
+  const getPtVoice = (synth: SpeechSynthesis): SpeechSynthesisVoice | undefined => {
+    const voices = synth.getVoices();
+    return (
+      voices.find(v => v.lang === "pt-BR" || v.lang === "pt_BR") ||
+      voices.find(v => v.lang.startsWith("pt"))
+    );
+  };
+
+  const playSpeechChunk = (index: number) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const synth = window.speechSynthesis;
+    const chunks = speechChunksRef.current;
+
+    if (index >= chunks.length) {
+      setIsPlayingAudio(false);
+      setIsAudioPaused(false);
+      setSpeechProgress(100);
+      speechIndexRef.current = 0;
+      return;
+    }
+
+    speechIndexRef.current = index;
+    const textChunk = chunks[index];
+    if (!textChunk || !textChunk.trim()) {
+      playSpeechChunk(index + 1);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(textChunk);
+    utterance.lang = "pt-BR";
+    utterance.rate = speechRate;
+
+    const ptVoice = getPtVoice(synth);
+    if (ptVoice) utterance.voice = ptVoice;
+
+    utterance.onend = () => {
+      const nextIndex = index + 1;
+      const progressPct = Math.min(100, Math.round((nextIndex / chunks.length) * 100));
+      setSpeechProgress(progressPct);
+      playSpeechChunk(nextIndex);
+    };
+
+    utterance.onerror = (e) => {
+      if (e.error === "interrupted" || e.error === "canceled") return;
+      console.warn("Speech Synthesis error on chunk", index, e);
+      playSpeechChunk(index + 1);
+    };
+
+    currentUtteranceRef.current = utterance;
+    synth.speak(utterance);
+  };
+
   // Handler for Audio Player (Play / Pause / Resume)
   const handleToggleAudio = () => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -177,50 +235,65 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
 
     synth.cancel();
 
+    // Clean article HTML / Text for reading
     const articleContainer = document.getElementById("article-content-body");
-    const cleanBodyText = articleContainer
-      ? articleContainer.innerText.replace(/[\r\n]+/g, ". ")
-      : (post?.summary || "") + ". " + (post?.content || "").replace(/<[^>]*>/g, " ");
+    let rawText = "";
+    if (articleContainer) {
+      const clone = articleContainer.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll(".btn-copiar-lei, .btn-copy-math, button, svg, script, style").forEach(el => el.remove());
+      rawText = clone.innerText || clone.textContent || "";
+    } else {
+      rawText = (post?.summary || "") + ". " + (post?.content || "").replace(/<[^>]*>/g, " ");
+    }
 
-    const textToRead = `${post?.title}. ${cleanBodyText}`;
-    if (!textToRead.trim()) return;
+    const cleanedText = rawText
+      ? rawText
+          .replace(/\$\$\s*[\s\S]*?\s*\$\$/g, " ")
+          .replace(/\$[^\$\n]+?\$/g, " ")
+          .replace(/📋\s*Copiar/gi, "")
+          .replace(/[\r\n]+/g, ". ")
+          .replace(/\s+/g, " ")
+          .trim()
+      : "";
 
-    const utterance = new SpeechSynthesisUtterance(textToRead);
-    utterance.lang = "pt-BR";
-    utterance.rate = speechRate;
+    const fullTitle = post?.title ? `${post.title}. ` : "";
+    const fullText = fullTitle + cleanedText;
 
-    const voices = synth.getVoices();
-    const ptVoice = voices.find(v => v.lang.includes("pt-BR") || v.lang.includes("pt_BR"));
-    if (ptVoice) utterance.voice = ptVoice;
+    if (!fullText.trim()) {
+      alert("Não foi possível extrair o texto do artigo para leitura.");
+      return;
+    }
 
-    utterance.onend = () => {
-      setIsPlayingAudio(false);
-      setIsAudioPaused(false);
-      setSpeechProgress(100);
-    };
+    // Split text into readable sentence chunks of ~150-200 characters max
+    const sentenceRegex = /[^.!?]+[.!?]+/g;
+    const rawMatches = fullText.match(sentenceRegex);
+    let chunks: string[] = rawMatches && rawMatches.length > 0
+      ? rawMatches.map(c => c.trim()).filter(c => c.length > 0)
+      : [fullText];
 
-    utterance.onerror = () => {
-      setIsPlayingAudio(false);
-      setIsAudioPaused(false);
-      setSpeechProgress(0);
-    };
+    if (chunks.length === 0) chunks = [fullText];
 
-    utterance.onboundary = (e) => {
-      if (e.name === "word" && textToRead.length > 0) {
-        const pct = Math.min(100, Math.round((e.charIndex / textToRead.length) * 100));
-        setSpeechProgress(pct);
-      }
-    };
-
-    synth.speak(utterance);
+    speechChunksRef.current = chunks;
+    speechIndexRef.current = 0;
+    setSpeechProgress(0);
     setIsPlayingAudio(true);
     setIsAudioPaused(false);
+
+    if (synth.getVoices().length === 0) {
+      synth.onvoiceschanged = () => {
+        playSpeechChunk(0);
+      };
+    }
+    playSpeechChunk(0);
   };
 
   const handleStopAudio = () => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
+    currentUtteranceRef.current = null;
+    speechChunksRef.current = [];
+    speechIndexRef.current = 0;
     setIsPlayingAudio(false);
     setIsAudioPaused(false);
     setSpeechProgress(0);
@@ -230,8 +303,13 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
     setSpeechRate(newRate);
     if (isPlayingAudio && typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
+      const currentIndex = speechIndexRef.current;
       setIsPlayingAudio(false);
       setIsAudioPaused(false);
+      setTimeout(() => {
+        setIsPlayingAudio(true);
+        playSpeechChunk(currentIndex);
+      }, 100);
     }
   };
 
