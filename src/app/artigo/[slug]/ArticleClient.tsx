@@ -162,16 +162,22 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
 
   // Helper to get available pt-BR voice
   const getPtVoice = (synth: SpeechSynthesis): SpeechSynthesisVoice | undefined => {
-    const voices = synth.getVoices();
-    return (
-      voices.find(v => v.lang === "pt-BR" || v.lang === "pt_BR") ||
-      voices.find(v => v.lang.startsWith("pt"))
-    );
+    try {
+      const voices = synth.getVoices();
+      return (
+        voices.find(v => (v.lang === "pt-BR" || v.lang === "pt_BR") && v.localService) ||
+        voices.find(v => v.lang === "pt-BR" || v.lang === "pt_BR") ||
+        voices.find(v => v.lang.startsWith("pt"))
+      );
+    } catch (e) {
+      return undefined;
+    }
   };
 
   const playSpeechChunk = (index: number) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     const synth = window.speechSynthesis;
+
     const chunks = speechChunksRef.current;
 
     if (index >= chunks.length) {
@@ -179,6 +185,8 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
       setIsAudioPaused(false);
       setSpeechProgress(100);
       speechIndexRef.current = 0;
+      currentUtteranceRef.current = null;
+      delete (window as any).__activeSpeechUtterance;
       return;
     }
 
@@ -189,28 +197,53 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(textChunk);
+    const utterance = new SpeechSynthesisUtterance(textChunk.trim());
     utterance.lang = "pt-BR";
     utterance.rate = speechRate;
 
     const ptVoice = getPtVoice(synth);
-    if (ptVoice) utterance.voice = ptVoice;
+    if (ptVoice) {
+      try { utterance.voice = ptVoice; } catch (e) {}
+    }
+
+    const progressPct = Math.min(100, Math.max(1, Math.round(((index + 1) / chunks.length) * 100)));
+
+    utterance.onstart = () => {
+      setIsPlayingAudio(true);
+      setIsAudioPaused(false);
+      setSpeechProgress(progressPct);
+    };
 
     utterance.onend = () => {
       const nextIndex = index + 1;
-      const progressPct = Math.min(100, Math.round((nextIndex / chunks.length) * 100));
       setSpeechProgress(progressPct);
-      playSpeechChunk(nextIndex);
+      setTimeout(() => {
+        if (speechChunksRef.current.length > 0) {
+          playSpeechChunk(nextIndex);
+        }
+      }, 30);
     };
 
     utterance.onerror = (e) => {
+      console.warn("Speech Synthesis warning on chunk", index, e);
       if (e.error === "interrupted" || e.error === "canceled") return;
-      console.warn("Speech Synthesis error on chunk", index, e);
-      playSpeechChunk(index + 1);
+      setTimeout(() => {
+        if (speechChunksRef.current.length > 0) {
+          playSpeechChunk(index + 1);
+        }
+      }, 50);
     };
 
     currentUtteranceRef.current = utterance;
-    synth.speak(utterance);
+    (window as any).__activeSpeechUtterance = utterance;
+
+    try {
+      synth.speak(utterance);
+      if (synth.paused) synth.resume();
+    } catch (err) {
+      console.error("Error invoking synth.speak:", err);
+      playSpeechChunk(index + 1);
+    }
   };
 
   // Handler for Audio Player (Play / Pause / Resume)
@@ -223,24 +256,27 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
     const synth = window.speechSynthesis;
 
     if (isPlayingAudio) {
-      if (isAudioPaused) {
-        synth.resume();
+      if (isAudioPaused || synth.paused) {
+        try { synth.resume(); } catch (e) {}
         setIsAudioPaused(false);
       } else {
-        synth.pause();
+        try { synth.pause(); } catch (e) {}
         setIsAudioPaused(true);
       }
       return;
     }
 
-    synth.cancel();
+    try {
+      synth.cancel();
+      if (synth.paused) synth.resume();
+    } catch (e) {}
 
     // Clean article HTML / Text for reading
     const articleContainer = document.getElementById("article-content-body");
     let rawText = "";
     if (articleContainer) {
       const clone = articleContainer.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll(".btn-copiar-lei, .btn-copy-math, button, svg, script, style").forEach(el => el.remove());
+      clone.querySelectorAll(".btn-copiar-lei, .btn-copy-math, button, svg, script, style, .estudo-spoiler summary").forEach(el => el.remove());
       rawText = clone.innerText || clone.textContent || "";
     } else {
       rawText = (post?.summary || "") + ". " + (post?.content || "").replace(/<[^>]*>/g, " ");
@@ -248,6 +284,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
 
     const cleanedText = rawText
       ? rawText
+          .replace(/<!--[\s\S]*?-->/g, " ")
           .replace(/\$\$\s*[\s\S]*?\s*\$\$/g, " ")
           .replace(/\$[^\$\n]+?\$/g, " ")
           .replace(/📋\s*Copiar/gi, "")
@@ -264,34 +301,36 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
       return;
     }
 
-    // Split text into readable sentence chunks of ~150-200 characters max
+    // Split text into readable sentence chunks by punctuation
     const sentenceRegex = /[^.!?]+[.!?]+/g;
     const rawMatches = fullText.match(sentenceRegex);
     let chunks: string[] = rawMatches && rawMatches.length > 0
-      ? rawMatches.map(c => c.trim()).filter(c => c.length > 0)
+      ? rawMatches.map(c => c.trim()).filter(c => c.length > 2)
       : [fullText];
 
     if (chunks.length === 0) chunks = [fullText];
 
     speechChunksRef.current = chunks;
     speechIndexRef.current = 0;
-    setSpeechProgress(0);
+    setSpeechProgress(1);
     setIsPlayingAudio(true);
     setIsAudioPaused(false);
 
-    if (synth.getVoices().length === 0) {
-      synth.onvoiceschanged = () => {
-        playSpeechChunk(0);
-      };
-    }
-    playSpeechChunk(0);
+    setTimeout(() => {
+      playSpeechChunk(0);
+    }, 50);
   };
 
   const handleStopAudio = () => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+      const synth = window.speechSynthesis;
+      try {
+        synth.cancel();
+        if (synth.paused) synth.resume();
+      } catch (e) {}
     }
     currentUtteranceRef.current = null;
+    delete (window as any).__activeSpeechUtterance;
     speechChunksRef.current = [];
     speechIndexRef.current = 0;
     setIsPlayingAudio(false);
@@ -302,7 +341,11 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   const handleRateChange = (newRate: number) => {
     setSpeechRate(newRate);
     if (isPlayingAudio && typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+      const synth = window.speechSynthesis;
+      try {
+        synth.cancel();
+        if (synth.paused) synth.resume();
+      } catch (e) {}
       const currentIndex = speechIndexRef.current;
       setIsPlayingAudio(false);
       setIsAudioPaused(false);

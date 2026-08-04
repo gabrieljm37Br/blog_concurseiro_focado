@@ -48,32 +48,32 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 2.25rem !important; /* 36px */
   line-height: 2.5rem !important;
   font-weight: 800 !important;
-  margin-top: 1.25rem !important;
-  margin-bottom: 0.75rem !important;
+  margin-top: 2rem !important;
+  margin-bottom: 1rem !important;
 }
 
 .prose h2, .editor-canvas h2, h2.article-heading {
-  font-size: 1.75rem !important; /* 28px */
-  line-height: 2rem !important;
+  font-size: 1.875rem !important; /* 30px */
+  line-height: 2.25rem !important;
   font-weight: 700 !important;
-  margin-top: 1rem !important;
-  margin-bottom: 0.5rem !important;
+  margin-top: 2.5rem !important; /* Maior espaçamento antes do h2 */
+  margin-bottom: 1rem !important; /* Espaçamento após o h2 */
 }
 
 .prose h3, .editor-canvas h3, h3.article-heading {
-  font-size: 1.35rem !important; /* 21.6px */
-  line-height: 1.75rem !important;
+  font-size: 1.5rem !important; /* 24px */
+  line-height: 1.85rem !important;
   font-weight: 700 !important;
-  margin-top: 0.85rem !important;
-  margin-bottom: 0.4rem !important;
+  margin-top: 2rem !important; /* Maior espaçamento antes do h3 */
+  margin-bottom: 0.75rem !important;
 }
 
 .prose h4, .editor-canvas h4, h4.article-heading {
-  font-size: 1.125rem !important; /* 18px */
-  line-height: 1.5rem !important;
+  font-size: 1.25rem !important; /* 20px */
+  line-height: 1.6rem !important;
   font-weight: 600 !important;
-  margin-top: 0.75rem !important;
-  margin-bottom: 0.35rem !important;
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.6rem !important;
 }
 
 /* Explicit List Styling for Editor Canvas & Article Prose */
@@ -429,21 +429,21 @@ hr, .prose hr, .editor-canvas hr {
   @apply my-6 p-5 rounded-2xl bg-emerald-500/10 border-l-4 border-emerald-500 text-slate-800 dark:text-slate-200 transition-all duration-200 hover:shadow-lg hover:border-emerald-400;
 }
 .callout-dica .callout-header {
-  @apply text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-2 mb-2 text-sm uppercase tracking-wider;
+  @apply text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-2 mb-2 text-base sm:text-lg uppercase tracking-wider;
 }
 
 .callout-pegadinha {
   @apply my-6 p-5 rounded-2xl bg-amber-500/10 border-l-4 border-amber-500 text-slate-800 dark:text-slate-200 transition-all duration-200 hover:shadow-lg hover:border-amber-400;
 }
 .callout-pegadinha .callout-header {
-  @apply text-amber-600 dark:text-amber-400 font-bold flex items-center gap-2 mb-2 text-sm uppercase tracking-wider;
+  @apply text-amber-600 dark:text-amber-400 font-extrabold flex items-center gap-2 mb-2 text-base sm:text-lg uppercase tracking-wider transition-transform duration-200;
 }
 
 .callout-lei {
   @apply my-6 p-5 rounded-2xl bg-purple-500/10 border-l-4 border-purple-500 text-slate-800 dark:text-slate-200 relative;
 }
 .callout-lei .lei-header {
-  @apply font-bold text-purple-600 dark:text-purple-400 text-xs flex justify-between items-center mb-2 border-b border-purple-500/20 pb-2;
+  @apply font-extrabold text-purple-600 dark:text-purple-400 text-sm sm:text-base flex justify-between items-center mb-2 border-b border-purple-500/20 pb-2;
 }
 .callout-lei blockquote {
   @apply italic text-sm sm:text-base border-none pl-0 my-0 text-slate-700 dark:text-purple-100;
@@ -457,7 +457,7 @@ hr, .prose hr, .editor-canvas hr {
   @apply my-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 overflow-hidden transition-all duration-200;
 }
 .estudo-spoiler summary {
-  @apply p-4 font-bold text-sm sm:text-base text-slate-900 dark:text-white cursor-pointer select-none bg-slate-100/80 dark:bg-slate-800/60 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center justify-between;
+  @apply p-4 font-extrabold text-base sm:text-lg text-slate-900 dark:text-white cursor-pointer select-none bg-slate-100/80 dark:bg-slate-800/60 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center justify-between;
 }
 .estudo-spoiler .spoiler-conteudo {
   @apply p-4 text-xs sm:text-sm text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-800/60 bg-white dark:bg-[#0B0F19];
@@ -468,7 +468,7 @@ hr, .prose hr, .editor-canvas hr {
   @apply my-6 p-5 rounded-2xl bg-[#0b0f19] dark:bg-[#070a10] text-white border border-slate-800 shadow-xl space-y-3;
 }
 .mnemonico-title {
-  @apply text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5;
+  @apply text-sm sm:text-base font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5;
 }
 .mnemonico-grid {
   @apply flex flex-wrap gap-2 pt-1;
@@ -503,7 +503,7 @@ hr, .prose hr, .editor-canvas hr {
   @apply flex items-center justify-between border-b border-slate-800 pb-2 text-xs font-bold;
 }
 .math-badge {
-  @apply text-emerald-400 font-extrabold uppercase tracking-wider;
+  @apply text-sm sm:text-base text-emerald-400 font-extrabold uppercase tracking-wider;
 }
 .math-card-body {
   @apply text-base sm:text-lg text-emerald-100 overflow-x-auto py-2 text-center;
@@ -514,7 +514,7 @@ hr, .prose hr, .editor-canvas hr {
   @apply my-6 p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-xl space-y-4;
 }
 .chart-title {
-  @apply text-xs font-extrabold uppercase tracking-wider text-emerald-400 border-b border-slate-800 pb-2;
+  @apply text-sm sm:text-base font-extrabold uppercase tracking-wider text-emerald-400 border-b border-slate-800 pb-2;
 }
 .chart-row {
   @apply flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-medium;
@@ -534,25 +534,31 @@ hr, .prose hr, .editor-canvas hr {
 
 /* FLUXOGRAMAS DE PROCESSO STEPPER */
 .process-stepper {
-  @apply my-6 p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-xl space-y-4;
+  @apply my-6 p-5 sm:p-6 rounded-2xl bg-slate-900 dark:bg-slate-950 text-white border border-slate-800 shadow-xl space-y-4;
 }
 .process-title {
-  @apply text-xs font-extrabold uppercase tracking-wider text-blue-400 border-b border-slate-800 pb-2;
+  @apply text-sm sm:text-base font-extrabold uppercase tracking-wider text-emerald-400 border-b border-slate-800 pb-3 flex items-center gap-2;
 }
 .stepper-grid {
-  @apply flex flex-col sm:flex-row items-center justify-between gap-3;
+  @apply flex flex-col lg:flex-row items-stretch justify-between gap-3;
 }
 .step-card {
-  @apply flex-1 p-3 rounded-xl bg-slate-800 border border-slate-700/70 text-xs space-y-1 w-full text-center sm:text-left transition-all hover:border-emerald-500;
+  @apply flex-1 p-4 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs space-y-1.5 w-full text-left transition-all hover:border-emerald-500 hover:bg-slate-800;
+}
+.step-card strong, .step-card h4, .step-card .step-title {
+  color: #ffffff !important;
+}
+.step-card span, .step-card p, .step-card .step-desc {
+  color: #cbd5e1 !important;
 }
 .step-card.active {
   @apply bg-emerald-500/15 border-emerald-500/50;
 }
 .step-num {
-  @apply inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs mb-1;
+  @apply inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs shrink-0;
 }
 .step-arrow {
-  @apply text-slate-500 font-black hidden sm:block;
+  @apply text-slate-500 font-black hidden lg:block;
 }
 
 /* DIAGRAMAS DE VENN (RLM) */
@@ -560,7 +566,7 @@ hr, .prose hr, .editor-canvas hr {
   @apply my-6 p-5 rounded-2xl bg-slate-950 text-white border border-purple-500/30 shadow-xl text-center space-y-3;
 }
 .venn-title {
-  @apply text-xs font-extrabold uppercase tracking-wider text-purple-400 border-b border-slate-800 pb-2;
+  @apply text-sm sm:text-base font-extrabold uppercase tracking-wider text-purple-400 border-b border-slate-800 pb-2;
 }
 .venn-circle {
   fill-opacity: 0.25;
@@ -587,10 +593,9 @@ hr, .prose hr, .editor-canvas hr {
   50% { transform: translateY(-4px); }
 }
 
-@keyframes iconShakeHover {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-6deg); }
-  75% { transform: rotate(6deg); }
+@keyframes titlePulseHover {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
 }
 
 .icon-glow-pulse {
@@ -602,7 +607,7 @@ hr, .prose hr, .editor-canvas hr {
 }
 
 .callout-pegadinha:hover svg, .callout-pegadinha:hover .callout-header {
-  animation: iconShakeHover 0.4s ease-in-out;
+  animation: titlePulseHover 0.5s ease-in-out;
 }
 
 .callout-dica:hover svg {
