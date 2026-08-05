@@ -41,9 +41,11 @@ import {
   Brain,
   BarChart2,
   GitMerge,
-  HelpCircle
+  HelpCircle,
+  Shapes
 } from "lucide-react";
 import ImageUploadModal from "./ImageUploadModal";
+import IconPickerModal from "./IconPickerModal";
 import katex from "katex";
 import { 
   DicaGradientIcon, 
@@ -63,6 +65,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   const [showPreview, setShowPreview] = useState(false);
   const [isStickyToolbar, setIsStickyToolbar] = useState<boolean>(true);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editableRef = useRef<HTMLDivElement>(null);
 
@@ -423,6 +426,27 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       pushToHistory(editableRef.current.innerHTML);
     } else {
       insertTagTextarea(imgHtml);
+    }
+  };
+
+  // Confirm Icon Insertion from Modal (SVG / Built-in / Emoji)
+  const handleConfirmInsertIcon = (htmlSnippet: string) => {
+    if (editorMode === "visual" && editableRef.current) {
+      editableRef.current.focus();
+      const prevHtml = editableRef.current.innerHTML;
+      try {
+        document.execCommand("insertHTML", false, htmlSnippet);
+      } catch (e) {
+        // Fallback
+      }
+
+      if (editableRef.current.innerHTML === prevHtml) {
+        editableRef.current.innerHTML = prevHtml + " " + htmlSnippet;
+      }
+
+      pushToHistory(editableRef.current.innerHTML);
+    } else {
+      insertTagTextarea(htmlSnippet);
     }
   };
 
@@ -985,6 +1009,14 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           >
             <ImageIcon className="w-4 h-4" />
           </button>
+          <button
+            type="button"
+            onClick={() => setIsIconModalOpen(true)}
+            className="p-1.5 rounded-lg bg-white dark:bg-[#0F172A] text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-slate-950 border border-slate-200 dark:border-slate-700 transition-colors"
+            title="Inserir Ícone Vetorial / SVG Personalizado"
+          >
+            <Shapes className="w-4 h-4" />
+          </button>
         </div>
 
         {/* GRUPO 6: Caixas Especiais & Elementos Interativos de Estudo */}
@@ -992,6 +1024,15 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Elementos Interativos:
           </span>
+
+          <button
+            type="button"
+            onClick={() => setIsIconModalOpen(true)}
+            className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 text-xs font-black shadow-md hover:brightness-110 transition-all flex items-center gap-1 cursor-pointer"
+            title="Inserir Ícones Vetoriais ou SVG Customizado"
+          >
+            <Shapes className="w-4 h-4 shrink-0" /> Ícones / SVG
+          </button>
 
           <button
             type="button"
@@ -1149,6 +1190,13 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         isOpen={isImageModalOpen}
         onClose={() => setIsImageModalOpen(false)}
         onInsertImage={handleConfirmInsertImage}
+      />
+
+      {/* Icon Picker Modal Dialog */}
+      <IconPickerModal
+        isOpen={isIconModalOpen}
+        onClose={() => setIsIconModalOpen(false)}
+        onInsertIcon={handleConfirmInsertIcon}
       />
 
     </div>
