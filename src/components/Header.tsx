@@ -209,7 +209,7 @@ export default function Header() {
         
         {/* ROW 1: BRAND LOGO + CENTER PROMINENT SEARCH BAR + RIGHT ACTION BUTTONS (Gran Cursos Style) */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20 gap-4 sm:gap-6">
+          <div className="flex items-center justify-between h-16 sm:h-20 gap-3 sm:gap-6">
             
             {/* Logo Oficial */}
             <Logo showTagline={true} />
@@ -234,13 +234,13 @@ export default function Header() {
               </button>
             </div>
 
-            {/* Right Action Controls */}
+            {/* Right Action Controls (Nível 1 - Topo Mobile & Desktop) */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               
               {/* Mobile Only Search Icon Button */}
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className="md:hidden p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700/60"
+                className="md:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700/60"
                 title="Buscar no Blog"
                 aria-label="Buscar matérias"
               >
@@ -250,7 +250,7 @@ export default function Header() {
               {/* Dark Mode Toggle */}
               <button
                 onClick={toggleDarkMode}
-                className="p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
+                className="p-2 sm:p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
                 title="Alternar Modo Escuro/Claro"
                 aria-label="Alternar Modo Escuro"
               >
@@ -260,10 +260,10 @@ export default function Header() {
               {/* PWA Download APP Button (Desktop Header) */}
               <InstallAppButton variant="header" className="hidden lg:inline-flex" />
 
-              {/* Area de Membros Login Button */}
+              {/* Area de Membros Login Button (Desktop Header) */}
               <Link
                 href="/membros/login"
-                className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="hidden lg:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <User className="w-4 h-4 shrink-0" />
                 <span>Área de Membros</span>
@@ -272,17 +272,31 @@ export default function Header() {
                 </span>
               </Link>
 
-              {/* Mobile Hamburger Button */}
+              {/* Mobile Hamburger Menu Button (Garantido no Nível 1 à direita) */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800"
-                aria-label="Abrir menu"
+                className="lg:hidden p-2 sm:p-2.5 rounded-xl text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shrink-0"
+                aria-label="Abrir menu de navegação"
               >
-                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {isMobileMenuOpen ? <X className="w-6 h-6 text-emerald-500" /> : <Menu className="w-6 h-6 text-emerald-500" />}
               </button>
 
             </div>
 
+          </div>
+        </div>
+
+        {/* NÍVEL 2 PARA MOBILE: SUB-BARRA COM ACCÕES RÁPIDAS (Baixar APP & Área de Membros) */}
+        <div className="lg:hidden border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-100/90 dark:bg-[#070A12] px-3 sm:px-4 py-2">
+          <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto">
+            <InstallAppButton variant="header" className="flex-1 justify-center py-1.5 text-xs shadow-xs" />
+            <Link
+              href="/membros/login"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors text-center font-outfit"
+            >
+              <User className="w-3.5 h-3.5 shrink-0" />
+              <span>Área de Membros</span>
+            </Link>
           </div>
         </div>
 

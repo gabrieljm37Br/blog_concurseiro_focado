@@ -27,14 +27,14 @@ export function InstallAppButton({ variant = "header", className = "" }: Install
   if (isStandalone || isInstalledSuccess) {
     if (variant === "mobile") {
       return (
-        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold">
+        <div className={`flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold ${className}`}>
           <Check className="w-4 h-4" />
           <span>APP Instalado</span>
         </div>
       );
     }
     return (
-      <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-semibold">
+      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-semibold ${className}`}>
         <Check className="w-3.5 h-3.5" />
         <span>APP Instalado</span>
       </div>
