@@ -164,6 +164,7 @@ export default function AdminPage() {
     infographicTitle: "",
     infographicSubtitle: "",
     infographicSummary: "",
+    infographicUrl: "",
     infographicType: "resumo_visual" as "mapa_mental" | "resumo_visual" | "tabela_comparativa"
   };
 
@@ -1039,6 +1040,7 @@ export default function AdminPage() {
       infographicTitle: info.title || "",
       infographicSubtitle: info.subtitle || "",
       infographicSummary: info.summary || "",
+      infographicUrl: info.url || "",
       infographicType: info.type || "resumo_visual"
     }));
     setInfographicCode(info.codeContent || "");
@@ -1053,12 +1055,13 @@ export default function AdminPage() {
       ...prev,
       infographicTitle: "",
       infographicSubtitle: "",
-      infographicSummary: ""
+      infographicSummary: "",
+      infographicUrl: ""
     }));
   };
 
   const handleAddInfographic = () => {
-    if (!formData.infographicTitle && !infographicCode) return;
+    if (!formData.infographicTitle && !infographicCode && !formData.infographicUrl) return;
     const targetId = editingInfographicIndex !== null && infographicsList[editingInfographicIndex]?.id ? infographicsList[editingInfographicIndex].id : Date.now();
     const newInfo = {
       id: targetId,
@@ -1066,6 +1069,7 @@ export default function AdminPage() {
       subtitle: formData.infographicSubtitle || "Resumo Esquematizado",
       summary: formData.infographicSummary || "Conteúdo visual explicativo sobre os pontos chave.",
       type: formData.infographicType || "resumo_visual",
+      url: formData.infographicUrl || "",
       codeContent: infographicCode,
       points: [
         "Revisão rápida de pontos de alta incidência",
@@ -1087,7 +1091,8 @@ export default function AdminPage() {
       ...prev,
       infographicTitle: "",
       infographicSubtitle: "",
-      infographicSummary: ""
+      infographicSummary: "",
+      infographicUrl: ""
     }));
   };
 
@@ -2787,6 +2792,23 @@ export default function AdminPage() {
                       placeholder="Resumo dos pontos gráficos para o estudante..."
                       className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white"
                     />
+                  </div>
+
+                  {/* URL / Link direto para a página do Infográfico */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Link / URL da Página do Infográfico (Redirecionamento Direto)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.infographicUrl || ""}
+                      onChange={(e) => setFormData({ ...formData, infographicUrl: e.target.value })}
+                      placeholder="Ex: /infograficos/nbc-tsp-cap2.html"
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-purple-500/30 text-xs font-medium text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      Preencha este campo se quiser que o leitor seja direcionado diretamente para a página do infográfico ao clicar.
+                    </p>
                   </div>
 
                   {/* Code Input Box (Item 8) */}

@@ -25,6 +25,7 @@ export interface InfographicItem {
   summary: string;
   points: string[];
   type: "mapa_mental" | "resumo_visual" | "tabela_comparativa" | "codigo_html" | "hotspots_interativos" | "comparativo_antes_depois";
+  url?: string;
   codeContent?: string;
   imageUrl?: string;
   hotspots?: InfographicHotspot[];

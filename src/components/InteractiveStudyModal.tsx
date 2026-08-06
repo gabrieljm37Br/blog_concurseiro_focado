@@ -1189,6 +1189,28 @@ export default function InteractiveStudyModal({
                     </p>
                   </div>
 
+                  {/* Banner de Redirecionamento Direto para Página do Infográfico */}
+                  {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.url && (
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg border border-purple-400/40">
+                      <div className="space-y-0.5">
+                        <span className="font-extrabold text-xs text-amber-300 flex items-center gap-1">
+                          <Sparkles className="w-4 h-4" /> Infográfico Disponível em Página Dedicada
+                        </span>
+                        <p className="text-xs text-purple-100">
+                          Acesse o infográfico interativo completo em tela cheia na página própria.
+                        </p>
+                      </div>
+                      <a
+                        href={(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 rounded-xl bg-white hover:bg-purple-50 text-purple-950 font-black text-xs transition-all shadow-md inline-flex items-center justify-center gap-1 shrink-0 cursor-pointer"
+                      >
+                        <span>Abrir Infográfico ↗</span>
+                      </a>
+                    </div>
+                  )}
+
                   <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-200 leading-relaxed italic">
                     "{(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.summary}"
                   </div>

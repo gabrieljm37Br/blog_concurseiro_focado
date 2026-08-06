@@ -538,6 +538,15 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   };
 
   const openInfographic = () => {
+    const targetInfog = post?.infographics?.find((i: any) => i.url) || post?.infographics?.[0];
+    if (targetInfog?.url) {
+      window.open(targetInfog.url, "_blank");
+      return;
+    }
+    if (slug.includes("nbc-tsp") || slug.includes("capitulo-2") || slug.includes("estrutura-conceitual")) {
+      window.open("/infograficos/nbc-tsp-cap2.html", "_blank");
+      return;
+    }
     setModalType("infografico");
     setIsModalOpen(true);
   };
