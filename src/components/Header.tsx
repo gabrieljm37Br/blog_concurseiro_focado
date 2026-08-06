@@ -288,19 +288,7 @@ export default function Header() {
           </div>
         </div>
 
-        {/* NÍVEL 2 PARA MOBILE: SUB-BARRA COM ACCÕES RÁPIDAS (Baixar APP & Área de Membros) */}
-        <div className="lg:hidden border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-100/90 dark:bg-[#070A12] px-3 sm:px-4 py-2">
-          <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto">
-            <InstallAppButton variant="header" className="flex-1 justify-center py-1.5 text-xs shadow-xs" />
-            <Link
-              href="/membros/login"
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors text-center font-outfit"
-            >
-              <User className="w-3.5 h-3.5 shrink-0" />
-              <span>Área de Membros</span>
-            </Link>
-          </div>
-        </div>
+
 
         {/* ROW 2: CATEGORY NAVIGATION SUB-BAR (Direção & Gran Cursos Style - Desktop) */}
         <div className="header-subnav border-t border-b border-slate-200/80 dark:border-slate-800/90 bg-slate-100/90 dark:bg-[#070A12] hidden lg:block">
