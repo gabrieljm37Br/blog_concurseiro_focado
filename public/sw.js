@@ -8,6 +8,24 @@ const STATIC_ASSETS = [
   '/favicon.ico',
 ];
 
+// Self-unregister if active on localhost / dev environment
+if (typeof self !== 'undefined' && self.location && (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1')) {
+  self.addEventListener('install', () => self.skipWaiting());
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
+      self.registration.unregister().then(() => {
+        return self.clients.matchAll();
+      }).then((clients) => {
+        clients.forEach((client) => {
+          if (client.url && client.navigate) {
+            client.navigate(client.url);
+          }
+        });
+      })
+    );
+  });
+}
+
 // Install Event
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -35,13 +53,14 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests, non-http(s), and Next.js Dev/HMR WebSocket requests
+  // Bypass Service Worker completely on localhost / dev mode or for Next.js internal routes
   if (
     request.method !== 'GET' || 
     !url.protocol.startsWith('http') ||
-    url.pathname.startsWith('/_next/webpack-hmr') ||
-    url.pathname.includes('webpack-hmr') ||
-    url.pathname.startsWith('/_next/static/webpack/')
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1' ||
+    url.pathname.startsWith('/_next/') ||
+    url.pathname.includes('webpack')
   ) {
     return;
   }
@@ -82,18 +101,21 @@ self.addEventListener('fetch', (event) => {
         if (cachedResponse) {
           // Fetch updated version in background (stale-while-revalidate)
           fetch(request).then((response) => {
-            if (response.status === 200) {
+            if (response && response.status === 200) {
               caches.open(CACHE_NAME).then((cache) => cache.put(request, response));
             }
           }).catch(() => {});
           return cachedResponse;
         }
         return fetch(request).then((response) => {
-          if (response.status === 200) {
+          if (response && response.status === 200) {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
           return response;
+        }).catch((err) => {
+          console.warn('SW fetch fallback:', err);
+          return caches.match(request);
         });
       })
     );
