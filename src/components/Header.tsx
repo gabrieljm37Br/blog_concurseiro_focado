@@ -24,6 +24,7 @@ import {
 import YouTubeIcon from "@/components/icons/YouTubeIcon";
 import InstagramIcon from "@/components/icons/InstagramIcon";
 import Logo from "@/components/Logo";
+import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 
 import { supabase } from "@/lib/supabaseClient";
 
@@ -256,6 +257,9 @@ export default function Header() {
                 {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
               </button>
 
+              {/* PWA Download APP Button */}
+              <InstallAppButton variant="header" />
+
               {/* Area de Membros Login Button */}
               <Link
                 href="/membros/login"
@@ -445,11 +449,12 @@ export default function Header() {
               <ShoppingBag className="w-4 h-4" /> Loja de APPs & Afiliados
             </Link>
 
-            <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+              <InstallAppButton variant="mobile" />
               <Link
                 href="/membros/login"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-600 text-white font-medium text-sm"
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-emerald-600 text-white font-medium text-sm"
               >
                 <User className="w-4 h-4" /> Entrar na Área de Membros (Sem Ads)
               </Link>

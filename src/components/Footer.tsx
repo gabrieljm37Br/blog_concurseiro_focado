@@ -4,6 +4,7 @@ import { Target, Heart, ShieldCheck, Mail, FileText, Send } from "lucide-react";
 import YouTubeIcon from "@/components/icons/YouTubeIcon";
 import InstagramIcon from "@/components/icons/InstagramIcon";
 import Logo from "@/components/Logo";
+import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 
 export default function Footer() {
   return (
@@ -120,6 +121,9 @@ export default function Footer() {
                 <span className="text-slate-400 text-xs block">
                   ✓ Flashcards & Simulados acoplados
                 </span>
+              </li>
+              <li className="pt-2">
+                <InstallAppButton variant="banner" />
               </li>
             </ul>
           </div>

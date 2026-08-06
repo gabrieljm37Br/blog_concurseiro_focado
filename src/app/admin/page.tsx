@@ -1797,20 +1797,29 @@ export default function AdminPage() {
       {/* TAB 2: CREATE / EDIT POST FORM */}
       {activeTab === "create" && (
         <form onSubmit={handleSavePost} className="bg-white dark:bg-[#111827] p-8 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6 shadow-sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="text-xl font-bold font-outfit text-slate-900 dark:text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-500" />
               {editingPostId ? "Editar Artigo Existente" : "Novo Artigo com Ferramentas de Estudo Ativo"}
             </h2>
-            {editingPostId && (
+            <div className="flex items-center gap-2.5 shrink-0">
+              {editingPostId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <XCircle className="w-4 h-4" /> Cancelar Edição
+                </button>
+              )}
               <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 text-xs font-bold flex items-center gap-1"
+                type="submit"
+                className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer"
               >
-                <XCircle className="w-4 h-4" /> Cancelar Edição
+                <Save className="w-4 h-4" />
+                {editingPostId ? "Salvar Alterações no Artigo" : "Publicar Artigo no Blog"}
               </button>
-            )}
+            </div>
           </div>
 
           {/* Auto-Save Draft Banner */}

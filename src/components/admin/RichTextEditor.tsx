@@ -42,7 +42,8 @@ import {
   BarChart2,
   GitMerge,
   HelpCircle,
-  Shapes
+  Shapes,
+  RefreshCw
 } from "lucide-react";
 import ImageUploadModal from "./ImageUploadModal";
 import IconPickerModal from "./IconPickerModal";
@@ -66,8 +67,62 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   const [isStickyToolbar, setIsStickyToolbar] = useState<boolean>(true);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
+  const [isSyncScrollActive, setIsSyncScrollActive] = useState<boolean>(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editableRef = useRef<HTMLDivElement>(null);
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  const previewScrollRef = useRef<HTMLDivElement>(null);
+  const isSyncingScrollRef = useRef<boolean>(false);
+
+  // Helper to determine the active scroll element on the editor side
+  const getEditorScrollElement = (): HTMLElement | null => {
+    if (editorMode !== "visual" && textareaRef.current) {
+      return textareaRef.current;
+    }
+    return leftPanelRef.current || editableRef.current;
+  };
+
+  // Synchronized scroll from Editor to Preview
+  const handleEditorScroll = (e: React.UIEvent<HTMLElement>) => {
+    if (isSyncingScrollRef.current || !showPreview || !isSyncScrollActive) return;
+    const editor = e.currentTarget;
+    const preview = previewScrollRef.current;
+    if (!preview) return;
+
+    const maxEditorScroll = editor.scrollHeight - editor.clientHeight;
+    if (maxEditorScroll <= 0) return;
+
+    const scrollPercentage = editor.scrollTop / maxEditorScroll;
+    const maxPreviewScroll = preview.scrollHeight - preview.clientHeight;
+
+    isSyncingScrollRef.current = true;
+    preview.scrollTop = scrollPercentage * maxPreviewScroll;
+
+    requestAnimationFrame(() => {
+      isSyncingScrollRef.current = false;
+    });
+  };
+
+  // Synchronized scroll from Preview to Editor
+  const handlePreviewScroll = (e: React.UIEvent<HTMLElement>) => {
+    if (isSyncingScrollRef.current || !showPreview || !isSyncScrollActive) return;
+    const preview = e.currentTarget;
+    const editor = getEditorScrollElement();
+    if (!editor) return;
+
+    const maxPreviewScroll = preview.scrollHeight - preview.clientHeight;
+    if (maxPreviewScroll <= 0) return;
+
+    const scrollPercentage = preview.scrollTop / maxPreviewScroll;
+    const maxEditorScroll = editor.scrollHeight - editor.clientHeight;
+
+    isSyncingScrollRef.current = true;
+    editor.scrollTop = scrollPercentage * maxEditorScroll;
+
+    requestAnimationFrame(() => {
+      isSyncingScrollRef.current = false;
+    });
+  };
 
   // Undo / Redo History State
   const [history, setHistory] = useState<string[]>([value]);
@@ -675,7 +730,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     <div className="rounded-2xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-[#0B0F19] text-slate-900 dark:text-white shadow-xl transition-colors relative">
       
       {/* Sticky Container Wrapper for Header + Toolbar */}
-      <div className={`transition-all ${isStickyToolbar ? "sticky top-[72px] sm:top-[76px] z-30 shadow-md backdrop-blur-md bg-white/95 dark:bg-[#070A10]/95 rounded-t-2xl" : ""}`}>
+      <div className={`transition-all ${isStickyToolbar ? "sticky top-[64px] sm:top-[80px] lg:top-[126px] z-30 shadow-md backdrop-blur-md bg-white/95 dark:bg-[#070A10]/95 rounded-t-2xl" : ""}`}>
         
         {/* Editor Header Bar */}
         <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-[#070A10]/90 flex flex-wrap items-center justify-between gap-3">
@@ -1131,7 +1186,13 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       <div className={`grid ${showPreview ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"} divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-slate-800 min-h-[360px]`}>
         
         {/* Editor Area: VISUAL (contentEditable) vs CODE / MARKDOWN (Textarea) */}
-        <div className="p-4 relative bg-white dark:bg-[#0B0F19]">
+        <div 
+          ref={leftPanelRef}
+          onScroll={handleEditorScroll}
+          className={`p-4 relative bg-white dark:bg-[#0B0F19] ${
+            showPreview ? "h-[520px] max-h-[520px] overflow-y-auto" : ""
+          }`}
+        >
           {editorMode === "visual" ? (
             <div
               ref={editableRef}
@@ -1151,17 +1212,40 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
               value={value}
               onChange={(e) => pushToHistory(e.target.value)}
               onKeyDown={handleKeyDown}
+              onScroll={handleEditorScroll}
               placeholder="Escreva ou cole seu código/markdown aqui..."
-              className="w-full h-full bg-transparent text-sm sm:text-base font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none resize-y leading-relaxed"
+              className={`w-full bg-transparent text-sm sm:text-base font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none leading-relaxed ${
+                showPreview ? "h-full min-h-[480px] overflow-y-auto resize-none" : "h-full min-h-[320px] resize-y"
+              }`}
             />
           )}
         </div>
 
         {/* Live Preview Panel */}
         {showPreview && (
-          <div id="editor-live-preview" className="p-5 bg-slate-50 dark:bg-[#070A10] overflow-y-auto max-h-[520px] space-y-4 border-t md:border-t-0">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 pb-2">
-              <Sparkles className="w-3.5 h-3.5" /> Pré-visualização do Artigo no Site:
+          <div 
+            ref={previewScrollRef}
+            onScroll={handlePreviewScroll}
+            id="editor-live-preview" 
+            className="p-5 bg-slate-50 dark:bg-[#070A10] overflow-y-auto max-h-[520px] h-[520px] space-y-4 border-t md:border-t-0"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" /> Pré-visualização do Artigo no Site:
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSyncScrollActive(!isSyncScrollActive)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 cursor-pointer ${
+                  isSyncScrollActive
+                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20"
+                    : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700"
+                }`}
+                title={isSyncScrollActive ? "Rolagem sincronizada entre editor e pré-visualização ATIVA" : "Ativar rolagem sincronizada"}
+              >
+                <RefreshCw className={`w-3 h-3 ${isSyncScrollActive ? "text-emerald-500" : ""}`} />
+                <span>{isSyncScrollActive ? "Rolagem Sincronizada" : "Sincronizar Rolagem"}</span>
+              </button>
             </div>
             <div 
               className="prose dark:prose-invert max-w-none text-xs sm:text-sm leading-relaxed text-slate-800 dark:text-slate-200"
