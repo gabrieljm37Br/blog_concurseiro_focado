@@ -257,8 +257,10 @@ export default function Header() {
                 {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
               </button>
 
-              {/* PWA Download APP Button (Desktop Header) */}
-              <InstallAppButton variant="header" className="hidden lg:inline-flex" />
+              {/* PWA Download APP Button (Apenas em Desktop >= 1024px) */}
+              <div className="hidden lg:block">
+                <InstallAppButton variant="header" />
+              </div>
 
               {/* Area de Membros Login Button (Desktop Header) */}
               <Link
