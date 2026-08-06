@@ -70,24 +70,34 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
       };
       mediaQuery.addEventListener("change", handleMediaChange);
 
-      // 2. Register Service Worker
-      if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then((reg) => {
-            console.log("PWA Service Worker registrado com sucesso:", reg.scope);
-          })
-          .catch((err) => {
-            console.error("Falha ao registrar Service Worker:", err);
+      // 2. Register Service Worker ONLY in production on remote domains
+      const isLocalhost = 
+        window.location.hostname === "localhost" || 
+        window.location.hostname === "127.0.0.1" || 
+        window.location.hostname.endsWith(".local");
+
+      if ("serviceWorker" in navigator) {
+        if (process.env.NODE_ENV === "production" && !isLocalhost) {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then((reg) => {
+              console.log("PWA Service Worker registrado com sucesso:", reg.scope);
+            })
+            .catch((err) => {
+              console.error("Falha ao registrar Service Worker:", err);
+            });
+        } else {
+          // Unregister any active service worker on localhost to prevent Next.js HMR WebSocket loop
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (const registration of registrations) {
+              registration.unregister().then((unregistered) => {
+                if (unregistered) {
+                  console.log("Service Worker antigo desregistrado do localhost para evitar conflito com HMR.");
+                }
+              });
+            }
           });
-      } else if ("serviceWorker" in navigator) {
-        // Also register in dev mode if supported for testing
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then((reg) => {
-            console.log("PWA Service Worker registrado (dev):", reg.scope);
-          })
-          .catch(() => {});
+        }
       }
 
       // 3. Listen for beforeinstallprompt event
