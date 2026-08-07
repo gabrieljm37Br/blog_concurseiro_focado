@@ -2766,74 +2766,42 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Título do Infográfico / Mapa Mental</label>
-                      <input
-                        type="text"
-                        value={formData.infographicTitle}
-                        onChange={(e) => setFormData({ ...formData, infographicTitle: e.target.value })}
-                        placeholder="Ex: Esquema Visual dos 8 Dígitos da Receita"
-                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-300">Tipo de Infográfico</label>
-                      <select
-                        value={formData.infographicType}
-                        onChange={(e) => setFormData({ ...formData, infographicType: e.target.value as any })}
-                        className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-purple-300"
-                      >
-                        <option value="resumo_visual">Resumo Visual</option>
-                        <option value="mapa_mental">Mapa Mental Esquematizado</option>
-                        <option value="tabela_comparativa">Tabela Comparativa</option>
-                        <option value="codigo_html">Infográfico em Código (HTML / SVG)</option>
-                      </select>
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Título do Infográfico</label>
+                    <input
+                      type="text"
+                      value={formData.infographicTitle}
+                      onChange={(e) => setFormData({ ...formData, infographicTitle: e.target.value })}
+                      placeholder="Ex: NBC TSP Capítulo 2 - Objetivos e Usuários"
+                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300">Resumo Didático do Infográfico</label>
+                    <label className="text-xs font-bold text-slate-300">Resumo / Subtítulo do Infográfico (Opcional)</label>
                     <input
                       type="text"
                       value={formData.infographicSummary}
                       onChange={(e) => setFormData({ ...formData, infographicSummary: e.target.value })}
-                      placeholder="Resumo dos pontos gráficos para o estudante..."
-                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white"
+                      placeholder="Ex: Resumo visual didático sobre Usuários Primários e Accountability..."
+                      className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
 
-                  {/* URL / Link direto para a página do Infográfico */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Link / URL da Página do Infográfico (Redirecionamento Direto)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.infographicUrl || ""}
-                      onChange={(e) => setFormData({ ...formData, infographicUrl: e.target.value })}
-                      placeholder="Ex: /infograficos/nbc-tsp-cap2.html"
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-purple-500/30 text-xs font-medium text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                    <p className="text-[11px] text-slate-400">
-                      Preencha este campo se quiser que o leitor seja direcionado diretamente para a página do infográfico ao clicar.
-                    </p>
-                  </div>
-
-                  {/* Code Input Box (Item 8) */}
+                  {/* HTML Completo do Infográfico */}
                   <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-2">
                     <label className="text-xs font-extrabold text-purple-400 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Código HTML / SVG / Esquema Personalizado (Item 8)
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Código HTML Completo da Página do Infográfico
                     </label>
                     <p className="text-[11px] text-slate-300">
-                      Cole aqui blocos de código HTML, vetores SVG ou quadros estilizados para este infográfico:
+                      Cole aqui o código HTML completo da página do infográfico (incluindo tags <code>&lt;!DOCTYPE html&gt;</code>, <code>&lt;head&gt;</code> e <code>&lt;body&gt;</code>):
                     </p>
                     <textarea
-                      rows={4}
+                      rows={10}
                       value={infographicCode}
                       onChange={(e) => setInfographicCode(e.target.value)}
-                      placeholder={`<div style="background:#0f172a; padding:12px; border-radius:8px; color:#38bdf8;">\n  <h4>Esquema dos 8 Dígitos</h4>\n  <p>1ª Categoria | 2ª Origem | 3ª Suborigem</p>\n</div>`}
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-purple-500/30 text-xs font-mono text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder={`<!DOCTYPE html>\n<html lang="pt-BR">\n<head>\n  <meta charset="UTF-8">\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body>\n  ...\n</body>\n</html>`}
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-purple-500/30 text-xs font-mono text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 leading-relaxed"
                     />
                   </div>
 

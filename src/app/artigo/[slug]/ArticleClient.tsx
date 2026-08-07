@@ -538,13 +538,22 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   };
 
   const openInfographic = () => {
-    const targetInfog = post?.infographics?.find((i: any) => i.url) || post?.infographics?.[0];
+    const list = post?.infographics || [];
+    
+    // Se houver múltiplos infográficos, abre o modal de estudo para o usuário escolher qual deseja ver
+    if (list.length > 1) {
+      setModalType("infografico");
+      setIsModalOpen(true);
+      return;
+    }
+
+    const targetInfog = list.find((i: any) => i.url || i.codeContent) || list[0];
     if (targetInfog?.url) {
       window.open(targetInfog.url, "_blank");
       return;
     }
-    if (slug.includes("nbc-tsp") || slug.includes("capitulo-2") || slug.includes("estrutura-conceitual")) {
-      window.open("/infograficos/nbc-tsp-cap2.html", "_blank");
+    if (targetInfog?.codeContent && targetInfog?.id) {
+      window.open(`/api/infograficos/${targetInfog.id}`, "_blank");
       return;
     }
     setModalType("infografico");

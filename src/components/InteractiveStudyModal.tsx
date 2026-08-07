@@ -532,9 +532,9 @@ export default function InteractiveStudyModal({
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 ${isFocusMode && type === "flashcards" ? "p-0" : ""}`}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 ${isFocusMode ? "p-0" : ""}`}>
       <div className={`relative w-full bg-white dark:bg-[#0B0F17] shadow-2xl border border-slate-200 dark:border-slate-800/80 overflow-hidden flex flex-col transition-all duration-300 ${
-        isFocusMode && type === "flashcards"
+        isFocusMode
           ? "w-screen h-screen max-w-none max-h-none rounded-none border-none"
           : "max-w-2xl md:max-w-4xl lg:max-w-5xl rounded-2xl max-h-[92vh]"
       }`}>
@@ -894,7 +894,7 @@ export default function InteractiveStudyModal({
                 </div>
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className={`space-y-5 ${isFocusMode ? "max-w-3xl md:max-w-4xl mx-auto w-full" : ""}`}>
                 
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-500 gap-2 flex-wrap">
                   <span className="flex items-center gap-1.5 flex-wrap">
@@ -924,6 +924,14 @@ export default function InteractiveStudyModal({
                     <span className={`flex items-center gap-1 font-bold ${type === "simulado" ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                       <Award className="w-4 h-4" /> Acertos: {score}
                     </span>
+
+                    <button
+                      onClick={() => setIsFocusMode(!isFocusMode)}
+                      className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                      title={isFocusMode ? "Sair da Tela Cheia" : "Modo Imersivo (Tela Cheia)"}
+                    >
+                      {isFocusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -1065,433 +1073,154 @@ export default function InteractiveStudyModal({
             ) : (
               <div className="space-y-6">
                 
-                {/* TOOLBAR DE ESTUDO ATIVO: TESTE DE MEMÓRIA, FILTRO POR BANCA, ÁUDIO TTS & EXPORTAÇÃO ANKI (FASE 1, 2 e 3) */}
-                <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-[#0F172A]/90 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-                  
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Botão Alternador do Modo Teste de Memória (Active Recall) */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMemoryTestMode(!isMemoryTestMode);
-                        setRevealedPoints({});
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
-                        isMemoryTestMode
-                          ? "bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400"
-                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:border-amber-500"
-                      }`}
-                      title={isMemoryTestMode ? "Modo Teste de Memória ativo. Clique para retornar ao modo leitura." : "Ocultar pontos-chave para testar sua memória antes de revelar"}
-                    >
-                      {isMemoryTestMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-amber-500" />}
-                      <span>{isMemoryTestMode ? "🧠 Teste Ativo" : "🧠 Teste Memória"}</span>
-                    </button>
-
-                    {/* Botão de Narração em Áudio por Voz (TTS - Text to Speech) */}
-                    <div className="flex items-center gap-1">
+                {/* TOOLBAR DE ESTUDO ATIVO (Exibida apenas para Flashcards, Questões e Simulados) */}
+                {type !== "infografico" && (
+                  <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-[#0F172A]/90 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                    
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Botão Alternador do Modo Teste de Memória (Active Recall) */}
                       <button
                         type="button"
-                        onClick={handleToggleSpeak}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer border ${
-                          isSpeaking
-                            ? isAudioPaused
-                              ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                              : "bg-emerald-600 text-white border-emerald-500 shadow-md animate-pulse"
-                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:border-emerald-500"
+                        onClick={() => {
+                          setIsMemoryTestMode(!isMemoryTestMode);
+                          setRevealedPoints({});
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                          isMemoryTestMode
+                            ? "bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400"
+                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:border-amber-500"
                         }`}
-                        title="Ouvir a narração em áudio por voz deste infográfico"
+                        title={isMemoryTestMode ? "Modo Teste de Memória ativo. Clique para retornar ao modo leitura." : "Ocultar pontos-chave para testar sua memória antes de revelar"}
                       >
-                        {isSpeaking ? (
-                          isAudioPaused ? <Play className="w-3.5 h-3.5 text-amber-400" /> : <Pause className="w-3.5 h-3.5 text-white" />
-                        ) : (
-                          <Volume2 className="w-3.5 h-3.5 text-emerald-500" />
-                        )}
-                        <span>{isSpeaking ? (isAudioPaused ? "Continuar Áudio" : "Pausar Áudio") : "🔊 Narração Áudio"}</span>
+                        {isMemoryTestMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-amber-500" />}
+                        <span>{isMemoryTestMode ? "🧠 Teste Ativo" : "🧠 Teste Memória"}</span>
                       </button>
 
-                      {isSpeaking && (
+                      {/* Botão de Narração em Áudio por Voz (TTS - Text to Speech) */}
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={handleStopAudio}
-                          className="p-1.5 rounded-xl bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30 transition-all cursor-pointer"
-                          title="Parar áudio"
-                        >
-                          <VolumeX className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Botão Exportador de Baralho para o ANKI (.CSV) */}
-                    <button
-                      type="button"
-                      onClick={handleExportAnki}
-                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer border border-purple-500"
-                      title="Gerar e baixar arquivo CSV formatado para importação direta no ANKI"
-                    >
-                      <FileSpreadsheet className="w-3.5 h-3.5 text-purple-200" />
-                      <span>Exportar p/ Anki (.csv)</span>
-                    </button>
-
-                    {/* Seletor de Filtro por Banca Examinadora */}
-                    <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                      <span className="text-[10px] font-black uppercase text-slate-400 px-1.5 hidden lg:inline">Banca:</span>
-                      {(["todas", "cebraspe", "fgv", "fcc", "vunesp"] as const).map((banca) => (
-                        <button
-                          key={banca}
-                          type="button"
-                          onClick={() => setSelectedBancaFilter(banca)}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer ${
-                            selectedBancaFilter === banca
-                              ? banca === "fgv" ? "bg-amber-500 text-slate-950 shadow-xs"
-                                : banca === "cebraspe" ? "bg-emerald-600 text-white shadow-xs"
-                                : banca === "fcc" ? "bg-purple-600 text-white shadow-xs"
-                                : banca === "vunesp" ? "bg-blue-600 text-white shadow-xs"
-                                : "bg-slate-700 text-white shadow-xs"
-                              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                          onClick={handleToggleSpeak}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer border ${
+                            isSpeaking
+                              ? isAudioPaused
+                                ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                : "bg-emerald-600 text-white border-emerald-500 shadow-md animate-pulse"
+                              : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:border-emerald-500"
                           }`}
+                          title="Ouvir a narração em áudio por voz deste infográfico"
                         >
-                          {banca}
+                          {isSpeaking ? (
+                            isAudioPaused ? <Play className="w-3.5 h-3.5 text-amber-400" /> : <Pause className="w-3.5 h-3.5 text-white" />
+                          ) : (
+                            <Volume2 className="w-3.5 h-3.5 text-emerald-500" />
+                          )}
+                          <span>{isSpeaking ? (isAudioPaused ? "Continuar Áudio" : "Pausar Áudio") : "🔊 Narração Áudio"}</span>
                         </button>
-                      ))}
+
+                        {isSpeaking && (
+                          <button
+                            type="button"
+                            onClick={handleStopAudio}
+                            className="p-1.5 rounded-xl bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30 transition-all cursor-pointer"
+                            title="Parar áudio"
+                          >
+                            <VolumeX className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Botão Exportador de Baralho para o ANKI (.CSV) */}
+                      <button
+                        type="button"
+                        onClick={handleExportAnki}
+                        className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer border border-purple-500"
+                        title="Gerar e baixar arquivo CSV formatado para importação direta no ANKI"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-purple-200" />
+                        <span>Exportar p/ Anki (.csv)</span>
+                      </button>
+
+                      {/* Seletor de Filtro por Banca Examinadora */}
+                      <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <span className="text-[10px] font-black uppercase text-slate-400 px-1.5 hidden lg:inline">Banca:</span>
+                        {(["todas", "cebraspe", "fgv", "fcc", "vunesp"] as const).map((banca) => (
+                          <button
+                            key={banca}
+                            type="button"
+                            onClick={() => setSelectedBancaFilter(banca)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer ${
+                              selectedBancaFilter === banca
+                                ? banca === "fgv" ? "bg-amber-500 text-slate-950 shadow-xs"
+                                  : banca === "cebraspe" ? "bg-emerald-600 text-white shadow-xs"
+                                  : banca === "fcc" ? "bg-purple-600 text-white shadow-xs"
+                                  : banca === "vunesp" ? "bg-blue-600 text-white shadow-xs"
+                                  : "bg-slate-700 text-white shadow-xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                            }`}
+                          >
+                            {banca}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                   </div>
+                )}
 
-                </div>
-
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                  <span>Esquema Visual {Math.min(currentInfographicIndex + 1, sampleInfographics.length)} de {sampleInfographics.length}</span>
-                  <span className="px-2.5 py-1 rounded bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 uppercase font-bold text-[10px]">
-                    {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.type?.replace("_", " ")}
-                  </span>
-                </div>
+                {sampleInfographics.length > 1 && (
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+                    <span>Infográfico {Math.min(currentInfographicIndex + 1, sampleInfographics.length)} de {sampleInfographics.length}</span>
+                  </div>
+                )}
 
                 {/* Infographic Main Container */}
-                <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-[#0F172A] text-white border border-slate-800 space-y-5 shadow-xl">
+                <div className="p-8 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-[#0F172A] text-white border border-slate-800 space-y-6 shadow-xl text-center">
                   
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Mapa Mental / Resumo Visual
-                      </span>
-                      {selectedBancaFilter !== "todas" && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                          Foco: {selectedBancaFilter}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-xl font-bold font-outfit text-white">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 flex items-center justify-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Infográfico do Artigo
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-extrabold font-outfit text-white">
                       {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.title}
                     </h3>
-                    <p className="text-xs text-slate-300">
-                      {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.subtitle}
-                    </p>
+                    {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.subtitle && (
+                      <p className="text-xs sm:text-sm text-slate-300">
+                        {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.subtitle}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Banner de Redirecionamento Direto para Página do Infográfico */}
-                  {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.url && (
-                    <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg border border-purple-400/40">
-                      <div className="space-y-0.5">
-                        <span className="font-extrabold text-xs text-amber-300 flex items-center gap-1">
-                          <Sparkles className="w-4 h-4" /> Infográfico Disponível em Página Dedicada
-                        </span>
-                        <p className="text-xs text-purple-100">
-                          Acesse o infográfico interativo completo em tela cheia na página própria.
+                  {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.summary && (
+                    <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 text-xs sm:text-sm text-slate-200 leading-relaxed italic max-w-xl mx-auto">
+                      "{(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.summary}"
+                    </div>
+                  )}
+
+                  {/* Botão de Destaque com Alta Visibilidade em Ambos os Modos */}
+                  {(() => {
+                    const currentInfo = sampleInfographics[currentInfographicIndex] || sampleInfographics[0];
+                    const targetLink = currentInfo?.url || (currentInfo?.codeContent && currentInfo?.id ? `/api/infograficos/${currentInfo.id}` : null);
+                    if (!targetLink) return null;
+                    return (
+                      <div className="pt-3 flex flex-col items-center justify-center gap-3">
+                        <a
+                          href={targetLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm sm:text-base transition-all shadow-lg shadow-emerald-500/30 hover:scale-[1.03] active:scale-[0.97] inline-flex items-center justify-center gap-2 cursor-pointer border border-emerald-300"
+                        >
+                          <Sparkles className="w-5 h-5 text-slate-950" />
+                          <span>Abrir Infográfico em Tela Cheia ↗</span>
+                        </a>
+                        <p className="text-xs text-slate-400">
+                          Acesse a visualização completa e interativa em uma nova guia.
                         </p>
                       </div>
-                      <a
-                        href={(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 rounded-xl bg-white hover:bg-purple-50 text-purple-950 font-black text-xs transition-all shadow-md inline-flex items-center justify-center gap-1 shrink-0 cursor-pointer"
-                      >
-                        <span>Abrir Infográfico ↗</span>
-                      </a>
-                    </div>
-                  )}
-
-                  <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-200 leading-relaxed italic">
-                    "{(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.summary}"
-                  </div>
-
-                  {/* Key Points Flow */}
-                  {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.points && (sampleInfographics[currentInfographicIndex] || sampleInfographics[0]).points!.length > 0 && (
-                    <div className="space-y-3 pt-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold uppercase text-emerald-400 tracking-wider">
-                          Pontos Chaves de Prova:
-                        </h4>
-                        {isMemoryTestMode && (
-                          <span className="text-[10px] text-amber-400 font-bold">
-                            (Clique em cada ponto para revelar)
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-2.5">
-                        {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.points!.map((pt, i) => {
-                          const isHidden = isMemoryTestMode && !revealedPoints[i];
-
-                          return (
-                            <div 
-                              key={i} 
-                              onClick={() => {
-                                if (isMemoryTestMode && isHidden) {
-                                  setRevealedPoints(prev => ({ ...prev, [i]: true }));
-                                }
-                              }}
-                              className={`p-3.5 rounded-xl transition-all flex items-start gap-3 text-xs ${
-                                isHidden 
-                                  ? "bg-amber-500/10 border border-amber-500/30 cursor-pointer hover:bg-amber-500/20" 
-                                  : "bg-slate-800/40 border border-slate-700/60 text-slate-100"
-                              }`}
-                            >
-                              <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold text-[10px] ${
-                                isHidden
-                                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                                  : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                              }`}>
-                                {i + 1}
-                              </span>
-
-                              {isHidden ? (
-                                <div className="flex-1 flex items-center justify-between text-amber-300 font-medium">
-                                  <span className="flex items-center gap-1.5">
-                                    <EyeOff className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                                    <span>Ponto {i + 1}: Conteúdo oculto para Teste de Memória</span>
-                                  </span>
-                                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-slate-950 shrink-0">
-                                    Revelar
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="flex-1 space-y-1">
-                                  <span className="leading-relaxed block">{pt}</span>
-                                  {selectedBancaFilter !== "todas" && (
-                                    <div className="pt-1 flex items-center gap-2">
-                                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                        📌 Alta Incidência na {selectedBancaFilter.toUpperCase()}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* RENDER HOTSPOTS PULSANTES (FASE 2) */}
-                  {((sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.hotspots || (sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.type === "hotspots_interativos") && (
-                    <div className="space-y-4 pt-2 animate-in fade-in duration-300">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
-                          <Zap className="w-4 h-4 text-amber-400 animate-pulse" /> Hotspots Interativos de Estudo:
-                        </h4>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          Passe o mouse ou toque nos pontos pulsantes
-                        </span>
-                      </div>
-
-                      {/* Hotspot Interactive Canvas Container */}
-                      <div className="relative w-full h-64 sm:h-80 rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] border border-amber-500/30 overflow-hidden shadow-inner flex items-center justify-center p-4">
-                        {/* Background Grid Pattern */}
-                        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:16px_16px]" />
-                        
-                        {/* Interactive Markers */}
-                        {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.hotspots?.map((hs) => {
-                          const isActive = activeHotspotId === hs.id;
-
-                          return (
-                            <div 
-                              key={hs.id}
-                              style={{ left: `${hs.x}%`, top: `${hs.y}%` }}
-                              className="absolute -translate-x-1/2 -translate-y-1/2 z-10 group"
-                            >
-                              {/* Pulse Ring */}
-                              <span className="absolute -inset-2 rounded-full bg-amber-500/30 animate-ping" />
-                              
-                              {/* Hotspot Trigger Button */}
-                              <button
-                                type="button"
-                                onClick={() => setActiveHotspotId(isActive ? null : hs.id)}
-                                onMouseEnter={() => setActiveHotspotId(hs.id)}
-                                className={`relative w-8 h-8 rounded-full border-2 flex items-center justify-center font-black text-xs transition-all shadow-lg cursor-pointer ${
-                                  isActive
-                                    ? "bg-amber-400 border-white text-slate-950 scale-125 ring-4 ring-amber-500/50 z-20"
-                                    : "bg-slate-900/90 border-amber-400 text-amber-400 hover:scale-110 hover:bg-amber-400 hover:text-slate-950"
-                                }`}
-                              >
-                                {hs.id.toString().replace("hs-", "")}
-                              </button>
-
-                              {/* Hover Floating Tooltip Preview */}
-                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block z-30 pointer-events-none min-w-[160px] p-2 rounded-xl bg-slate-900 border border-amber-500/40 text-center shadow-xl">
-                                <span className="text-[11px] font-bold text-amber-300 block">{hs.title}</span>
-                                {hs.badge && (
-                                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 inline-block mt-0.5">
-                                    {hs.badge}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* Central Visual Watermark / Instruction if no active hotspot */}
-                        {!activeHotspotId && (
-                          <div className="text-center space-y-1.5 p-4 rounded-xl bg-slate-900/60 backdrop-blur-xs border border-slate-700/50 max-w-xs z-0 pointer-events-none">
-                            <Info className="w-6 h-6 text-amber-400 mx-auto animate-bounce" />
-                            <p className="text-xs font-bold text-slate-200">
-                              Selecione um ponto pulsante acima
-                            </p>
-                            <p className="text-[10px] text-slate-400">
-                              Para explorar os conceitos jurídicos e pegadinhas de concurso em detalhe
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Active Hotspot Detailed Detail Card */}
-                      {activeHotspotId && (() => {
-                        const activeHs = (sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.hotspots?.find(h => h.id === activeHotspotId);
-                        if (!activeHs) return null;
-
-                        return (
-                          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/40 text-slate-100 space-y-2.5 animate-in slide-in-from-bottom-2 duration-200 shadow-md">
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <h5 className="font-extrabold text-amber-300 text-sm flex items-center gap-1.5 font-outfit">
-                                <Zap className="w-4 h-4 text-amber-400" /> {activeHs.title}
-                              </h5>
-                              {activeHs.badge && (
-                                <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] uppercase shadow-xs">
-                                  {activeHs.badge}
-                                </span>
-                              )}
-                            </div>
-
-                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
-                              {activeHs.description}
-                            </p>
-
-                            {activeHs.bancaTip && (
-                              <div className="p-3 rounded-xl bg-slate-900/90 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2">
-                                <span className="font-black text-amber-400 shrink-0">💡 Dica de Prova:</span>
-                                <span className="leading-relaxed">{activeHs.bancaTip}</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {/* RENDER SLIDER COMPARATIVO ANTES X DEPOIS (FASE 2) */}
-                  {((sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.splitSlider || (sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.type === "comparativo_antes_depois") && (
-                    <div className="space-y-4 pt-2 animate-in fade-in duration-300">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <h4 className="text-xs font-bold uppercase text-purple-300 tracking-wider flex items-center gap-1.5">
-                          <SlidersHorizontal className="w-4 h-4 text-purple-400" /> Comparativo Lado a Lado (Antes x Depois):
-                        </h4>
-                        <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                          {splitSliderPos}% Antigo / {100 - splitSliderPos}% Novo
-                        </span>
-                      </div>
-
-                      {/* Interactive Range Control Slider */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] font-black uppercase text-slate-400">
-                          <span>📜 Regime Antigo</span>
-                          <span className="flex items-center gap-1 text-purple-400">
-                            <MoveHorizontal className="w-4 h-4" /> Arraste para comparar
-                          </span>
-                          <span>🚀 Nova Regra</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="10"
-                          max="90"
-                          value={splitSliderPos}
-                          onChange={(e) => setSplitSliderPos(Number(e.target.value))}
-                          className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500 border border-slate-700"
-                        />
-                      </div>
-
-                      {/* Split Side-by-Side Comparison Container */}
-                      {(() => {
-                        const splitData = (sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.splitSlider;
-                        if (!splitData) return null;
-
-                        return (
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                              {/* Left Side: Before / Regime Antigo */}
-                              <div 
-                                style={{ opacity: Math.max(0.35, splitSliderPos / 60) }}
-                                className="p-4 rounded-2xl bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 text-slate-100 space-y-2 transition-all shadow-md"
-                              >
-                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-block">
-                                  {splitData.beforeTitle}
-                                </span>
-                                {splitData.beforeSubtitle && (
-                                  <p className="text-[11px] font-medium text-slate-400 italic">
-                                    {splitData.beforeSubtitle}
-                                  </p>
-                                )}
-                                <div className="text-xs text-slate-200 leading-relaxed pt-1 space-y-1">
-                                  <MathRenderer content={splitData.beforeContent} />
-                                </div>
-                              </div>
-
-                              {/* Right Side: After / Nova Regra */}
-                              <div 
-                                style={{ opacity: Math.max(0.35, (100 - splitSliderPos) / 60) }}
-                                className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 text-slate-100 space-y-2 transition-all shadow-md"
-                              >
-                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-block">
-                                  {splitData.afterTitle}
-                                </span>
-                                {splitData.afterSubtitle && (
-                                  <p className="text-[11px] font-medium text-slate-400 italic">
-                                    {splitData.afterSubtitle}
-                                  </p>
-                                )}
-                                <div className="text-xs text-slate-200 leading-relaxed pt-1 space-y-1">
-                                  <MathRenderer content={splitData.afterContent} />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Banca Highlight Box */}
-                            {splitData.bancaHighlight && (
-                              <div className="p-3.5 rounded-xl bg-purple-950/50 border border-purple-500/30 text-xs text-purple-200 flex items-start gap-2">
-                                <span className="font-black text-purple-400 shrink-0">📌 Pegadinha de Prova:</span>
-                                <span className="leading-relaxed">{splitData.bancaHighlight}</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Render Code/HTML Content if present */}
-                  {(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.codeContent && (
-                    <div className="space-y-2 pt-2">
-                      <h4 className="text-xs font-bold uppercase text-purple-400 tracking-wider">
-                        Conteúdo Visual / Código Esquematizado:
-                      </h4>
-                      <div className="p-4 rounded-xl bg-slate-950 border border-purple-500/30 text-xs font-mono text-slate-100 overflow-x-auto">
-                        <div 
-                          className="prose dark:prose-invert max-w-none"
-                          dangerouslySetInnerHTML={{ __html: (sampleInfographics[currentInfographicIndex] || sampleInfographics[0]).codeContent || "" }} 
-                        />
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                 </div>
 

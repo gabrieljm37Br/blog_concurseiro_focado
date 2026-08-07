@@ -1189,36 +1189,39 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <div 
           ref={leftPanelRef}
           onScroll={handleEditorScroll}
-          className={`p-4 relative bg-white dark:bg-[#0B0F19] ${
+          className={`p-3 relative bg-slate-50/50 dark:bg-[#070A10]/50 ${
             showPreview ? "h-[520px] max-h-[520px] overflow-y-auto" : ""
           }`}
         >
-          {editorMode === "visual" ? (
-            <div
-              ref={editableRef}
-              contentEditable={true}
-              onInput={handleEditableInput}
-              onKeyDown={handleKeyDown}
-              onClick={handleCanvasClick}
-              onPaste={handlePaste}
-              suppressContentEditableWarning={true}
-              className="w-full h-full min-h-[320px] text-slate-900 dark:text-white focus:outline-none prose dark:prose-invert editor-canvas max-w-none leading-relaxed font-sans cursor-text"
-              data-placeholder="Escreva seu artigo visualmente aqui..."
-            />
-          ) : (
-            <textarea
-              ref={textareaRef}
-              rows={14}
-              value={value}
-              onChange={(e) => pushToHistory(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onScroll={handleEditorScroll}
-              placeholder="Escreva ou cole seu código/markdown aqui..."
-              className={`w-full bg-transparent text-sm sm:text-base font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none leading-relaxed ${
-                showPreview ? "h-full min-h-[480px] overflow-y-auto resize-none" : "h-full min-h-[320px] resize-y"
-              }`}
-            />
-          )}
+          {/* Caixa de Texto com Bordas Destacadas */}
+          <div className="h-full min-h-[340px] rounded-2xl border-2 border-slate-300 dark:border-slate-700/80 focus-within:border-emerald-500 dark:focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/20 bg-white dark:bg-[#0B0F19] p-4 sm:p-5 transition-all shadow-inner">
+            {editorMode === "visual" ? (
+              <div
+                ref={editableRef}
+                contentEditable={true}
+                onInput={handleEditableInput}
+                onKeyDown={handleKeyDown}
+                onClick={handleCanvasClick}
+                onPaste={handlePaste}
+                suppressContentEditableWarning={true}
+                className="w-full h-full min-h-[320px] text-slate-900 dark:text-white focus:outline-none prose dark:prose-invert editor-canvas max-w-none leading-relaxed font-sans cursor-text"
+                data-placeholder="Escreva seu artigo visualmente aqui..."
+              />
+            ) : (
+              <textarea
+                ref={textareaRef}
+                rows={14}
+                value={value}
+                onChange={(e) => pushToHistory(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onScroll={handleEditorScroll}
+                placeholder="Escreva ou cole seu código/markdown aqui..."
+                className={`w-full bg-transparent text-sm sm:text-base font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none leading-relaxed ${
+                  showPreview ? "h-full min-h-[480px] overflow-y-auto resize-none" : "h-full min-h-[320px] resize-y"
+                }`}
+              />
+            )}
+          </div>
         </div>
 
         {/* Live Preview Panel */}
