@@ -652,9 +652,9 @@ export default function InteractiveStudyModal({
 
                   <button
                     onClick={handleShuffleFlashcards}
-                    className="px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-800 dark:text-amber-300 font-extrabold text-xs transition-all cursor-pointer flex items-center gap-1.5"
                   >
-                    <Shuffle className="w-4 h-4" /> Refazer em Ordem Aleatória
+                    <Shuffle className="w-4 h-4 text-amber-700 dark:text-amber-400" /> Refazer em Ordem Aleatória
                   </button>
 
                   <button
@@ -932,9 +932,9 @@ export default function InteractiveStudyModal({
 
                   <button
                     onClick={handleShuffleQuestions}
-                    className="px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-800 dark:text-amber-300 font-extrabold text-xs transition-all cursor-pointer flex items-center gap-1.5"
                   >
-                    <Shuffle className="w-4 h-4" /> Refazer em Ordem Aleatória
+                    <Shuffle className="w-4 h-4 text-amber-700 dark:text-amber-400" /> Refazer em Ordem Aleatória
                   </button>
 
                   <button
