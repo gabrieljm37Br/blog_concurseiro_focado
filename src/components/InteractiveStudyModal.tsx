@@ -104,6 +104,7 @@ export default function InteractiveStudyModal({
   const [wrongCount, setWrongCount] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isFlashcardsCompleted, setIsFlashcardsCompleted] = useState(false);
 
   // State for Questions & Simulado
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -225,6 +226,7 @@ export default function InteractiveStudyModal({
       setIsFlipped(false);
       setWrongCount(0);
       setCorrectCount(0);
+      setIsFlashcardsCompleted(false);
 
       setCurrentQuestionIndex(0);
       setSelectedOption(null);
@@ -366,6 +368,7 @@ export default function InteractiveStudyModal({
     setIsFlipped(false);
     setWrongCount(0);
     setCorrectCount(0);
+    setIsFlashcardsCompleted(false);
     setIsFlashcardsShuffled(true);
   };
 
@@ -385,9 +388,9 @@ export default function InteractiveStudyModal({
     if (activeFlashcards.length === 0) return;
     setIsFlipped(false);
     if (currentFlashcardIndex < activeFlashcards.length - 1) {
-      setCurrentFlashcardIndex(currentFlashcardIndex + 1);
+      setCurrentFlashcardIndex(prev => prev + 1);
     } else {
-      setCurrentFlashcardIndex(0);
+      setIsFlashcardsCompleted(true);
     }
   };
 
@@ -414,6 +417,7 @@ export default function InteractiveStudyModal({
     setCorrectCount(0);
     setCurrentFlashcardIndex(0);
     setIsFlipped(false);
+    setIsFlashcardsCompleted(false);
   };
 
   // Keyboard navigation
@@ -438,7 +442,7 @@ export default function InteractiveStudyModal({
         return;
       }
 
-      if (type === "flashcards" && activeFlashcards.length > 0) {
+      if (type === "flashcards" && activeFlashcards.length > 0 && !isFlashcardsCompleted) {
         if (e.key === " " || e.key === "Enter") {
           e.preventDefault();
           setIsFlipped(prev => !prev);
@@ -481,7 +485,7 @@ export default function InteractiveStudyModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, type, currentFlashcardIndex, activeFlashcards.length, currentQuestionIndex, activeQuestions, selectedOption, isAnswerSubmitted, isQuizCompleted]);
+  }, [isOpen, type, currentFlashcardIndex, activeFlashcards.length, currentQuestionIndex, activeQuestions, selectedOption, isAnswerSubmitted, isQuizCompleted, isFlashcardsCompleted]);
 
   if (!isOpen) return null;
 
@@ -608,6 +612,58 @@ export default function InteractiveStudyModal({
                 >
                   Fechar Janela
                 </button>
+              </div>
+            ) : isFlashcardsCompleted ? (
+              /* Flashcards Finished Score Summary Screen */
+              <div className="py-8 px-4 text-center space-y-5 my-auto animate-in fade-in duration-300">
+                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto border shadow-lg ${
+                  correctCount / activeFlashcards.length >= 0.7
+                    ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                    : correctCount / activeFlashcards.length >= 0.5
+                    ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                    : "bg-red-500/10 text-red-500 border-red-500/30"
+                }`}>
+                  <Award className="w-8 h-8 sm:w-10 sm:h-10" />
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    Desempenho nos Flashcards
+                  </span>
+                  <h4 className="font-extrabold text-slate-900 dark:text-white text-xl sm:text-2xl font-outfit">
+                    {correctCount / activeFlashcards.length >= 0.7
+                      ? "🎉 Excelente Resultado!"
+                      : correctCount / activeFlashcards.length >= 0.5
+                      ? "👍 Bom Treino!"
+                      : "📚 Continue Revisando!"}
+                  </h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                    Você dominou <strong className="text-slate-900 dark:text-white font-black">{correctCount}</strong> de <strong className="text-slate-900 dark:text-white font-black">{activeFlashcards.length}</strong> flashcards ({Math.round((correctCount / activeFlashcards.length) * 100)}% de aproveitamento).
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={handleResetFlashcardStats}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-4 h-4" /> Refazer Treino
+                  </button>
+
+                  <button
+                    onClick={handleShuffleFlashcards}
+                    className="px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Shuffle className="w-4 h-4" /> Refazer em Ordem Aleatória
+                  </button>
+
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer"
+                  >
+                    Concluir e Fechar
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex-1 flex flex-col justify-between space-y-4 py-1">
