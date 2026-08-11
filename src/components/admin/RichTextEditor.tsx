@@ -730,7 +730,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     <div className="rounded-2xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-[#0B0F19] text-slate-900 dark:text-white shadow-xl transition-colors relative">
       
       {/* Sticky Container Wrapper for Header + Toolbar */}
-      <div className={`transition-all ${isStickyToolbar ? "sticky top-[64px] sm:top-[80px] lg:top-[126px] z-30 shadow-md backdrop-blur-md bg-white/95 dark:bg-[#070A10]/95 rounded-t-2xl" : ""}`}>
+      <div className={`transition-all ${isStickyToolbar ? "sticky top-[64px] sm:top-[80px] lg:top-[124px] z-30 shadow-md backdrop-blur-md bg-white/95 dark:bg-[#070A10]/95 rounded-t-2xl" : ""}`}>
         
         {/* Editor Header Bar */}
         <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-[#070A10]/90 flex flex-wrap items-center justify-between gap-3">
