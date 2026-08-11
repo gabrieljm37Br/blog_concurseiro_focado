@@ -587,7 +587,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   };
 
   // Helper to insert special concurseiro callout blocks & interactive design components
-  const insertCallout = (type: "dica" | "alerta" | "lei" | "spoiler" | "mnemonico" | "formula" | "grafico" | "fluxograma" | "venn" | "tabela") => {
+  const insertCallout = (type: "dica" | "alerta" | "lei" | "spoiler" | "mnemonico" | "formula" | "grafico" | "fluxograma" | "fluxograma-v" | "fluxograma-misto" | "venn" | "tabela" | "questao-certo-errado" | "questao-multipla-escolha") => {
     let snippet = "";
     if (type === "dica") {
       snippet = `<div class="callout-dica">
@@ -657,25 +657,84 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   <div class="stepper-grid">
     <div class="step-card">
       <div class="step-num">1</div>
-      <div class="step-text">
-        <strong>Instauração</strong>
-        <span>Publicação da portaria</span>
+      <strong>Instauração</strong>
+      <span>Publicação da portaria</span>
+    </div>
+    <div class="step-arrow">➔</div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <strong>Inquérito</strong>
+      <span>Instrução, defesa e relatório (60 dias)</span>
+    </div>
+    <div class="step-arrow">➔</div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <strong>Julgamento</strong>
+      <span>Decisão (20 dias)</span>
+    </div>
+  </div>
+</div>`;
+    } else if (type === "fluxograma-v") {
+      snippet = `<div class="process-stepper">
+  <div class="process-title">📋 Roteiro Sequencial Vertical</div>
+  <div class="stepper-vertical">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div>
+        <strong>Passo 1: Requerimento Inicial</strong>
+        <p class="mt-1 text-slate-300">Detalhamento da solicitação do interessado...</p>
       </div>
     </div>
     <div class="step-arrow">➔</div>
     <div class="step-card">
       <div class="step-num">2</div>
-      <div class="step-text">
-        <strong>Inquérito</strong>
-        <span>Instrução, defesa e relatório (60 dias)</span>
+      <div>
+        <strong>Passo 2: Análise Técnica</strong>
+        <p class="mt-1 text-slate-300">Exame de requisitos legais e documentos...</p>
       </div>
     </div>
     <div class="step-arrow">➔</div>
     <div class="step-card">
       <div class="step-num">3</div>
-      <div class="step-text">
-        <strong>Julgamento</strong>
-        <span>Decisão (20 dias)</span>
+      <div>
+        <strong>Passo 3: Decisão Final</strong>
+        <p class="mt-1 text-slate-300">Emissão do ato administrativo final...</p>
+      </div>
+    </div>
+  </div>
+</div>`;
+    } else if (type === "fluxograma-misto") {
+      snippet = `<div class="process-stepper">
+  <div class="process-title">🔀 Fluxograma Misto (Tomada de Decisão & Ramos)</div>
+  <div class="stepper-mixed">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <strong>Etapa 1: Defesa Prévia</strong>
+      <span>Apresentação da defesa em 10 dias.</span>
+    </div>
+    <div class="step-arrow-v">⬇</div>
+    <div class="step-card-decision">
+      <div class="step-num">?</div>
+      <strong class="text-amber-300 text-sm">Decisão: Defesa Acolhida pela Comissão?</strong>
+      <p class="text-slate-300">A comissão concorda com as razões?</p>
+    </div>
+    <div class="stepper-branch-split">
+      <span class="text-emerald-400 flex items-center gap-1">↙ SE SIM (ACOLHIDA)</span>
+      <span class="text-slate-600 dark:text-slate-700">|</span>
+      <span class="text-rose-400 flex items-center gap-1">SE NÃO (REJEITADA) ↘</span>
+    </div>
+    <div class="stepper-branch-container">
+      <div class="step-card-yes">
+        <div class="branch-label-yes">✅ SE SIM (ACOLHIDA)</div>
+        <div class="step-num">2A</div>
+        <strong>Arquivamento Imediato</strong>
+        <p class="text-slate-300">Processo encerrado sem penalidade.</p>
+      </div>
+      <div class="step-card-no">
+        <div class="branch-label-no">❌ SE NÃO (REJEITADA)</div>
+        <div class="step-num">2B</div>
+        <strong>Instauração do PAD / Penalidade</strong>
+        <p class="text-slate-300">Abertura de inquérito disciplinar.</p>
       </div>
     </div>
   </div>
@@ -709,6 +768,69 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     </tr>
   </tbody>
 </table>`;
+    } else if (type === "questao-certo-errado") {
+      snippet = `<!-- QUESTÃO -->
+<div class="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 mb-6">
+  <div class="flex items-center gap-2 mb-3">
+    <span class="px-2.5 py-1 text-xs font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-lg">
+      CERTO OU ERRADO
+    </span>
+    <span class="text-xs text-slate-500">Questão 01</span>
+  </div>
+  
+  <p class="text-slate-800 dark:text-slate-200 font-medium text-sm mb-4 leading-relaxed">
+    Acerca do assunto abordado nesta seção, julgue o item a seguir:
+  </p>
+  
+  <blockquote class="p-4 my-3 bg-white dark:bg-slate-900 border-l-4 border-sky-500 text-sm text-slate-700 dark:text-slate-300 rounded-r-xl italic">
+    "Texto da assertiva jurídica ou técnica a ser julgada pelo candidato..."
+  </blockquote>
+  <details class="estudo-spoiler mt-4">
+    <summary class="cursor-pointer font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
+      🔍 Clique para ver o Gabarito e Comentário Detalhado
+    </summary>
+    <div class="spoiler-conteudo mt-3 p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-sm">
+      <p class="font-bold text-rose-600 dark:text-rose-400 text-base mb-2">❌ Gabarito: ERRADO</p>
+      <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+        <strong>Comentário Detalhado:</strong> Explicação detalhada da questão com fundamentação legal e doutrinária...
+      </p>
+    </div>
+  </details>
+</div>`;
+    } else if (type === "questao-multipla-escolha") {
+      snippet = `<!-- QUESTÃO -->
+<div class="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 mb-6">
+  <div class="flex items-center gap-2 mb-3">
+    <span class="px-2.5 py-1 text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg">
+      MÚLTIPLA ESCOLHA
+    </span>
+    <span class="text-xs text-slate-500">Questão 02</span>
+  </div>
+  <p class="text-slate-800 dark:text-slate-200 font-medium text-sm mb-3 leading-relaxed">
+    Texto do caso prático ou contexto hipotético apresentado pela banca examinadora...
+  </p>
+  <p class="text-slate-800 dark:text-slate-200 text-sm mb-4">
+    Considerando as disposições normativas sobre a matéria, assinale a alternativa correta:
+  </p>
+  <ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300 mb-4 pl-2">
+    <li><strong>A)</strong> Primeia opção de resposta...</li>
+    <li><strong>B)</strong> Segunda opção de resposta...</li>
+    <li><strong>C)</strong> Terceira opção de resposta...</li>
+    <li><strong>D)</strong> Quarta opção de resposta...</li>
+    <li><strong>E)</strong> Quinta opção de resposta...</li>
+  </ul>
+  <details class="estudo-spoiler mt-4">
+    <summary class="cursor-pointer font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
+      🔍 Clique para ver o Gabarito e Comentário Detalhado
+    </summary>
+    <div class="spoiler-conteudo mt-3 p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-sm">
+      <p class="font-bold text-emerald-600 dark:text-emerald-400 text-base mb-2">✅ Gabarito: B</p>
+      <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+        <strong>Comentário Detalhado:</strong> Justificativa da alternativa com embasamento no artigo da lei/norma...
+      </p>
+    </div>
+  </details>
+</div>`;
     }
 
     if (editorMode === "visual" && editableRef.current) {
@@ -1155,10 +1277,28 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           <button
             type="button"
             onClick={() => insertCallout("fluxograma")}
-            className="px-2.5 py-1 rounded-xl bg-blue-700 text-white text-xs font-bold hover:bg-blue-600 transition-all flex items-center gap-1"
-            title="Inserir Fluxograma de Processo Stepper"
+            className="px-2.5 py-1 rounded-xl bg-blue-700 text-white text-xs font-bold hover:bg-blue-600 transition-all flex items-center gap-1 cursor-pointer"
+            title="Inserir Fluxograma Horizontal Sequencial"
           >
-            <GitMerge className="w-3.5 h-3.5 shrink-0" /> Fluxograma
+            <GitMerge className="w-3.5 h-3.5 shrink-0" /> Fluxograma H
+          </button>
+
+          <button
+            type="button"
+            onClick={() => insertCallout("fluxograma-v")}
+            className="px-2.5 py-1 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 transition-all flex items-center gap-1 cursor-pointer"
+            title="Inserir Fluxograma Vertical Sequencial"
+          >
+            <GitMerge className="w-3.5 h-3.5 shrink-0 rotate-90" /> Fluxograma V
+          </button>
+
+          <button
+            type="button"
+            onClick={() => insertCallout("fluxograma-misto")}
+            className="px-2.5 py-1 rounded-xl bg-indigo-700 text-white text-xs font-bold hover:bg-indigo-600 transition-all flex items-center gap-1 cursor-pointer"
+            title="Inserir Fluxograma Misto (com nó de decisão e ramos SIM/NÃO)"
+          >
+            <GitMerge className="w-3.5 h-3.5 shrink-0" /> Fluxograma Misto
           </button>
 
           <button
@@ -1177,6 +1317,24 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             title="Inserir Tabela de Prazos/Requisitos"
           >
             <TableIcon className="w-3.5 h-3.5 shrink-0" /> Tabela
+          </button>
+
+          <button
+            type="button"
+            onClick={() => insertCallout("questao-certo-errado")}
+            className="px-2.5 py-1 rounded-xl bg-sky-600 text-white text-xs font-bold hover:bg-sky-500 transition-all flex items-center gap-1 cursor-pointer"
+            title="Inserir Questão no Estilo Cebraspe (Certo ou Errado)"
+          >
+            <HelpCircle className="w-3.5 h-3.5 shrink-0" /> Questão C/E
+          </button>
+
+          <button
+            type="button"
+            onClick={() => insertCallout("questao-multipla-escolha")}
+            className="px-2.5 py-1 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-500 transition-all flex items-center gap-1 cursor-pointer"
+            title="Inserir Questão no Estilo FGV/Vunesp/FCC (Múltipla Escolha)"
+          >
+            <List className="w-3.5 h-3.5 shrink-0" /> Questão Múltipla Escolha
           </button>
         </div>
       </div>

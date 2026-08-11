@@ -128,23 +128,100 @@ AO GERAR QUALQUER CONTEÚDO EM HTML, VOCÊ DEVE SEGUIR RIGOROSAMENTE AS DIRETRIZ
   </div>
 </div>
 
-11. 🔄 Fluxograma / Roteiro de Processo (Stepper Step-by-Step):
+11. 🔄 Fluxogramas e Roteiros de Processo (Horizontal, Vertical e Misto):
+
+A) Modelo Horizontal (Sequencial Padrão):
 <div class="process-stepper">
   <div class="process-title">🔄 TRILHA DE APRENDIZAGEM / PASSO A PASSO</div>
   <div class="stepper-grid">
     <div class="step-card">
       <div class="step-num">1</div>
-      <div class="step-text">
-        <strong>Fase 1</strong>
-        <span>Descrição da fase...</span>
+      <strong>Fase 1: Instauração</strong>
+      <span>Descrição da primeira etapa...</span>
+    </div>
+    <div class="step-arrow">➔</div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <strong>Fase 2: Inquérito</strong>
+      <span>Descrição da segunda etapa...</span>
+    </div>
+    <div class="step-arrow">➔</div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <strong>Fase 3: Julgamento</strong>
+      <span>Descrição da terceira etapa...</span>
+    </div>
+  </div>
+</div>
+
+B) Modelo Vertical (Sequência Vertical Aprofundada):
+<div class="process-stepper">
+  <div class="process-title">📋 ROTEIRO SEQUENCIAL VERTICAL</div>
+  <div class="stepper-vertical">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div>
+        <strong>Passo 1: Requerimento Inicial</strong>
+        <p class="mt-1 text-slate-300">Detalhamento completo do pedido inicial...</p>
       </div>
     </div>
     <div class="step-arrow">➔</div>
     <div class="step-card">
       <div class="step-num">2</div>
-      <div class="step-text">
-        <strong>Fase 2</strong>
-        <span>Descrição da fase...</span>
+      <div>
+        <strong>Passo 2: Análise Técnica</strong>
+        <p class="mt-1 text-slate-300">Análise de admissibilidade e documentação...</p>
+      </div>
+    </div>
+    <div class="step-arrow">➔</div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div>
+        <strong>Passo 3: Decisão Final</strong>
+        <p class="mt-1 text-slate-300">Deferimento ou indeferimento pela autoridade...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+C) Modelo Misto / Ramificado (Com Tomada de Decisão):
+<div class="process-stepper">
+  <div class="process-title">🔀 FLUXOGRAMA MISTO (DECISÃO & RAMIFICAÇÕES)</div>
+  <div class="stepper-mixed">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <strong>Etapa 1: Apresentação da Defesa Prévia</strong>
+      <span>Servidor apresenta defesa no prazo legal de 10 dias.</span>
+    </div>
+    
+    <!-- Seta Vertical Apontando para Baixo -->
+    <div class="step-arrow-v">⬇</div>
+    
+    <div class="step-card-decision">
+      <div class="step-num">?</div>
+      <strong class="text-amber-300 text-sm">Decisão: Defesa Acolhida pela Comissão?</strong>
+      <p class="text-slate-300">A comissão concorda com as razões apresentadas?</p>
+    </div>
+    
+    <!-- Divisor de Ramificação SIM / NÃO -->
+    <div class="stepper-branch-split">
+      <span class="text-emerald-400 flex items-center gap-1">↙ SE SIM (ACOLHIDA)</span>
+      <span class="text-slate-600 dark:text-slate-700">|</span>
+      <span class="text-rose-400 flex items-center gap-1">SE NÃO (REJEITADA) ↘</span>
+    </div>
+    
+    <div class="stepper-branch-container">
+      <div class="step-card-yes">
+        <div class="branch-label-yes">✅ SE SIM (ACOLHIDA)</div>
+        <div class="step-num">2A</div>
+        <strong>Arquivamento Imediato</strong>
+        <p class="text-slate-300">Processo encerrado sem aplicação de penalidades.</p>
+      </div>
+      <div class="step-card-no">
+        <div class="branch-label-no">❌ SE NÃO (REJEITADA)</div>
+        <div class="step-num">2B</div>
+        <strong>Instauração do PAD / Penalidade</strong>
+        <p class="text-slate-300">Abertura de inquérito disciplinar rigoroso.</p>
       </div>
     </div>
   </div>
@@ -157,6 +234,76 @@ AO GERAR QUALQUER CONTEÚDO EM HTML, VOCÊ DEVE SEGUIR RIGOROSAMENTE AS DIRETRIZ
     <p>✅ <strong>Resposta:</strong> Explicação detalhada da resposta com fundamento legal...</p>
   </div>
 </details>
+
+13. 📝 Blocos de Questões de Concurso no Corpo do Texto:
+Sempre que for inserir questões de provas/bancas examinadoras no corpo do artigo, utilize OBRIGATORIAMENTE um dos 2 modelos padronizados abaixo (nunca escreva questões em texto puro ou com formatação genérica):
+
+A) Modelo Certo ou Errado (CERTO OU ERRADO):
+<!-- QUESTÃO -->
+<div class="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 mb-6">
+  <div class="flex items-center gap-2 mb-3">
+    <span class="px-2.5 py-1 text-xs font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-lg">
+      CERTO OU ERRADO <!-- Ou "NOME_DA_BANCA / CERTO OU ERRADO" caso haja banca específica -->
+    </span>
+    <span class="text-xs text-slate-500">Questão 01</span>
+  </div>
+  
+  <p class="text-slate-800 dark:text-slate-200 font-medium text-sm mb-4 leading-relaxed">
+    Acerca do assunto abordado nesta seção, julgue o item a seguir:
+  </p>
+  
+  <blockquote class="p-4 my-3 bg-white dark:bg-slate-900 border-l-4 border-sky-500 text-sm text-slate-700 dark:text-slate-300 rounded-r-xl italic">
+    "Texto entre aspas da assertiva jurídica ou técnica a ser julgada..."
+  </blockquote>
+  <details class="estudo-spoiler mt-4">
+    <summary class="cursor-pointer font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
+      🔍 Clique para ver o Gabarito e Comentário Detalhado
+    </summary>
+    <div class="spoiler-conteudo mt-3 p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-sm">
+      <!-- Se for Errado: text-rose-600 dark:text-rose-400 com ❌ Gabarito: ERRADO -->
+      <!-- Se for Certo: text-emerald-600 dark:text-emerald-400 com ✅ Gabarito: CERTO -->
+      <p class="font-bold text-rose-600 dark:text-rose-400 text-base mb-2">❌ Gabarito: ERRADO</p>
+      <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+        <strong>Comentário Detalhado:</strong> Explicação aprofundada da pegadinha da banca, fundamentação legal, artigo de lei ou jurisprudência...
+      </p>
+    </div>
+  </details>
+</div>
+
+B) Modelo Múltipla Escolha (MÚLTIPLA ESCOLHA):
+<!-- QUESTÃO -->
+<div class="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 mb-6">
+  <div class="flex items-center gap-2 mb-3">
+    <span class="px-2.5 py-1 text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg">
+      MÚLTIPLA ESCOLHA <!-- Ou "NOME_DA_BANCA / MÚLTIPLA ESCOLHA" caso haja banca específica -->
+    </span>
+    <span class="text-xs text-slate-500">Questão 02</span>
+  </div>
+  <p class="text-slate-800 dark:text-slate-200 font-medium text-sm mb-3 leading-relaxed">
+    Texto do caso prático ou contexto hipotético apresentado pela banca examinadora...
+  </p>
+  <p class="text-slate-800 dark:text-slate-200 text-sm mb-4">
+    Considerando as disposições normativas sobre a matéria, assinale a alternativa correta:
+  </p>
+  <ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300 mb-4 pl-2">
+    <li><strong>A)</strong> Primeira opção de resposta...</li>
+    <li><strong>B)</strong> Segunda opção de resposta...</li>
+    <li><strong>C)</strong> Terceira opção de resposta...</li>
+    <li><strong>D)</strong> Quarta opção de resposta...</li>
+    <li><strong>E)</strong> Quinta opção de resposta...</li>
+  </ul>
+  <details class="estudo-spoiler mt-4">
+    <summary class="cursor-pointer font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
+      🔍 Clique para ver o Gabarito e Comentário Detalhado
+    </summary>
+    <div class="spoiler-conteudo mt-3 p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-sm">
+      <p class="font-bold text-emerald-600 dark:text-emerald-400 text-base mb-2">✅ Gabarito: B</p>
+      <p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+        <strong>Comentário Detalhado:</strong> Comentário ponto a ponto explicando por que a opção escolhida está correta e por que as demais estão erradas...
+      </p>
+    </div>
+  </details>
+</div>
 
 ---
 
@@ -218,6 +365,7 @@ REQUISITOS MÍNIMOS DE CONTEÚDO NO HTML GERADO:
 - 1x Tabela Didática comparativa ou com exemplo prático temporal.
 - 1x Card Mnemônico, Fórmula KaTeX ou Gráfico de Incidência na Banca.
 - 1x Fluxograma / Stepper de processo ou Trilha de estudos.
+- 2x Blocos de Questões de Concurso no Texto (formatados estritamente nos modelos Certo/Errado ou Múltipla Escolha com Gabarito e Comentário Detalhado).
 - 3x Perguntas de Fixação (Evocação Ativa / Spoilers sanfonados).
 - OBRIGATÓRIO: Bloco final <!-- TAGS: ... --> e <!-- STUDY_DATA_JSON: ... --> com pelo menos 5 Flashcards e 2 Questões comentadas!
 `;

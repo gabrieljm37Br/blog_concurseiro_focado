@@ -537,18 +537,20 @@ hr, .prose hr, .editor-canvas hr {
   @apply text-slate-400 font-mono text-[11px] shrink-0;
 }
 
-/* FLUXOGRAMAS DE PROCESSO STEPPER */
+/* FLUXOGRAMAS DE PROCESSO STEPPER (HORIZONTAL, VERTICAL E MISTO) */
 .process-stepper {
   @apply my-6 p-5 sm:p-6 rounded-2xl bg-slate-900 dark:bg-slate-950 text-white border border-slate-800 shadow-xl space-y-4;
 }
 .process-title {
   @apply text-sm sm:text-base font-extrabold uppercase tracking-wider text-emerald-400 border-b border-slate-800 pb-3 flex items-center gap-2;
 }
+
+/* Horizontal (Padrão) */
 .stepper-grid {
-  @apply flex flex-col lg:flex-row items-stretch justify-between gap-3;
+  @apply flex flex-col lg:flex-row items-center justify-between gap-3.5 w-full;
 }
 .step-card {
-  @apply flex-1 p-4 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs space-y-1.5 w-full text-left transition-all hover:border-emerald-500 hover:bg-slate-800;
+  @apply flex-1 p-4 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs space-y-1.5 w-full text-left transition-all hover:border-emerald-500 hover:bg-slate-800 self-stretch flex flex-col justify-center;
 }
 .step-card strong, .step-card h4, .step-card .step-title {
   color: #ffffff !important;
@@ -560,10 +562,62 @@ hr, .prose hr, .editor-canvas hr {
   @apply bg-emerald-500/15 border-emerald-500/50;
 }
 .step-num {
-  @apply inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs shrink-0;
+  @apply inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs shrink-0 mb-1;
 }
+
+/* Seta entre os passos — Centralizada perfeitamente na vertical */
 .step-arrow {
-  @apply text-slate-500 font-black hidden lg:block;
+  @apply text-slate-400 dark:text-slate-500 font-extrabold text-base lg:text-lg flex items-center justify-center self-center my-auto shrink-0 transition-transform leading-none rotate-90 lg:rotate-0 py-1 lg:py-0;
+}
+
+/* Fluxograma Vertical */
+.stepper-vertical {
+  @apply flex flex-col items-center gap-2.5 w-full max-w-2xl mx-auto;
+}
+.stepper-vertical .step-card {
+  @apply w-full p-4.5 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs flex items-start gap-3.5 transition-all hover:border-emerald-500;
+}
+.stepper-vertical .step-arrow,
+.step-arrow-v {
+  @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none rotate-90 lg:rotate-90 shrink-0;
+}
+
+/* Fluxograma Misto / Decisão / Ramificado */
+.stepper-mixed {
+  @apply flex flex-col items-center space-y-3 w-full;
+}
+.stepper-mixed .step-arrow {
+  @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none rotate-90 lg:rotate-90 shrink-0;
+}
+.stepper-branch-container {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 w-full;
+}
+.step-card-decision {
+  @apply p-4 rounded-xl bg-amber-500/10 border-2 border-amber-500/40 text-xs space-y-1.5 w-full text-center transition-all hover:border-amber-400;
+}
+.step-card-decision .step-num {
+  @apply bg-amber-400 text-slate-950 font-black mx-auto;
+}
+.step-card-yes {
+  @apply p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-1.5 w-full text-left transition-all hover:border-emerald-400;
+}
+.step-card-yes .step-num {
+  @apply bg-emerald-400 text-slate-950 font-black;
+}
+.step-card-no {
+  @apply p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs space-y-1.5 w-full text-left transition-all hover:border-rose-400;
+}
+.step-card-no .step-num {
+  @apply bg-rose-400 text-slate-950 font-black;
+}
+.branch-label-yes {
+  @apply text-[11px] font-black uppercase text-emerald-400 flex items-center gap-1 mb-1;
+}
+.branch-label-no {
+  @apply text-[11px] font-black uppercase text-rose-400 flex items-center gap-1 mb-1;
+}
+.stepper-branch-split {
+  @apply flex items-center justify-around w-full max-w-md mx-auto text-xs font-extrabold py-2 px-4 rounded-xl bg-slate-800/80 border border-slate-700/80 my-2 shadow-sm text-center;
 }
 
 /* DIAGRAMAS DE VENN (RLM) */
