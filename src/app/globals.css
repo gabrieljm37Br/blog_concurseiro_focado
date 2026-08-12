@@ -426,8 +426,44 @@ hr, .prose hr, .editor-canvas hr {
 }
 
 /* ==========================================================================
-   DESIGN SYSTEM DE ARTIGOS — BLOG CONCURSEIRO FOCADO
-   ========================================================================== */
+   DESIGN SYSTEM DE ARTIGOS — BLOG CONCURSEIRO F/* Custom Sleek Scrollbar para Tabelas, Canvas do Editor e Math Cards */
+.overflow-x-auto::-webkit-scrollbar,
+.editor-canvas::-webkit-scrollbar,
+.math-card-body::-webkit-scrollbar,
+.stepper-grid::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track,
+.editor-canvas::-webkit-scrollbar-track,
+.math-card-body::-webkit-scrollbar-track,
+.stepper-grid::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 9999px;
+}
+
+.dark .overflow-x-auto::-webkit-scrollbar-track,
+.dark .editor-canvas::-webkit-scrollbar-track,
+.dark .math-card-body::-webkit-scrollbar-track,
+.dark .stepper-grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.editor-canvas::-webkit-scrollbar-thumb,
+.math-card-body::-webkit-scrollbar-thumb,
+.stepper-grid::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.4);
+  border-radius: 9999px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.editor-canvas::-webkit-scrollbar-thumb:hover,
+.math-card-body::-webkit-scrollbar-thumb:hover,
+.stepper-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.8);
+}
 
 /* Caixas de Chamada (Callouts) */
 .callout-dica {
@@ -445,16 +481,17 @@ hr, .prose hr, .editor-canvas hr {
 }
 
 .callout-lei {
-  @apply my-6 p-5 rounded-2xl bg-purple-500/10 border-l-4 border-purple-500 text-slate-800 dark:text-slate-200 relative;
+  @apply my-6 p-5 rounded-2xl bg-purple-500/10 border-l-4 border-purple-500 text-slate-800 dark:text-slate-200 relative transition-all duration-200 hover:shadow-md;
 }
 .callout-lei .lei-header {
   @apply font-extrabold text-purple-600 dark:text-purple-400 text-sm sm:text-base flex justify-between items-center mb-2 border-b border-purple-500/20 pb-2;
 }
 .callout-lei blockquote {
-  @apply italic text-sm sm:text-base border-none pl-0 my-0 text-slate-700 dark:text-purple-100;
+  @apply italic text-sm sm:text-base border-none pl-0 my-0 text-slate-700 dark:text-purple-100 leading-relaxed;
 }
 .btn-copiar-lei, .btn-copy-math {
-  @apply px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500 text-purple-700 dark:text-purple-300 hover:text-white text-xs font-bold transition-all cursor-pointer;
+  @apply px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500 text-purple-700 dark:text-purple-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95;
+}ter;
 }
 
 /* Evocação Ativa / Spoilers Nativos */

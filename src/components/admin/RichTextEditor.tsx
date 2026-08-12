@@ -68,6 +68,13 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [isSyncScrollActive, setIsSyncScrollActive] = useState<boolean>(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editableRef = useRef<HTMLDivElement>(null);
   const leftPanelRef = useRef<HTMLDivElement>(null);
@@ -835,19 +842,22 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 </div>`;
     }
 
+    const formattedSnippet = `${snippet}\n<p><br></p>`;
+
     if (editorMode === "visual" && editableRef.current) {
-      document.execCommand("insertHTML", false, snippet);
+      document.execCommand("insertHTML", false, formattedSnippet);
       pushToHistory(editableRef.current.innerHTML);
     } else {
       if (!textareaRef.current) {
-        pushToHistory(value + "\n" + snippet);
+        pushToHistory(value + "\n" + formattedSnippet);
         return;
       }
       const textarea = textareaRef.current;
       const start = textarea.selectionStart;
-      const newValue = value.substring(0, start) + "\n" + snippet + "\n" + value.substring(start);
+      const newValue = value.substring(0, start) + "\n" + formattedSnippet + "\n" + value.substring(start);
       pushToHistory(newValue);
     }
+    showToast("✨ Elemento interativo inserido!");
   };
 
   return (
@@ -1431,6 +1441,13 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           })()}
         </span>
       </div>
+
+      {/* Floating Feedback Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-2xl animate-bounce flex items-center gap-2 border border-emerald-400">
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* Image Upload Modal Dialog */}
       <ImageUploadModal
