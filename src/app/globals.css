@@ -577,7 +577,9 @@ hr, .prose hr, .editor-canvas hr {
 .stepper-vertical .step-card {
   @apply w-full p-4.5 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs flex items-start gap-3.5 transition-all hover:border-emerald-500;
 }
-.stepper-vertical .step-arrow,
+.stepper-vertical .step-arrow {
+  @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none rotate-90 lg:rotate-90 shrink-0;
+}
 .step-arrow-v {
   @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none shrink-0;
 }
@@ -586,7 +588,9 @@ hr, .prose hr, .editor-canvas hr {
 .stepper-mixed {
   @apply flex flex-col items-center space-y-3 w-full;
 }
-.stepper-mixed .step-arrow,
+.stepper-mixed .step-arrow {
+  @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none rotate-90 lg:rotate-90 shrink-0;
+}
 .stepper-mixed .step-arrow-v {
   @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none shrink-0;
 }
