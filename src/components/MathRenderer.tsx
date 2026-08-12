@@ -69,6 +69,7 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
           const html = katex.renderToString(mathCode, {
             displayMode: isDisplay,
             throwOnError: false,
+            strict: "ignore",
             output: "htmlAndMathml",
           });
 

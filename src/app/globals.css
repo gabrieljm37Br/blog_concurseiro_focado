@@ -579,15 +579,16 @@ hr, .prose hr, .editor-canvas hr {
 }
 .stepper-vertical .step-arrow,
 .step-arrow-v {
-  @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none rotate-90 lg:rotate-90 shrink-0;
+  @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none shrink-0;
 }
 
 /* Fluxograma Misto / Decisão / Ramificado */
 .stepper-mixed {
   @apply flex flex-col items-center space-y-3 w-full;
 }
-.stepper-mixed .step-arrow {
-  @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none rotate-90 lg:rotate-90 shrink-0;
+.stepper-mixed .step-arrow,
+.stepper-mixed .step-arrow-v {
+  @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none shrink-0;
 }
 .stepper-branch-container {
   @apply grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 w-full;

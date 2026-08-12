@@ -350,14 +350,16 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       const mathCardBodies = container.querySelectorAll(".math-card-body");
       mathCardBodies.forEach((el) => {
         const text = el.textContent || "";
-        let mathCode = text;
+        let mathCode = "";
         if (text.includes("$$")) {
           const match = text.match(/\$\$([\s\S]+?)\$\$/);
           if (match && match[1]) mathCode = match[1].trim();
+        } else if (text.includes("\\")) {
+          mathCode = text.trim();
         }
         if (mathCode && !el.querySelector(".katex")) {
           try {
-            el.innerHTML = katex.renderToString(mathCode, { displayMode: true, throwOnError: false });
+            el.innerHTML = katex.renderToString(mathCode, { displayMode: true, throwOnError: false, strict: "ignore" });
           } catch (e) {}
         }
       });

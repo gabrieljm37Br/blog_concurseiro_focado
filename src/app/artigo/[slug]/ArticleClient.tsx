@@ -78,18 +78,20 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
     const container = document.getElementById("article-content-body");
     if (!container) return;
 
-    // Render KaTeX for .math-card-body elements
+    // Render KaTeX for .math-card-body elements only when LaTeX delimiters ($$ or \) are present
     const mathCardBodies = container.querySelectorAll(".math-card-body");
     mathCardBodies.forEach((el) => {
       const text = el.textContent || "";
-      let mathCode = text;
+      let mathCode = "";
       if (text.includes("$$")) {
         const match = text.match(/\$\$([\s\S]+?)\$\$/);
         if (match && match[1]) mathCode = match[1].trim();
+      } else if (text.includes("\\")) {
+        mathCode = text.trim();
       }
       if (mathCode) {
         try {
-          el.innerHTML = katex.renderToString(mathCode, { displayMode: true, throwOnError: false });
+          el.innerHTML = katex.renderToString(mathCode, { displayMode: true, throwOnError: false, strict: "ignore" });
         } catch (e) {}
       }
     });
@@ -140,7 +142,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
         if (isMath && mathCode) {
           try {
             const mathSpan = document.createElement("span");
-            mathSpan.innerHTML = katex.renderToString(mathCode, { displayMode: isDisplay, throwOnError: false });
+            mathSpan.innerHTML = katex.renderToString(mathCode, { displayMode: isDisplay, throwOnError: false, strict: "ignore" });
             spanContainer.appendChild(mathSpan);
           } catch (e) {
             spanContainer.appendChild(document.createTextNode(part));
