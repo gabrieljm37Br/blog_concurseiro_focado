@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import { supabase } from "@/lib/supabaseClient";
 import { Post } from "@/data/mockPosts";
 import ArticleClient from "./ArticleClient";
+import { validateStudyMetadata } from "@/lib/studyMetadataSchema";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -166,7 +167,9 @@ export default async function ArticlePage({ params }: Props) {
         return null;
       };
 
-      const parsedStudyData = extractStudyDataFromContentHtml(dbPost.content_html || "");
+      const rawStudyData = extractStudyDataFromContentHtml(dbPost.content_html || "");
+      const validation = rawStudyData ? validateStudyMetadata(rawStudyData) : { success: false, data: undefined };
+      const parsedStudyData = validation.data || rawStudyData;
 
       const flashcardsArr = (parsedStudyData && Array.isArray(parsedStudyData.flashcards) && parsedStudyData.flashcards.length > 0)
         ? parsedStudyData.flashcards

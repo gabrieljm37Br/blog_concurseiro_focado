@@ -1,6 +1,31 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-accent-emerald: var(--accent-emerald);
+  --color-accent-emerald-dark: var(--accent-emerald-dark);
+  --color-accent-amber: var(--accent-amber);
+  --color-text-muted: var(--text-muted);
+
+  /* Tokens Didáticos Semânticos do Concurseiro Focado */
+  --color-study-dica: #10b981;
+  --color-study-pegadinha: #f59e0b;
+  --color-study-lei: #8b5cf6;
+  --color-study-certo: #10b981;
+  --color-study-errado: #f43f5e;
+  --color-study-dark-card: #0b0f19;
+
+  --font-inter: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-outfit: var(--font-outfit), var(--font-inter), sans-serif;
+}
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
@@ -491,7 +516,6 @@ hr, .prose hr, .editor-canvas hr {
 }
 .btn-copiar-lei, .btn-copy-math {
   @apply px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500 text-purple-700 dark:text-purple-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95;
-}ter;
 }
 
 /* Evocação Ativa / Spoilers Nativos */
