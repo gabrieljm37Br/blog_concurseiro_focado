@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { AI_SYSTEM_PROMPT_ARTIGOS, buildArticleAiPrompt } from "@/data/ai_prompt_instructions";
+import { INITIAL_DEFAULT_DISCIPLINAS } from "@/data/categories";
 import { 
   Plus, 
   BookOpen, 
@@ -76,18 +77,7 @@ export default function AdminPage() {
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
   const [newSubcategoryCategory, setNewSubcategoryCategory] = useState("estude");
-  const [customSubcategories, setCustomSubcategories] = useState<string[]>([
-    "AFO",
-    "Direito Constitucional",
-    "Direito Administrativo",
-    "Língua Portuguesa",
-    "Raciocínio Lógico",
-    "Informática para Concursos",
-    "Direito Penal",
-    "Direito Processual Penal",
-    "Contabilidade Geral",
-    "Administração Pública"
-  ]);
+  const [customSubcategories, setCustomSubcategories] = useState<string[]>(INITIAL_DEFAULT_DISCIPLINAS);
   const [statusMessage, setStatusMessage] = useState("");
   const [autoSaveMessage, setAutoSaveMessage] = useState("");
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
@@ -194,6 +184,21 @@ export default function AdminPage() {
     setLoading(false);
   };
 
+  const fetchSubcategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("subcategories")
+        .select("name");
+
+      if (data && data.length > 0) {
+        const dbNames = data.map((item: any) => item.name).filter(Boolean);
+        setCustomSubcategories(prev => Array.from(new Set([...INITIAL_DEFAULT_DISCIPLINAS, ...prev, ...dbNames])));
+      }
+    } catch (err) {
+      console.warn("Erro ao buscar subcategorias:", err);
+    }
+  };
+
   useEffect(() => {
     let subscription: any = null;
     try {
@@ -222,6 +227,7 @@ export default function AdminPage() {
     }
 
     fetchPosts();
+    fetchSubcategories();
 
     return () => {
       if (subscription) subscription.unsubscribe();
@@ -573,19 +579,44 @@ export default function AdminPage() {
     setInfographicsList([]);
   };
 
-  const handleAddSubcategory = (e: React.FormEvent) => {
+  const handleAddSubcategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubcategoryName.trim()) return;
 
     const subName = newSubcategoryName.trim();
+
+    try {
+      // Persistir no Supabase na tabela subcategories
+      const { error } = await supabase
+        .from("subcategories")
+        .insert([{ name: subName, category_slug: newSubcategoryCategory || "estude" }]);
+
+      if (error && !error.message.toLowerCase().includes("unique") && !error.message.toLowerCase().includes("duplicate")) {
+        console.warn("Aviso ao persistir subcategoria no Supabase:", error.message);
+      }
+    } catch (err) {
+      console.warn("Erro ao salvar subcategoria no Supabase:", err);
+    }
+
     if (!customSubcategories.includes(subName)) {
-      setCustomSubcategories([...customSubcategories, subName]);
-      setStatusMessage(`✅ Nova subcategoria "${subName}" criada com sucesso!`);
+      setCustomSubcategories(prev => [...prev, subName]);
+      setStatusMessage(`✅ Nova subcategoria "${subName}" criada e salva com sucesso no banco de dados!`);
     } else {
       setStatusMessage(`ℹ️ A subcategoria "${subName}" já existia no sistema.`);
     }
 
     setNewSubcategoryName("");
+  };
+
+  const handleDeleteSubcategory = async (subName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir a subcategoria "${subName}"?`)) return;
+    try {
+      await supabase.from("subcategories").delete().eq("name", subName);
+      setCustomSubcategories(prev => prev.filter(s => s !== subName));
+      setStatusMessage(`🗑️ Subcategoria "${subName}" removida com sucesso.`);
+    } catch (err) {
+      console.error("Erro ao excluir subcategoria:", err);
+    }
   };
 
   // Helper Parser 1: Flashcards Bulk Import (Item 5)
@@ -1253,6 +1284,20 @@ export default function AdminPage() {
       setStatusMessage("✅ Artigo publicado com sucesso no Supabase!");
     }
 
+    // Se o artigo usa uma subcategoria nova, salva automaticamente na tabela subcategories
+    if (formData.subcategory?.trim()) {
+      const subTrimmed = formData.subcategory.trim();
+      try {
+        supabase
+          .from("subcategories")
+          .insert([{ name: subTrimmed, category_slug: formData.category_slug || "estude" }])
+          .then(() => {});
+      } catch (e) {}
+      if (!customSubcategories.includes(subTrimmed)) {
+        setCustomSubcategories(prev => [...prev, subTrimmed]);
+      }
+    }
+
     // Insert Flashcard if provided
     if (targetPostId && formData.flashcardQuestion && formData.flashcardAnswer) {
       await supabase.from("flashcards").insert([
@@ -1681,7 +1726,10 @@ export default function AdminPage() {
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                   >
                     <option value="all">Todas as Disciplinas / Bancas</option>
-                    {customSubcategories.map(sub => (
+                    {Array.from(new Set([
+                      ...customSubcategories,
+                      ...posts.map(p => p.subcategory).filter((s): s is string => Boolean(s))
+                    ])).sort((a, b) => a.localeCompare(b, "pt-BR")).map(sub => (
                       <option key={sub} value={sub}>{sub}</option>
                     ))}
                   </select>
@@ -1973,7 +2021,7 @@ export default function AdminPage() {
                   {Array.from(new Set([
                     ...customSubcategories,
                     ...posts.map(p => p.subcategory).filter((s): s is string => Boolean(s))
-                  ])).map((sub, idx) => (
+                  ])).sort((a, b) => a.localeCompare(b, "pt-BR")).map((sub, idx) => (
                     <option key={idx} value={sub}>{sub}</option>
                   ))}
                   <option value="custom">✍️ Digitar outra disciplina / subcategoria...</option>
@@ -3072,7 +3120,7 @@ export default function AdminPage() {
               {Array.from(new Set([
                 ...customSubcategories,
                 ...posts.map(p => p.subcategory).filter((s): s is string => Boolean(s))
-              ])).map((subName, idx) => {
+              ])).sort((a, b) => a.localeCompare(b, "pt-BR")).map((subName, idx) => {
                 const count = posts.filter(p => p.subcategory?.toLowerCase() === subName.toLowerCase()).length;
                 return (
                   <div
@@ -3088,18 +3136,31 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, category_slug: "estude", subcategory: subName }));
-                        setEditingPostId(null);
-                        setActiveTab("create");
-                      }}
-                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white text-[11px] font-bold transition-all flex items-center gap-1"
-                      title="Criar novo artigo nesta subcategoria"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Postar
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, category_slug: "estude", subcategory: subName }));
+                          setEditingPostId(null);
+                          setActiveTab("create");
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white text-[11px] font-bold transition-all flex items-center gap-1"
+                        title="Criar novo artigo nesta subcategoria"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Postar
+                      </button>
+
+                      {count === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSubcategory(subName)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                          title="Excluir subcategoria vazia"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

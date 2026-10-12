@@ -27,6 +27,7 @@ import Logo from "@/components/Logo";
 import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 
 import { supabase } from "@/lib/supabaseClient";
+import { INITIAL_DEFAULT_DISCIPLINAS } from "@/data/categories";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -81,15 +82,22 @@ export default function Header() {
   useEffect(() => {
     async function fetchHeaderData() {
       try {
+        // Buscar da tabela dedicada de subcategorias
+        const { data: subTableData } = await supabase
+          .from("subcategories")
+          .select("name");
+
+        // Buscar também quaisquer subcategorias vinculadas aos posts
         const { data: subData } = await supabase
           .from("posts")
           .select("subcategory")
           .not("subcategory", "is", null);
 
-        if (subData) {
-          const subs = Array.from(new Set(subData.map((d: any) => d.subcategory).filter(Boolean)));
-          setDbSubcategories(subs);
-        }
+        const fromTable = subTableData ? subTableData.map((s: any) => s.name).filter(Boolean) : [];
+        const fromPosts = subData ? subData.map((d: any) => d.subcategory).filter(Boolean) : [];
+
+        const mergedSubs = Array.from(new Set([...fromTable, ...fromPosts]));
+        setDbSubcategories(mergedSubs);
 
         const { data: postsData } = await supabase
           .from("posts")
@@ -106,15 +114,10 @@ export default function Header() {
     fetchHeaderData();
   }, []);
 
-  const defaultDisciplinas = [
-    "Direito Constitucional",
-    "Direito Administrativo",
-    "Língua Portuguesa",
-    "Raciocínio Lógico",
-    "Informática para Concursos"
-  ];
+  const allSubcategories = Array.from(
+    new Set([...INITIAL_DEFAULT_DISCIPLINAS, ...dbSubcategories])
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
 
-  const allSubcategories = Array.from(new Set([...defaultDisciplinas, ...dbSubcategories]));
   const estudeDisciplinas = allSubcategories.map((name) => ({
     name,
     href: `/?q=${encodeURIComponent(name)}`
@@ -314,8 +317,8 @@ export default function Header() {
                   </button>
 
                   {isEstudeDropdownOpen && (
-                    <div className="absolute top-full left-0 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 animate-in fade-in slide-in-from-top-2 duration-150 z-50">
-                      <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    <div className="absolute top-full left-0 w-64 max-h-[75vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 animate-in fade-in slide-in-from-top-2 duration-150 z-50">
+                      <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider sticky top-0 bg-white dark:bg-slate-900 z-10">
                         Disciplinas Principais
                       </div>
                       {estudeDisciplinas.map((item) => (
