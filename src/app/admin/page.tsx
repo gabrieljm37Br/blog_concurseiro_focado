@@ -66,6 +66,8 @@ interface DbPost {
   published_at?: string;
   is_published?: boolean;
   admin_notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export default function AdminPage() {
@@ -1587,11 +1589,68 @@ export default function AdminPage() {
           }
           return true;
         }).sort((a, b) => {
-          if (sortBy === "newest") return (b.id || "").localeCompare(a.id || "");
-          if (sortBy === "oldest") return (a.id || "").localeCompare(b.id || "");
-          if (sortBy === "title_asc") return a.title.localeCompare(b.title);
+          if (sortBy === "newest") {
+            const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+            const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+            return timeB - timeA;
+          }
+          if (sortBy === "oldest") {
+            const timeA = new Date(a.created_at || a.updated_at || 0).getTime();
+            const timeB = new Date(b.created_at || b.updated_at || 0).getTime();
+            return timeA - timeB;
+          }
+          if (sortBy === "title_asc") return a.title.localeCompare(b.title, "pt-BR");
           return 0;
         });
+
+        const renderPostDate = (post: DbPost) => {
+          const created = post.created_at ? new Date(post.created_at) : null;
+          const updated = post.updated_at ? new Date(post.updated_at) : null;
+          
+          // Verifica se houve modificação real (mais de 1 minuto após criação)
+          const isModified = updated && created && (updated.getTime() - created.getTime() > 60000);
+
+          if (isModified && updated) {
+            return (
+              <div className="space-y-0.5" title={`Atualizado: ${updated.toLocaleString("pt-BR")}\nCriado: ${created ? created.toLocaleString("pt-BR") : "-"}`}>
+                <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 whitespace-nowrap">
+                  <Clock className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>{updated.toLocaleDateString("pt-BR")}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    {updated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                  <span>Modificado</span>
+                  {created && (
+                    <span className="text-slate-400 font-normal">
+                      • Criado: {created.toLocaleDateString("pt-BR")}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          if (created) {
+            return (
+              <div className="space-y-0.5" title={`Criado em: ${created.toLocaleString("pt-BR")}`}>
+                <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 whitespace-nowrap">
+                  <Calendar className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <span>{created.toLocaleDateString("pt-BR")}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    {created.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-medium">
+                  Criação original
+                </div>
+              </div>
+            );
+          }
+
+          return <span className="text-slate-400 text-xs">-</span>;
+        };
 
         return (
           <div className="space-y-4">
@@ -1786,6 +1845,7 @@ export default function AdminPage() {
                         <th className="px-6 py-3.5">Título / Slug</th>
                         <th className="px-6 py-3.5">Categoria</th>
                         <th className="px-6 py-3.5">Banca / Subcat</th>
+                        <th className="px-6 py-3.5">Data</th>
                         <th className="px-6 py-3.5">Status</th>
                         <th className="px-6 py-3.5 text-right">Ações</th>
                       </tr>
@@ -1820,6 +1880,9 @@ export default function AdminPage() {
                           </td>
                           <td className="px-6 py-4 text-xs font-medium">
                             {post.banca ? `Banca ${post.banca}` : post.subcategory || "-"}
+                          </td>
+                          <td className="px-6 py-4 text-xs">
+                            {renderPostDate(post)}
                           </td>
                           <td className="px-6 py-4">
                             {(() => {
