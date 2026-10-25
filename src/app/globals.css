@@ -235,19 +235,42 @@ hr, .prose hr, .editor-canvas hr {
 }
 
 /* Accessibility Font Scaling Classes */
-.article-font-sm p, .article-font-sm li, .article-font-sm span, .article-font-sm td, .article-font-sm div:not(.no-print) {
+.article-font-sm p, .article-font-sm li, .article-font-sm td, .article-font-sm blockquote {
   font-size: 0.9rem !important;
   line-height: 1.6 !important;
 }
 
-.article-font-lg p, .article-font-lg li, .article-font-lg span, .article-font-lg td, .article-font-lg div:not(.no-print) {
+.article-font-lg p, .article-font-lg li, .article-font-lg td, .article-font-lg blockquote {
   font-size: 1.22rem !important;
   line-height: 1.85 !important;
 }
 
-.article-font-xl p, .article-font-xl li, .article-font-xl span, .article-font-xl td, .article-font-xl div:not(.no-print) {
+.article-font-xl p, .article-font-xl li, .article-font-xl td, .article-font-xl blockquote {
   font-size: 1.42rem !important;
   line-height: 1.95 !important;
+}
+
+.article-font-lg .step-card span,
+.article-font-lg .step-card strong,
+.article-font-lg .mnemonico-grid span,
+.article-font-lg .chart-label {
+  font-size: 0.92rem !important;
+  line-height: 1.5 !important;
+}
+
+.article-font-xl .step-card span,
+.article-font-xl .step-card strong,
+.article-font-xl .mnemonico-grid span,
+.article-font-xl .chart-label {
+  font-size: 1rem !important;
+  line-height: 1.55 !important;
+}
+
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  padding: 0.25rem 0;
 }
 
 /* Smooth transitions */
@@ -509,13 +532,13 @@ hr, .prose hr, .editor-canvas hr {
   @apply my-6 p-5 rounded-2xl bg-purple-500/10 border-l-4 border-purple-500 text-slate-800 dark:text-slate-200 relative transition-all duration-200 hover:shadow-md;
 }
 .callout-lei .lei-header {
-  @apply font-extrabold text-purple-600 dark:text-purple-400 text-sm sm:text-base flex justify-between items-center mb-2 border-b border-purple-500/20 pb-2;
+  @apply font-extrabold text-purple-600 dark:text-purple-400 text-sm sm:text-base flex flex-wrap justify-between items-center gap-2 mb-2 border-b border-purple-500/20 pb-2;
 }
 .callout-lei blockquote {
   @apply italic text-sm sm:text-base border-none pl-0 my-0 text-slate-700 dark:text-purple-100 leading-relaxed;
 }
 .btn-copiar-lei, .btn-copy-math {
-  @apply px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500 text-purple-700 dark:text-purple-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95;
+  @apply px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500 text-purple-700 dark:text-purple-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 shrink-0;
 }
 
 /* Evocação Ativa / Spoilers Nativos */
@@ -523,7 +546,7 @@ hr, .prose hr, .editor-canvas hr {
   @apply my-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 overflow-hidden transition-all duration-200;
 }
 .estudo-spoiler summary {
-  @apply p-4 font-extrabold text-base sm:text-lg text-slate-900 dark:text-white cursor-pointer select-none bg-slate-100/80 dark:bg-slate-800/60 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center justify-between;
+  @apply p-4 font-extrabold text-sm sm:text-lg text-left leading-snug text-slate-900 dark:text-white cursor-pointer select-none bg-slate-100/80 dark:bg-slate-800/60 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center justify-between gap-2;
 }
 .estudo-spoiler .spoiler-conteudo {
   @apply p-4 text-xs sm:text-sm text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-800/60 bg-white dark:bg-[#0B0F19];
@@ -566,7 +589,7 @@ hr, .prose hr, .editor-canvas hr {
   @apply my-6 p-5 rounded-2xl bg-slate-950 text-white border border-emerald-500/30 shadow-2xl space-y-3 relative overflow-hidden;
 }
 .math-card-header {
-  @apply flex items-center justify-between border-b border-slate-800 pb-2 text-xs font-bold;
+  @apply flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2 text-xs font-bold;
 }
 .math-badge {
   @apply text-sm sm:text-base text-emerald-400 font-extrabold uppercase tracking-wider;
@@ -586,10 +609,10 @@ hr, .prose hr, .editor-canvas hr {
   @apply flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-medium;
 }
 .chart-label {
-  @apply w-48 shrink-0 text-slate-300 font-bold;
+  @apply w-full sm:w-48 shrink-0 text-slate-300 font-bold;
 }
 .chart-bar-bg {
-  @apply flex-1 h-3.5 rounded-full bg-slate-800 overflow-hidden border border-slate-700/50;
+  @apply w-full sm:flex-1 h-3.5 shrink-0 rounded-full bg-slate-800 overflow-hidden border border-slate-700/50;
 }
 .chart-bar-fill {
   @apply h-full rounded-full transition-all duration-1000 ease-out;
@@ -615,7 +638,7 @@ hr, .prose hr, .editor-canvas hr {
 
 /* FLUXOGRAMAS DE PROCESSO STEPPER (HORIZONTAL, VERTICAL E MISTO) */
 .process-stepper {
-  @apply my-6 p-5 sm:p-6 rounded-2xl bg-slate-900 dark:bg-slate-950 text-white border border-slate-800 shadow-xl space-y-4;
+  @apply my-6 p-3.5 sm:p-6 rounded-2xl bg-slate-900 dark:bg-slate-950 text-white border border-slate-800 shadow-xl space-y-4 overflow-hidden;
 }
 .process-title {
   @apply text-sm sm:text-base font-extrabold uppercase tracking-wider text-emerald-400 border-b border-slate-800 pb-3 flex items-center gap-2;
@@ -651,7 +674,7 @@ hr, .prose hr, .editor-canvas hr {
   @apply flex flex-col items-center gap-2.5 w-full max-w-2xl mx-auto;
 }
 .stepper-vertical .step-card {
-  @apply w-full p-4.5 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs flex items-start gap-3.5 transition-all hover:border-emerald-500;
+  @apply w-full p-4 rounded-xl bg-slate-800/90 border border-slate-700/80 text-xs flex flex-row items-start gap-3.5 transition-all hover:border-emerald-500;
 }
 .stepper-vertical .step-arrow {
   @apply text-emerald-400 font-extrabold text-xl flex items-center justify-center self-center mx-auto my-2 leading-none rotate-90 lg:rotate-90 shrink-0;
@@ -698,7 +721,7 @@ hr, .prose hr, .editor-canvas hr {
   @apply text-[11px] font-black uppercase text-rose-400 flex items-center gap-1 mb-1;
 }
 .stepper-branch-split {
-  @apply flex items-center justify-around w-full max-w-md mx-auto text-xs font-extrabold py-2 px-4 rounded-xl bg-slate-800/80 border border-slate-700/80 my-2 shadow-sm text-center;
+  @apply flex flex-col sm:flex-row items-center justify-around gap-1.5 sm:gap-3 w-full max-w-lg mx-auto text-xs font-extrabold py-2.5 px-3 sm:px-4 rounded-xl bg-slate-800/80 border border-slate-700/80 my-2 shadow-sm text-center;
 }
 
 /* DIAGRAMAS DE VENN (RLM) */

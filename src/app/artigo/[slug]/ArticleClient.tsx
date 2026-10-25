@@ -75,8 +75,10 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   // Automatic KaTeX hydration for Math cards & Inline LaTeX formulas in article content
   useEffect(() => {
     if (typeof window === "undefined" || !post?.content) return;
-    const container = document.getElementById("article-content-body");
-    if (!container) return;
+    const containers = [document.getElementById("article-content-body"), document.getElementById("article-focus-content-body")].filter(Boolean) as HTMLElement[];
+    if (containers.length === 0) return;
+    containers.forEach((container) => {
+    // Render KaTeX for .math-card-body elements only when LaTeX delimiters ($$ or \) are present
 
     // Render KaTeX for .math-card-body elements only when LaTeX delimiters ($$ or \) are present
     const mathCardBodies = container.querySelectorAll(".math-card-body");
@@ -155,7 +157,8 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
         parent.replaceChild(spanContainer, node);
       }
     });
-  }, [post?.content]);
+    });
+  }, [post?.content, isFocusMode]);
 
   // Web Speech API Refs for stable chunk-by-chunk audio reading
   const speechChunksRef = React.useRef<string[]>([]);
@@ -1039,6 +1042,13 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
       {/* FULL-SCREEN IMMERSIVE FOCUS MODE MODAL */}
       {isFocusMode && (
         <div className="fixed inset-0 z-[100] bg-white dark:bg-[#070A10] text-slate-900 dark:text-white overflow-y-auto min-h-screen p-4 sm:p-8 md:p-12 animate-in fade-in duration-200">
+          <div className="fixed top-4 left-4 sm:top-6 sm:left-6 z-50 flex items-center bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-xs rounded-xl p-1 border border-slate-200 dark:border-slate-700/80 shadow-xs">
+            <span className="text-[10px] font-extrabold uppercase px-1.5 text-slate-400 dark:text-slate-500 hidden sm:inline">Fonte:</span>
+            <button onClick={() => setFontSizeLevel("sm")} className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${fontSizeLevel === "sm" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}`} title="Fonte Pequena">A-</button>
+            <button onClick={() => setFontSizeLevel("normal")} className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${fontSizeLevel === "normal" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}`} title="Fonte Normal">A</button>
+            <button onClick={() => setFontSizeLevel("lg")} className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${fontSizeLevel === "lg" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}`} title="Fonte Grande">A+</button>
+            <button onClick={() => setFontSizeLevel("xl")} className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${fontSizeLevel === "xl" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"}`} title="Fonte Extra Grande">A++</button>
+          </div>
           
           <button
             onClick={() => setIsFocusMode(false)}
@@ -1098,8 +1108,24 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             )}
 
             <div
-              className="prose dark:prose-invert max-w-none text-base sm:text-lg leading-relaxed text-slate-800 dark:text-slate-200 space-y-6 pt-2 font-sans"
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              id="article-focus-content-body"
+              className={`prose dark:prose-invert max-w-none text-base sm:text-lg leading-relaxed text-slate-800 dark:text-slate-200 space-y-6 pt-2 font-sans transition-all duration-200 ${
+                fontSizeLevel === "sm" ? "article-font-sm" : fontSizeLevel === "lg" ? "article-font-lg" : fontSizeLevel === "xl" ? "article-font-xl" : ""
+              }`}
+              dangerouslySetInnerHTML={{
+                __html: post.content
+                  .replace(/<!-- STUDY_DATA_JSON_B64: [\s\S]*? -->/gi, "")
+                  .replace(/<!-- STUDY_DATA_JSON: [\s\S]*? -->/gi, "")
+                  .replace(/<!-- TAGS: [\s\S]*? -->/gi, "")
+                  .replace(/<!-- STATUS: [\s\S]*? -->/gi, "")
+                  .replace(/<!-- SCHEDULED_AT: [\s\S]*? -->/gi, "")
+                  .replace(/,"points":\["Revisão rápida de pontos de alta incidência"\]\]\}?\s*-->/gi, "")
+                  .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<div[^>]*border-b[^>]*>\s*<h1[^>]*>[\s\S]*?<\/h1>\s*<\/div>/gi, "")
+                  .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<h1[^>]*>[\s\S]*?<\/h1>/gi, "")
+                  .replace(/<h1([^>]*)>(.*?)<\/h1>/gi, '<h2 class="text-xl sm:text-2xl font-bold font-outfit text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2"$1>$2</h2>')
+                  .replace(/<h2[^>]*>\s*<img[^>]*src="data:image[^"]*"[^>]*\/?>\s*/gi, '<h2 class="text-xl sm:text-2xl font-bold font-outfit text-slate-900 dark:text-white mt-8 mb-4">')
+                  .replace(/style="[^"]*max-width:[^"]*"/gi, "")
+              }}
             />
 
             <div className="pt-12 text-center border-t border-slate-200 dark:border-slate-800">
