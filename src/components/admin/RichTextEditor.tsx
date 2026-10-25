@@ -387,13 +387,14 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = value.substring(start, end);
-    const replacement = `${startTag}${selectedText || "Texto aqui"}${endTag}`;
+    const innerText = endTag ? (selectedText || "Texto aqui") : selectedText;
+    const replacement = `${startTag}${innerText}${endTag}`;
     const newValue = value.substring(0, start) + replacement + value.substring(end);
     pushToHistory(newValue);
 
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(start + startTag.length, start + startTag.length + (selectedText.length || 10));
+      textarea.setSelectionRange(start + startTag.length, start + startTag.length + innerText.length);
     }, 50);
   };
 

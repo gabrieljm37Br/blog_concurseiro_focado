@@ -423,7 +423,7 @@ export default function AdminPage() {
       .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<div[^>]*border-b[^>]*>\s*<h1[^>]*>[\s\S]*?<\/h1>\s*<\/div>/gi, "")
       .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<h1[^>]*>[\s\S]*?<\/h1>/gi, "")
       .replace(/<h2[^>]*>\s*<img[^>]*src="data:image[^"]*"[^>]*\/?>\s*/gi, '<h2 class="text-xl sm:text-2xl font-bold font-outfit text-slate-900 dark:text-white mt-8 mb-4">')
-      .replace(/<img[^>]*src="data:image[^"]*"[^>]*\/?>/gi, "")
+
       .replace(/<!-- TAGS: [\s\S]*? -->/gi, "")
       .replace(/<!-- STATUS: [\s\S]*? -->/gi, "")
       .replace(/<!-- SCHEDULED_AT: [\s\S]*? -->/gi, "")
