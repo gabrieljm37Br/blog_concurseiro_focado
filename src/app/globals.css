@@ -594,8 +594,23 @@ hr, .prose hr, .editor-canvas hr {
 .chart-bar-fill {
   @apply h-full rounded-full transition-all duration-1000 ease-out;
 }
+.chart-bars {
+  @apply space-y-3;
+}
+.chart-bar-fill.bg-sky-500 {
+  background-color: #0ea5e9;
+}
+.chart-bar-fill.bg-blue-500 {
+  background-color: #3b82f6;
+}
+.chart-bar-fill.bg-purple-500 {
+  background-color: #a855f7;
+}
+.chart-bar-fill.bg-rose-500 {
+  background-color: #f43f5e;
+}
 .chart-val {
-  @apply text-slate-400 font-mono text-[11px] shrink-0;
+  @apply sm:w-32 sm:text-right text-slate-400 font-mono text-[11px] shrink-0 whitespace-nowrap;
 }
 
 /* FLUXOGRAMAS DE PROCESSO STEPPER (HORIZONTAL, VERTICAL E MISTO) */
