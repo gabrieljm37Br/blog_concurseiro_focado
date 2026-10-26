@@ -47,7 +47,7 @@ import {
 } from "lucide-react";
 import ImageUploadModal from "./ImageUploadModal";
 import IconPickerModal from "./IconPickerModal";
-import katex from "katex";
+import { hydrateMathInContainer, restoreLatexFromRenderedHtml } from "@/lib/katexHelper";
 import { 
   DicaGradientIcon, 
   PegadinhaGradientIcon, 
@@ -137,7 +137,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
 
   const sanitizeArticleHtml = (html: string): string => {
     if (!html) return "";
-    return html
+    return restoreLatexFromRenderedHtml(html)
       .replace(/<!DOCTYPE[^>]*>/gi, "")
       .replace(/<\/?(html|head|body)[^>]*>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -339,8 +339,13 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   // Sync contentEditable innerHTML when value changes externally
   useEffect(() => {
     if (editableRef.current && editorMode === "visual") {
-      if (editableRef.current.innerHTML !== value) {
+      const currentClean = sanitizeArticleHtml(editableRef.current.innerHTML);
+      const targetClean = sanitizeArticleHtml(value);
+      if (currentClean !== targetClean) {
         editableRef.current.innerHTML = value;
+        hydrateMathInContainer(editableRef.current);
+      } else if (editableRef.current.innerHTML === value) {
+        hydrateMathInContainer(editableRef.current);
       }
     }
   }, [value, editorMode]);
@@ -348,29 +353,13 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   // Auto-render KaTeX math in Live Preview & Visual Editor
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const containers = [
-      document.getElementById("editor-live-preview"),
-      editableRef.current
-    ].filter(Boolean) as HTMLElement[];
-
-    containers.forEach((container) => {
-      const mathCardBodies = container.querySelectorAll(".math-card-body");
-      mathCardBodies.forEach((el) => {
-        const text = el.textContent || "";
-        let mathCode = "";
-        if (text.includes("$$")) {
-          const match = text.match(/\$\$([\s\S]+?)\$\$/);
-          if (match && match[1]) mathCode = match[1].trim();
-        } else if (text.includes("\\")) {
-          mathCode = text.trim();
-        }
-        if (mathCode && !el.querySelector(".katex")) {
-          try {
-            el.innerHTML = katex.renderToString(mathCode, { displayMode: true, throwOnError: false, strict: "ignore" });
-          } catch (e) {}
-        }
-      });
-    });
+    const previewContainer = document.getElementById("editor-live-preview");
+    if (previewContainer) {
+      hydrateMathInContainer(previewContainer);
+    }
+    if (editableRef.current && document.activeElement !== editableRef.current) {
+      hydrateMathInContainer(editableRef.current);
+    }
   }, [value, showPreview, editorMode]);
 
   // Handle user typing inside contentEditable Visual mode
@@ -848,6 +837,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     if (editorMode === "visual" && editableRef.current) {
       document.execCommand("insertHTML", false, formattedSnippet);
       pushToHistory(editableRef.current.innerHTML);
+      hydrateMathInContainer(editableRef.current);
     } else {
       if (!textareaRef.current) {
         pushToHistory(value + "\n" + formattedSnippet);
@@ -1371,6 +1361,11 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
                 ref={editableRef}
                 contentEditable={true}
                 onInput={handleEditableInput}
+                onBlur={() => {
+                  if (editableRef.current) {
+                    hydrateMathInContainer(editableRef.current);
+                  }
+                }}
                 onKeyDown={handleKeyDown}
                 onClick={handleCanvasClick}
                 onPaste={handlePaste}

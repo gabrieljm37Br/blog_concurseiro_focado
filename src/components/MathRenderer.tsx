@@ -2,6 +2,12 @@
 
 import React, { useMemo } from "react";
 import katex from "katex";
+import {
+  MATH_DELIMITER_REGEX,
+  parseMathPart,
+  decodeMathEntities,
+  unescapeCurrencyDollars,
+} from "@/lib/katexHelper";
 
 interface MathRendererProps {
   content: string;
@@ -25,33 +31,19 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
     if (!content) return null;
 
     // Expressão regular para encontrar delimitadores $$...$$, \[...\], $...$, \(...\)
-    const regex = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^\$\n]+?\$|\\\([\s\S]+?\\\))/g;
-    const parts = content.split(regex);
+    MATH_DELIMITER_REGEX.lastIndex = 0;
+    const parts = content.split(MATH_DELIMITER_REGEX);
 
     return parts.map((part, index) => {
       if (!part) return null;
 
-      let isDisplay = false;
-      let mathCode = "";
-      let isMath = false;
+      const parsed = parseMathPart(part);
+      let isDisplay = parsed.isDisplay;
+      let mathCode = parsed.mathCode;
+      let isMath = parsed.isMath;
 
-      if (part.startsWith("$$") && part.endsWith("$$") && part.length > 4) {
-        isMath = true;
-        isDisplay = true;
-        mathCode = part.slice(2, -2).trim();
-      } else if (part.startsWith("\\[") && part.endsWith("\\]") && part.length > 4) {
-        isMath = true;
-        isDisplay = true;
-        mathCode = part.slice(2, -2).trim();
-      } else if (part.startsWith("$") && part.endsWith("$") && part.length > 2) {
-        isMath = true;
-        isDisplay = false;
-        mathCode = part.slice(1, -1).trim();
-      } else if (part.startsWith("\\(") && part.endsWith("\\)") && part.length > 4) {
-        isMath = true;
-        isDisplay = false;
-        mathCode = part.slice(2, -2).trim();
-      } else if (
+      if (
+        !isMath &&
         /\\(frac|sqrt|sum|int|lim|matrix|vec|alpha|beta|theta|pi|sigma|infty|cdot|times|div|pm|approx|le|ge|ne|rightarrow|left|right)/.test(
           part
         ) &&
@@ -61,7 +53,7 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
         // Detecção automática de comandos LaTeX avulsos sem delimitadores $
         isMath = true;
         isDisplay = !inline && (part.includes("\\begin") || part.includes("\\frac"));
-        mathCode = part.trim();
+        mathCode = decodeMathEntities(part);
       }
 
       if (isMath && mathCode) {
@@ -91,11 +83,11 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
             );
           }
         } catch (err) {
-          return <span key={index}>{part}</span>;
+          return <span key={index}>{unescapeCurrencyDollars(part)}</span>;
         }
       }
 
-      return <span key={index}>{part}</span>;
+      return <span key={index}>{unescapeCurrencyDollars(part)}</span>;
     });
   }, [content, inline]);
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { restoreLatexFromRenderedHtml } from "@/lib/katexHelper";
 import { AI_SYSTEM_PROMPT_ARTIGOS, buildArticleAiPrompt } from "@/data/ai_prompt_instructions";
 import { INITIAL_DEFAULT_DISCIPLINAS } from "@/data/categories";
 import { 
@@ -414,7 +415,7 @@ export default function AdminPage() {
 
   const cleanArticleHtmlForStorage = (html: string): string => {
     if (!html) return "";
-    return html
+    return restoreLatexFromRenderedHtml(html)
       .replace(/<!DOCTYPE[^>]*>/gi, "")
       .replace(/<\/?(html|head|body)[^>]*>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
