@@ -1576,8 +1576,10 @@ export default function AdminPage() {
           if (selectedStatusFilter !== "all" && status !== selectedStatusFilter) return false;
           if (selectedCategoryFilter !== "all" && p.category_slug !== selectedCategoryFilter) return false;
           if (selectedBancaFilter !== "all") {
-            const b = (p.banca || p.subcategory || "").toLowerCase();
-            if (!b.includes(selectedBancaFilter.toLowerCase())) return false;
+            const filterTarget = selectedBancaFilter.toLowerCase();
+            const sub = (p.subcategory || "").toLowerCase();
+            const banca = (p.banca || "").toLowerCase();
+            if (!sub.includes(filterTarget) && !banca.includes(filterTarget)) return false;
           }
           if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
@@ -1845,7 +1847,7 @@ export default function AdminPage() {
                       <tr>
                         <th className="px-6 py-3.5">Título / Slug</th>
                         <th className="px-6 py-3.5">Categoria</th>
-                        <th className="px-6 py-3.5">Banca / Subcat</th>
+                        <th className="px-6 py-3.5">Subcat / Banca</th>
                         <th className="px-6 py-3.5">Data</th>
                         <th className="px-6 py-3.5">Status</th>
                         <th className="px-6 py-3.5 text-right">Ações</th>
@@ -1879,8 +1881,23 @@ export default function AdminPage() {
                               {post.category_slug}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-xs font-medium">
-                            {post.banca ? `Banca ${post.banca}` : post.subcategory || "-"}
+                          <td className="px-6 py-4 text-xs">
+                            {post.subcategory || post.banca ? (
+                              <div className="space-y-1">
+                                {post.subcategory && (
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">
+                                    {post.subcategory}
+                                  </div>
+                                )}
+                                {post.banca && (
+                                  <div className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/80">
+                                    Banca {post.banca.replace(/^banca\s+/i, "")}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-xs">
                             {renderPostDate(post)}
