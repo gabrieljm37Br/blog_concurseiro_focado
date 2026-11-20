@@ -38,57 +38,80 @@ function HomeContent() {
     async function loadSupabasePosts() {
       setLoadingPosts(true);
       try {
-        const { data, error } = await supabase
+        // Otimização Fase 3: evita trafegar `content_html` completo na listagem da Home
+        const richSelect =
+          "id, title, slug, category_slug, subcategory, banca, summary, read_time, featured_image, youtube_video_id, is_published, created_at, updated_at, status, scheduled_at, tags, flashcards_count, questions_count, simulados_count, infographics_count";
+        const baseSelect =
+          "id, title, slug, category_slug, subcategory, banca, summary, read_time, featured_image, youtube_video_id, is_published, created_at, updated_at";
+
+        let { data, error } = await supabase
           .from("posts")
-          .select("*")
+          .select(richSelect)
+          .eq("is_published", true)
           .order("created_at", { ascending: false });
+
+        if (error && error.message?.toLowerCase().includes("column")) {
+          const fallbackRes = await supabase
+            .from("posts")
+            .select(baseSelect)
+            .eq("is_published", true)
+            .order("created_at", { ascending: false });
+          data = fallbackRes.data as any;
+          error = fallbackRes.error;
+        }
 
         if (!error && data) {
           const now = new Date();
-          const validPosts = data.filter((item: any) => {
-            let status = "published";
-            let schedAt: string | null = null;
-            if (item.content_html) {
-              const statusMatch = item.content_html.match(/<!-- STATUS: ([\s\S]*?) -->/i);
-              if (statusMatch && statusMatch[1]) status = statusMatch[1].trim();
-              const schedMatch = item.content_html.match(/<!-- SCHEDULED_AT: ([\s\S]*?) -->/i);
-              if (schedMatch && schedMatch[1]) schedAt = schedMatch[1].trim();
+          const validPosts = (data as any[]).filter((item) => {
+            if (item.status === "draft" || item.status === "review") return false;
+            if (item.status === "scheduled" && item.scheduled_at && new Date(item.scheduled_at) > now) {
+              return false;
             }
-
-            if (status === "draft" || status === "review") return false;
-            if (status === "scheduled" && schedAt) {
-              if (new Date(schedAt) > now) return false;
-            }
-            return item.is_published || status === "published" || status === "scheduled";
+            return item.is_published !== false;
           });
 
           const mappedPosts: Post[] = validPosts.map((item: any) => {
-            const cleanText = (item.content_html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-            const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
-            const dynamicMinutes = Math.max(1, Math.ceil(wordCount / 200));
+            const parsedTags: string[] = Array.isArray(item.tags)
+              ? item.tags
+              : typeof item.tags === "string" && item.tags.trim()
+              ? item.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
+              : [];
 
             return {
               id: item.id,
               title: item.title,
               slug: item.slug,
-              category: (item.category_slug === "estude-comigo" || item.category_slug === "assista") 
-                ? "Estude comigo" 
-                : item.category_slug === "estude" ? "Estude"
-                : item.category_slug === "aprenda" ? "Aprenda"
-                : item.category_slug === "informe-se" ? "Informe-se" : "Estude",
+              category:
+                item.category_slug === "estude-comigo" || item.category_slug === "assista"
+                  ? "Estude comigo"
+                  : item.category_slug === "estude"
+                  ? "Estude"
+                  : item.category_slug === "aprenda"
+                  ? "Aprenda"
+                  : item.category_slug === "informe-se"
+                  ? "Informe-se"
+                  : item.category_slug === "rotina"
+                  ? "Rotina"
+                  : "Estude",
               subcategory: item.subcategory,
               banca: item.banca,
               summary: item.summary || "",
-              content: item.content_html || "",
-              publishedAt: new Date(item.created_at || Date.now()).toLocaleDateString("pt-BR", { day: 'numeric', month: 'long', year: 'numeric' }),
-              readTime: `${dynamicMinutes} min de leitura`,
+              content: "",
+              publishedAt: new Date(item.created_at || Date.now()).toLocaleDateString("pt-BR", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              }),
+              readTime: item.read_time || "6 min de leitura",
               youtubeVideoId: item.youtube_video_id,
-              featuredImage: item.featured_image || "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80",
-              tags: item.tags || [],
+              featuredImage:
+                item.featured_image ||
+                "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80",
+              tags: parsedTags,
               flashcardsCount: item.flashcards_count || 0,
               questionsCount: item.questions_count || 0,
               simuladosCount: item.simulados_count || 0,
-              infographicsCount: item.infographics_count || 0
+              infographicsCount: item.infographics_count || 0,
             };
           });
 

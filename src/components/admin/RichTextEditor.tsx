@@ -602,7 +602,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       snippet = `<div class="callout-lei">
   <div class="lei-header">
     <span>📜 CONSTITUIÇÃO FEDERAL — Art. 5º, LVII</span>
-    <button onclick="navigator.clipboard.writeText(this.closest('.callout-lei').querySelector('blockquote').innerText)" class="btn-copiar-lei">📋 Copiar</button>
+    <button type="button" class="btn-copiar-lei">📋 Copiar</button>
   </div>
   <blockquote>"Ninguém será considerado culpado até o trânsito em julgado de sentença penal condenatória."</blockquote>
 </div>`;
@@ -628,7 +628,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       snippet = `<div class="math-card-block" data-latex="P \\rightarrow Q \\equiv \\neg P \\vee Q">
   <div class="math-card-header">
     <span class="math-badge">⚡ RLM — Equivalência da Condicional</span>
-    <button class="btn-copy-math" onclick="navigator.clipboard.writeText('P \\rightarrow Q \\equiv \\neg P \\vee Q')">📋 Copiar LaTeX</button>
+    <button type="button" class="btn-copy-math">📋 Copiar LaTeX</button>
   </div>
   <div class="math-card-body">
     $$ P \\rightarrow Q \\equiv \\neg P \\vee Q $$
@@ -640,12 +640,12 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   <div class="chart-bars">
     <div class="chart-row">
       <span class="chart-label">Atos Administrativos</span>
-      <div class="chart-bar-bg"><div class="chart-bar-fill bg-emerald-500" style="width: 85%;"></div></div>
+      <div class="chart-bar-bg"><div class="chart-bar-fill bg-emerald-500 chart-pct-85"></div></div>
       <span class="chart-val">85% (42 questões)</span>
     </div>
     <div class="chart-row">
       <span class="chart-label">Licitações (Lei 14.133)</span>
-      <div class="chart-bar-bg"><div class="chart-bar-fill bg-blue-500" style="width: 65%;"></div></div>
+      <div class="chart-bar-bg"><div class="chart-bar-fill bg-blue-500 chart-pct-65"></div></div>
       <span class="chart-val">65% (31 questões)</span>
     </div>
   </div>

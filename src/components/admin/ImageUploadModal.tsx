@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Upload, Link as LinkIcon, Image as ImageIcon, X, Check, FileImage, Sparkles, Zap } from "lucide-react";
+import { uploadOptimizedArticleImage } from "@/lib/mediaStorage";
 
 interface ImageUploadModalProps {
   isOpen: boolean;
@@ -40,50 +41,24 @@ export default function ImageUploadModal({ isOpen, onClose, onInsertImage }: Ima
     },
   ];
 
-  // Automatic Client-Side Image Compression to WebP (1200px max width, 82% quality)
-  const processFile = (file: File) => {
+  // Automatic Client-Side Image Compression to WebP + Supabase Storage CDN upload (with Data URI fallback)
+  const processFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       alert("Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, GIF).");
       return;
     }
 
     setIsCompressing(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxDimension = 1200;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const webpDataUrl = canvas.toDataURL("image/webp", 0.82);
-          setPreviewSrc(webpDataUrl);
-        } else {
-          setPreviewSrc(event.target?.result as string);
-        }
-        setIsCompressing(false);
-      };
-      img.src = event.target?.result as string;
-      if (!imageAlt) setImageAlt(file.name.replace(/\.[^/.]+$/, ""));
-    };
-    reader.readAsDataURL(file);
+    if (!imageAlt) setImageAlt(file.name.replace(/\.[^/.]+$/, ""));
+    try {
+      const result = await uploadOptimizedArticleImage(file, "content");
+      setPreviewSrc(result.url);
+    } catch (err) {
+      console.error("Erro ao processar imagem:", err);
+      alert("Não foi possível processar a imagem selecionada.");
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -56,7 +56,7 @@ E) Dispositivo Legal / Vade Mecum (Caixa Púrpura):
 <div class="callout-lei">
   <div class="lei-header">
     <span>📜 LEI Nº X.XXX / CONSTITUIÇÃO FEDERAL — Art. Xº</span>
-    <button onclick="if (typeof window !== 'undefined') navigator.clipboard.writeText(this.closest('.callout-lei').querySelector('blockquote').innerText)" class="btn-copiar-lei">📋 Copiar</button>
+    <button type="button" class="btn-copiar-lei">📋 Copiar</button>
   </div>
   <blockquote>"Escreva aqui a citação literal do artigo de lei ou norma..."</blockquote>
 </div>
@@ -120,25 +120,39 @@ I) Fórmulas Matemáticas & RLM (KaTeX Dark Block):
 </div>
 
 J) Gráfico de Incidência do Assunto na Banca (CSS Bar Chart sem style inline):
+Use APENAS as classes seguras de largura (\`chart-pct-5\` até \`chart-pct-100\` de 5 em 5, mais \`chart-pct-33\`, \`chart-pct-67\`, \`chart-pct-92\`) e cores (\`bg-emerald-500\`, \`bg-sky-500\`, \`bg-blue-500\`, \`bg-purple-500\`, \`bg-amber-500\`, \`bg-rose-500\`, \`bg-indigo-500\`, \`bg-teal-500\`):
 <div class="chart-card">
   <div class="chart-title">📊 Incidência deste Tema nas Bancas Examinadoras</div>
   <div class="chart-bars space-y-3">
     <div class="chart-row">
       <span class="chart-label">Tópico Mais Cobrado</span>
-      <div class="chart-bar-bg"><div class="chart-bar-fill bg-emerald-500 w-11/12"></div></div>
+      <div class="chart-bar-bg"><div class="chart-bar-fill bg-emerald-500 chart-pct-92"></div></div>
       <span class="chart-val">92% (Altíssima)</span>
     </div>
     <div class="chart-row">
       <span class="chart-label">Segundo Tópico</span>
-      <div class="chart-bar-bg"><div class="chart-bar-fill bg-sky-500 w-5/6"></div></div>
+      <div class="chart-bar-bg"><div class="chart-bar-fill bg-sky-500 chart-pct-85"></div></div>
       <span class="chart-val">85% (Altíssima)</span>
     </div>
     <div class="chart-row">
       <span class="chart-label">Terceiro Tópico</span>
-      <div class="chart-bar-bg"><div class="chart-bar-fill bg-purple-500 w-4/5"></div></div>
+      <div class="chart-bar-bg"><div class="chart-bar-fill bg-purple-500 chart-pct-80"></div></div>
       <span class="chart-val">80% (Alta)</span>
     </div>
   </div>
+</div>
+
+J.2) Diagrama de Venn (RLM / Conjuntos / Interseções Jurídicas):
+<div class="venn-diagram-card">
+  <div class="venn-title">⭕ DIAGRAMA DE VENN: INTERSEÇÃO DE CONCEITOS</div>
+  <svg viewBox="0 0 360 180" class="w-full max-w-md mx-auto" role="img" aria-label="Diagrama de Venn comparativo">
+    <circle cx="135" cy="90" r="65" class="venn-circle venn-left" />
+    <circle cx="225" cy="90" r="65" class="venn-circle venn-right" />
+    <text x="105" y="92" class="venn-text">Conjunto A</text>
+    <text x="255" y="92" class="venn-text">Conjunto B</text>
+    <text x="180" y="95" class="venn-inter-text">A ∩ B</text>
+  </svg>
+  <p class="venn-caption">Legenda explicativa da área de interseção cobrada em prova.</p>
 </div>
 
 K) Fluxogramas e Roteiros de Processo (Horizontal, Vertical e Misto):
@@ -314,7 +328,7 @@ M) Blocos de Questões de Concurso no Corpo do Texto:
 Ao final do \`content_html\`, insira obrigatoriamente os comentários estruturais para alimentar as ferramentas interativas do artigo:
 - \`<!-- TAGS: Tag1, Tag2, Tag3, ... -->\` (8 a 12 tags otimizadas para SEO e busca interna)
 - \`<!-- STATUS: published -->\`
-- \`<!-- STUDY_DATA_JSON_B64: <encodeURIComponent(JSON.stringify(studyDataJson))> -->\` (e o comentário \`<!-- STUDY_DATA_JSON: ... -->\` de fallback), contendo:
+- \`<!-- STUDY_DATA_JSON_B64: <encodeURIComponent(JSON.stringify(studyDataJson))> -->\` (codificado com \`encodeURIComponent\`, sem necessidade de duplicar o JSON em comentário secundário), contendo:
   1. \`flashcards\`: Mínimo de 8 a 10 flashcards (\`{ id, question, answer, category, bancaTip }\`).
   2. \`questions\` (Questões de Provas/Estilo Banca): Mínimo de 4 questões (\`{ id, banca, ano, orgao, type, statement, options, correctIndex, explanation }\`), mesclando \`"certo_errado"\` (2 opções: \`["Certo", "Errado"]\`) e \`"multipla_escolha_5"\` (5 opções de A a E sem duplicar o prefixo \`"A) "\` no texto da opção, com \`correctIndex\` numérico de \`0\` a \`4\`).
   3. \`simulados\` (Questões Inéditas do Artigo): Mínimo de 3 questões inéditas (\`{ id, type, statement, options, correctIndex, explanation }\`), mesclando \`"multipla_escolha_4"\` (4 opções inéditas, \`correctIndex\` de \`0\` a \`3\`) e \`"certo_errado"\` (2 opções: \`["Certo", "Errado"]\`, \`correctIndex\` \`0\` ou \`1\`).
@@ -326,14 +340,14 @@ Ao final do \`content_html\`, insira obrigatoriamente os comentários estruturai
 1. Defina automaticamente os metadados do artigo:
    - \`title\`: Título forte, claro e atrativo para concurseiros.
    - \`slug\`: URL amigável normalizada (kebab-case, sem acentos ou caracteres especiais).
-   - \`category_slug\`: \`"estude"\` (ou \`"aprenda"\`, \`"estude-comigo"\`, \`"informe-se"\`).
+   - \`category_slug\`: \`"estude"\` (ou \`"aprenda"\`, \`"estude-comigo"\`, \`"informe-se"\`, \`"rotina"\`).
    - \`subcategory\`: Disciplina/Matéria exata (garanta também que ela exista na tabela \`public.subcategories\`).
    - \`banca\`: Nome da banca se o texto focar em uma banca específica, ou \`null\` se for multi-banca.
    - \`summary\`: Resumo denso e persuasivo (150 a 260 caracteres) para o card da Home e meta description SEO.
    - \`read_time\`: Calculado com base no total de palavras (\`\${Math.max(1, Math.ceil(palavras / 200))} min de leitura\`).
-   - \`featured_image\`: Data URI WebP da imagem de capa gerada.
+   - \`featured_image\`: Data URI WebP da imagem de capa gerada (ou URL HTTPS otimizada no Storage).
    - \`is_published\`: \`true\`.
-2. Insira (ou atualize, se o \`slug\` já existir) o registro completo diretamente na tabela \`public.posts\` do Supabase (projeto \`ovpyjsjvowhhyxvwbedh\`) e valide se a gravação foi concluída com sucesso.
+2. Insira (ou atualize, se o \`slug\` já existir) o registro completo diretamente na tabela \`public.posts\` do Supabase configurado no ambiente e valide se a gravação foi concluída com sucesso.
 3. Ao finalizar, apresente no chat um resumo executivo da publicação (Título, Slug/URL, Categoria/Subcategoria, quantidade de imagens, flashcards, questões e simulados cadastrados).
 
 Segue texto:

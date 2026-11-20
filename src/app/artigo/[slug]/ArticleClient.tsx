@@ -6,7 +6,14 @@ import Image from "next/image";
 import { Post } from "@/data/mockPosts";
 import { supabase } from "@/lib/supabaseClient";
 import InteractiveStudyModal from "@/components/InteractiveStudyModal";
+import ArticleTableOfContents from "@/components/ArticleTableOfContents";
 import { hydrateMathInContainer } from "@/lib/katexHelper";
+import {
+  cleanAndSanitizeArticleHtml,
+  extractStudyDataFromContentHtml,
+  getArticleVisibility,
+} from "@/lib/articleSecurity";
+import { validateStudyMetadata } from "@/lib/studyMetadataSchema";
 import { 
   Clock, 
   BrainCircuit, 
@@ -63,6 +70,35 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   const [speechRate, setSpeechRate] = useState<number>(1.0);
   const [speechProgress, setSpeechProgress] = useState<number>(0);
 
+  // Bookmark & Share Feedback State
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = JSON.parse(localStorage.getItem("cf_saved_articles") || "[]");
+      if (Array.isArray(saved)) {
+        setIsBookmarked(saved.includes(slug));
+      }
+    } catch {
+      setIsBookmarked(false);
+    }
+
+    // Registra 1 visualização real por sessão de navegador
+    const viewKey = `cf_viewed_${slug}`;
+    try {
+      if (!sessionStorage.getItem(viewKey)) {
+        sessionStorage.setItem(viewKey, "1");
+        fetch("/api/artigo/view", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug }),
+        }).catch(() => {});
+      }
+    } catch {}
+  }, [slug]);
+
   // Clean up SpeechSynthesis when switching articles or unmounting
   useEffect(() => {
     return () => {
@@ -82,9 +118,82 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
     });
   }, [post?.content, isFocusMode, fontSizeLevel]);
 
+  // Event delegation segura (substitui onclick inline removido pelo sanitizador XSS)
+  useEffect(() => {
+    if (typeof window === "undefined" || !post?.content) return;
+    const containers = [
+      document.getElementById("article-content-body"),
+      document.getElementById("article-focus-content-body"),
+    ].filter(Boolean) as HTMLElement[];
+    if (containers.length === 0) return;
+
+    const handleDelegatedClick = async (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const copyLawBtn = target.closest(".btn-copiar-lei") as HTMLButtonElement | null;
+      if (copyLawBtn) {
+        event.preventDefault();
+        const quote = copyLawBtn.closest(".callout-lei")?.querySelector("blockquote");
+        const textToCopy = quote?.textContent?.trim();
+        if (textToCopy && navigator.clipboard) {
+          try {
+            await navigator.clipboard.writeText(textToCopy);
+            const originalText = copyLawBtn.dataset.originalLabel || copyLawBtn.textContent || "📋 Copiar";
+            copyLawBtn.dataset.originalLabel = originalText;
+            copyLawBtn.textContent = "✓ Copiado!";
+            window.setTimeout(() => {
+              copyLawBtn.textContent = originalText;
+            }, 2000);
+          } catch {
+            // Clipboard bloqueado pelo navegador
+          }
+        }
+        return;
+      }
+
+      const copyMathBtn = target.closest(".btn-copy-math") as HTMLButtonElement | null;
+      if (copyMathBtn) {
+        event.preventDefault();
+        const block = copyMathBtn.closest(".math-card-block");
+        const body = block?.querySelector(".math-card-body");
+        const latex =
+          block?.getAttribute("data-latex") ||
+          body?.getAttribute("data-latex") ||
+          body?.querySelector('annotation[encoding="application/x-tex"]')?.textContent?.trim() ||
+          body?.textContent?.trim();
+        if (latex && navigator.clipboard) {
+          try {
+            await navigator.clipboard.writeText(latex);
+            const originalText = copyMathBtn.dataset.originalLabel || copyMathBtn.textContent || "📋 Copiar LaTeX";
+            copyMathBtn.dataset.originalLabel = originalText;
+            copyMathBtn.textContent = "✓ Copiado!";
+            window.setTimeout(() => {
+              copyMathBtn.textContent = originalText;
+            }, 2000);
+          } catch {
+            // Clipboard bloqueado pelo navegador
+          }
+        }
+        return;
+      }
+
+      const mnemonicPill = target.closest(".mnemonico-grid span") as HTMLElement | null;
+      if (mnemonicPill) {
+        mnemonicPill.classList.toggle("active");
+      }
+    };
+
+    containers.forEach((container) => container.addEventListener("click", handleDelegatedClick));
+    return () => {
+      containers.forEach((container) => container.removeEventListener("click", handleDelegatedClick));
+    };
+  }, [post?.content, isFocusMode]);
+
   // Web Speech API Refs for stable chunk-by-chunk audio reading
   const speechChunksRef = React.useRef<string[]>([]);
   const speechIndexRef = React.useRef<number>(0);
+  const speechRateRef = React.useRef<number>(1.0);
   const currentUtteranceRef = React.useRef<SpeechSynthesisUtterance | null>(null);
 
   // Helper to get available pt-BR voice
@@ -126,7 +235,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
 
     const utterance = new SpeechSynthesisUtterance(textChunk.trim());
     utterance.lang = "pt-BR";
-    utterance.rate = speechRate;
+    utterance.rate = speechRateRef.current;
 
     const ptVoice = getPtVoice(synth);
     if (ptVoice) {
@@ -266,6 +375,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   };
 
   const handleRateChange = (newRate: number) => {
+    speechRateRef.current = newRate;
     setSpeechRate(newRate);
     if (isPlayingAudio && typeof window !== "undefined" && "speechSynthesis" in window) {
       const synth = window.speechSynthesis;
@@ -280,6 +390,52 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
         setIsPlayingAudio(true);
         playSpeechChunk(currentIndex);
       }, 100);
+    }
+  };
+
+  const handleToggleBookmark = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = JSON.parse(localStorage.getItem("cf_saved_articles") || "[]");
+      const list: string[] = Array.isArray(raw) ? raw : [];
+      let nextList: string[];
+      if (list.includes(slug)) {
+        nextList = list.filter((s) => s !== slug);
+        setIsBookmarked(false);
+        setShareFeedback("Removido dos salvos");
+      } else {
+        nextList = [...list, slug];
+        setIsBookmarked(true);
+        setShareFeedback("Artigo salvo!");
+      }
+      localStorage.setItem("cf_saved_articles", JSON.stringify(nextList));
+      window.setTimeout(() => setShareFeedback(null), 2200);
+    } catch {
+      // Storage indisponível
+    }
+  };
+
+  const handleShareArticle = async () => {
+    if (typeof window === "undefined") return;
+    const shareUrl = window.location.href;
+    const shareData = {
+      title: post?.title || "Concurseiro Focado",
+      text: post?.summary || "Confira este artigo de estudo para concursos!",
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareFeedback("Link copiado!");
+        window.setTimeout(() => setShareFeedback(null), 2200);
+      }
+    } catch {
+      // Usuário cancelou o compartilhamento nativo
     }
   };
 
@@ -327,6 +483,19 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
           .single();
 
         if (!error && dbPost) {
+          if (
+            !getArticleVisibility(
+              dbPost.content_html,
+              dbPost.is_published,
+              new Date(),
+              dbPost.status,
+              dbPost.scheduled_at
+            ).isPublic
+          ) {
+            setPost(null);
+            return;
+          }
+
           let extractedTags: string[] = [];
           if (Array.isArray(dbPost.tags) && dbPost.tags.length > 0) {
             extractedTags = dbPost.tags;
@@ -345,7 +514,8 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             if (dbPost.category_slug) extractedTags.push(dbPost.category_slug);
           }
 
-          const cleanText = (dbPost.content_html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+          const sanitizedHtml = cleanAndSanitizeArticleHtml(dbPost.content_html || "");
+          const cleanText = sanitizedHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
           const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
           const dynamicReadMinutes = Math.max(1, Math.ceil(wordCount / 200));
 
@@ -360,37 +530,15 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             }
           }
 
-          const extractStudyDataFromContentHtml = (contentHtml: string): any => {
-            if (!contentHtml) return null;
-            const b64Match = contentHtml.match(/<!-- STUDY_DATA_JSON_B64: ([\s\S]*?) -->/i);
-            if (b64Match && b64Match[1]) {
-              try { return JSON.parse(decodeURIComponent(b64Match[1].trim())); } catch (e) {}
-            }
-            const legacyMatch = contentHtml.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
-            if (legacyMatch && legacyMatch[1]) {
-              try { return JSON.parse(legacyMatch[1].trim()); } catch (e) {}
-            }
-            const startIdx = contentHtml.indexOf("<!-- STUDY_DATA_JSON:");
-            if (startIdx !== -1) {
-              let sub = contentHtml.substring(startIdx + "<!-- STUDY_DATA_JSON:".length);
-              const lastEnd = sub.lastIndexOf("-->");
-              if (lastEnd !== -1) sub = sub.substring(0, lastEnd);
-              sub = sub.trim();
-              try { return JSON.parse(sub); } catch (e) {}
-            }
-            const jsonMatch = contentHtml.match(/\{"flashcards":[\s\S]*?\}(?=\s*(?:-->|$))/i) || contentHtml.match(/\{"flashcards":[\s\S]*/i);
-            if (jsonMatch) {
-              let str = jsonMatch[0].trim().replace(/-->\s*$/g, "").trim();
-              if (!str.endsWith("}")) {
-                const lastCurly = str.lastIndexOf("}");
-                if (lastCurly !== -1) str = str.substring(0, lastCurly + 1);
-              }
-              try { return JSON.parse(str); } catch (e) {}
-            }
-            return null;
-          };
-
-          const parsedStudyData = extractStudyDataFromContentHtml(dbPost.content_html || "");
+          const hasColumnStudyData =
+            dbPost.study_data &&
+            typeof dbPost.study_data === "object" &&
+            Object.keys(dbPost.study_data).length > 0;
+          const rawStudyData = hasColumnStudyData
+            ? dbPost.study_data
+            : extractStudyDataFromContentHtml(dbPost.content_html || "");
+          const validation = rawStudyData ? validateStudyMetadata(rawStudyData) : { success: false, data: undefined };
+          const parsedStudyData = (validation.data || rawStudyData) as any;
 
           const flashcardsArr = (parsedStudyData && Array.isArray(parsedStudyData.flashcards)) ? parsedStudyData.flashcards : [];
           const questionsArr = (parsedStudyData && Array.isArray(parsedStudyData.questions)) ? parsedStudyData.questions : [];
@@ -402,7 +550,13 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             .select("*")
             .eq("post_id", dbPost.id);
 
-          const combinedFlashcards = [...flashcardsArr, ...(fcData || [])];
+          const existingQuestions = new Set(
+            flashcardsArr.map((fc: any) => String(fc.question || "").trim().toLowerCase())
+          );
+          const uniqueDbFlashcards = (fcData || []).filter(
+            (fc: any) => !existingQuestions.has(String(fc.question || "").trim().toLowerCase())
+          );
+          const combinedFlashcards = [...flashcardsArr, ...uniqueDbFlashcards];
           if (combinedFlashcards.length > 0) {
             setDbFlashcards(combinedFlashcards);
           }
@@ -411,15 +565,16 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             id: dbPost.id,
             title: dbPost.title,
             slug: dbPost.slug,
-            category: (dbPost.category_slug === "estude-comigo" || dbPost.category_slug === "assista") 
-              ? "Estude comigo" 
+            category: (dbPost.category_slug === "estude-comigo" || dbPost.category_slug === "assista")
+              ? "Estude comigo"
               : dbPost.category_slug === "estude" ? "Estude"
               : dbPost.category_slug === "aprenda" ? "Aprenda"
-              : dbPost.category_slug === "informe-se" ? "Informe-se" : "Estude",
+              : dbPost.category_slug === "informe-se" ? "Informe-se"
+              : dbPost.category_slug === "rotina" ? "Rotina" : "Estude",
             subcategory: dbPost.subcategory,
             banca: dbPost.banca,
             summary: dbPost.summary || "",
-            content: dbPost.content_html || "",
+            content: sanitizedHtml,
             publishedAt: pubDateStr,
             updatedAt: updDateStr,
             readTime: `${dynamicReadMinutes} min de leitura`,
@@ -551,13 +706,11 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               </span>
             </button>
 
-            {/* Simulated Member Status Toggle */}
-            <button
-              onClick={() => setIsLoggedInMember(!isLoggedInMember)}
-              className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 underline whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              {isLoggedInMember ? "Membro (Sem Ads)" : "Simular Membro"}
-            </button>
+            {isLoggedInMember && (
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap shrink-0">
+                Membro Ativo
+              </span>
+            )}
           </div>
         </div>
 
@@ -658,18 +811,39 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               </div>
 
               <button
+                type="button"
                 onClick={handlePrintPDF}
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer"
                 title="Baixar em PDF / Imprimir"
               >
                 <Printer className="w-4 h-4" />
               </button>
-              <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors">
-                <Bookmark className="w-4 h-4" />
+              <button
+                type="button"
+                onClick={handleToggleBookmark}
+                aria-pressed={isBookmarked}
+                className={`p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ${
+                  isBookmarked
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-slate-400 hover:text-emerald-500"
+                }`}
+                title={isBookmarked ? "Remover dos favoritos" : "Salvar artigo nos favoritos"}
+              >
+                <Bookmark className={`w-4 h-4 ${isBookmarked ? "fill-current" : ""}`} />
               </button>
-              <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors">
+              <button
+                type="button"
+                onClick={handleShareArticle}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer"
+                title="Compartilhar artigo"
+              >
                 <Share2 className="w-4 h-4" />
               </button>
+              {shareFeedback && (
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                  ✓ {shareFeedback}
+                </span>
+              )}
             </div>
           </div>
 
@@ -767,6 +941,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               src={post.featuredImage}
               alt={post.title}
               fill
+              unoptimized={post.featuredImage.startsWith("data:")}
               className="object-cover"
               priority
             />
@@ -874,6 +1049,16 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                       <span>Infográfico ({post.infographicsCount || 0})</span>
                     </button>
 
+                    {/* Atalho Minha Revisão (SRS & Caderno de Erros) */}
+                    <Link
+                      href="/minha-revisao"
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-200/70 dark:bg-slate-800/90 hover:bg-slate-900 dark:hover:bg-white text-slate-700 dark:text-slate-200 hover:text-white dark:hover:text-slate-950 border border-slate-300 dark:border-slate-700 font-bold text-xs transition-all shadow-xs"
+                      title="Abrir seu painel de Revisão Espaçada (SRS), Caderno de Erros e Salvos"
+                    >
+                      <BrainCircuit className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Minha Revisão</span>
+                    </Link>
+
                   </div>
                 </div>
               )}
@@ -899,25 +1084,17 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
           </div>
         )}
 
+        {/* Sumário Automático (Table of Contents) + Barra de Progresso de Leitura */}
+        <ArticleTableOfContents containerId="article-content-body" contentKey={post.slug} />
+
         {/* Article HTML Body Content */}
-        <div 
+        <div
           id="article-content-body"
           className={`prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 leading-relaxed space-y-4 transition-all duration-200 ${
             fontSizeLevel === "sm" ? "article-font-sm" : fontSizeLevel === "lg" ? "article-font-lg" : fontSizeLevel === "xl" ? "article-font-xl" : ""
           }`}
-          dangerouslySetInnerHTML={{ 
-            __html: post.content
-              .replace(/<!-- STUDY_DATA_JSON_B64: [\s\S]*? -->/gi, "")
-              .replace(/<!-- STUDY_DATA_JSON: [\s\S]*? -->/gi, "")
-              .replace(/<!-- TAGS: [\s\S]*? -->/gi, "")
-              .replace(/<!-- STATUS: [\s\S]*? -->/gi, "")
-              .replace(/<!-- SCHEDULED_AT: [\s\S]*? -->/gi, "")
-              .replace(/,"points":\["Revisão rápida de pontos de alta incidência"\]\]\}?\s*-->/gi, "")
-              .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<div[^>]*border-b[^>]*>\s*<h1[^>]*>[\s\S]*?<\/h1>\s*<\/div>/gi, "")
-              .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<h1[^>]*>[\s\S]*?<\/h1>/gi, "")
-              .replace(/<h1([^>]*)>(.*?)<\/h1>/gi, '<h2 class="text-xl sm:text-2xl font-bold font-outfit text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2"$1>$2</h2>')
-              .replace(/<h2[^>]*>\s*<img[^>]*src="data:image[^"]*"[^>]*\/?>\s*/gi, '<h2 class="text-xl sm:text-2xl font-bold font-outfit text-slate-900 dark:text-white mt-8 mb-4">')
-              .replace(/style="[^"]*max-width:[^"]*"/gi, "")
+          dangerouslySetInnerHTML={{
+            __html: cleanAndSanitizeArticleHtml(post.content),
           }}
         />
 
@@ -948,10 +1125,12 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
           onClose={() => setIsModalOpen(false)}
           type={modalType}
           articleTitle={post.title}
+          articleSlug={post.slug}
           customFlashcards={dbFlashcards.map(fc => ({
             id: fc.id,
             question: fc.question,
             answer: fc.answer,
+            bancaTip: fc.bancaTip,
             category: fc.category || post.subcategory || "Geral"
           }))}
           customQuestions={post.questions || []}
@@ -1023,6 +1202,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                   src={post.featuredImage}
                   alt={post.title}
                   fill
+                  unoptimized={post.featuredImage.startsWith("data:")}
                   className="object-cover"
                   priority
                 />
@@ -1035,18 +1215,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                 fontSizeLevel === "sm" ? "article-font-sm" : fontSizeLevel === "lg" ? "article-font-lg" : fontSizeLevel === "xl" ? "article-font-xl" : ""
               }`}
               dangerouslySetInnerHTML={{
-                __html: post.content
-                  .replace(/<!-- STUDY_DATA_JSON_B64: [\s\S]*? -->/gi, "")
-                  .replace(/<!-- STUDY_DATA_JSON: [\s\S]*? -->/gi, "")
-                  .replace(/<!-- TAGS: [\s\S]*? -->/gi, "")
-                  .replace(/<!-- STATUS: [\s\S]*? -->/gi, "")
-                  .replace(/<!-- SCHEDULED_AT: [\s\S]*? -->/gi, "")
-                  .replace(/,"points":\["Revisão rápida de pontos de alta incidência"\]\]\}?\s*-->/gi, "")
-                  .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<div[^>]*border-b[^>]*>\s*<h1[^>]*>[\s\S]*?<\/h1>\s*<\/div>/gi, "")
-                  .replace(/^\s*(?:<!--[\s\S]*?-->\s*)?<h1[^>]*>[\s\S]*?<\/h1>/gi, "")
-                  .replace(/<h1([^>]*)>(.*?)<\/h1>/gi, '<h2 class="text-xl sm:text-2xl font-bold font-outfit text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2"$1>$2</h2>')
-                  .replace(/<h2[^>]*>\s*<img[^>]*src="data:image[^"]*"[^>]*\/?>\s*/gi, '<h2 class="text-xl sm:text-2xl font-bold font-outfit text-slate-900 dark:text-white mt-8 mb-4">')
-                  .replace(/style="[^"]*max-width:[^"]*"/gi, "")
+                __html: cleanAndSanitizeArticleHtml(post.content),
               }}
             />
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { isAdminUser } from "@/lib/adminAuth";
 import { User, Mail, Lock, ShieldCheck, Zap, ArrowLeft, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 export default function MembrosLoginPage() {
@@ -54,29 +55,15 @@ export default function MembrosLoginPage() {
       }
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password
       });
 
       if (error) {
-        if (email.trim().toLowerCase() === "gabrieljm37concurso@gmail.com" && password === "379JOAO@p") {
-          const adminSession = {
-            user: {
-              email: "gabrieljm37concurso@gmail.com",
-              user_metadata: { role: "admin", full_name: "Gabriel (Admin)" }
-            }
-          };
-          setUserSession(adminSession);
-          localStorage.setItem("admin_session", JSON.stringify(adminSession));
-          setMessage("✅ Login de Administrador realizado com sucesso!");
-        } else {
-          setMessage(`❌ Erro no login: ${error.message}`);
-        }
+        setMessage(`❌ Erro no login: ${error.message}`);
       } else {
         setUserSession(data.session);
-        if (email.trim().toLowerCase() === "gabrieljm37concurso@gmail.com") {
-          localStorage.setItem("admin_session", JSON.stringify(data.session));
-        }
+        setPassword("");
         setMessage("✅ Login realizado com sucesso! Anúncios AdSense desativados.");
       }
     }
@@ -85,8 +72,10 @@ export default function MembrosLoginPage() {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-    } catch (e) {}
-    localStorage.removeItem("admin_session");
+    } catch {}
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("admin_session");
+    }
     setUserSession(null);
     setMessage("Sua sessão foi encerrada.");
   };
@@ -149,7 +138,7 @@ export default function MembrosLoginPage() {
                 Logado como: <strong>{userSession.user.email}</strong>
               </p>
               
-              {(userSession.user?.email === "gabrieljm37concurso@gmail.com" || userSession.user?.user_metadata?.role === "admin") && (
+              {isAdminUser(userSession?.user) && (
                 <div className="p-4 rounded-xl bg-slate-900 border border-emerald-500/50 text-white space-y-3 text-left shadow-lg">
                   <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
                     <ShieldCheck className="w-4 h-4" /> 👑 SESSÃO DE ADMINISTRADOR DETECTADA

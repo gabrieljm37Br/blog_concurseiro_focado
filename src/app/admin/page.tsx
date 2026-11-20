@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { isAdminUser } from "@/lib/adminAuth";
+import { extractStudyDataFromContentHtml } from "@/lib/articleSecurity";
 import { restoreLatexFromRenderedHtml } from "@/lib/katexHelper";
 import { AI_SYSTEM_PROMPT_ARTIGOS, buildArticleAiPrompt } from "@/data/ai_prompt_instructions";
 import { INITIAL_DEFAULT_DISCIPLINAS } from "@/data/categories";
@@ -50,6 +52,12 @@ import {
 } from "lucide-react";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import ArticleNotesModal from "@/components/admin/ArticleNotesModal";
+import AdminAuthGate from "@/components/admin/AdminAuthGate";
+import AdminCategoriesTab from "@/components/admin/AdminCategoriesTab";
+import AdminStatsTab from "@/components/admin/AdminStatsTab";
+import AdminAiPromptTab from "@/components/admin/AdminAiPromptTab";
+import SemanticLintBanner from "@/components/admin/SemanticLintBanner";
+import { uploadOptimizedArticleImage } from "@/lib/mediaStorage";
 
 interface DbPost {
   id: string;
@@ -64,6 +72,9 @@ interface DbPost {
   featured_image?: string;
   youtube_video_id?: string;
   tags?: any;
+  status?: "published" | "draft" | "review" | "scheduled";
+  scheduled_at?: string | null;
+  study_data?: any;
   published_at?: string;
   is_published?: boolean;
   admin_notes?: string;
@@ -95,7 +106,7 @@ export default function AdminPage() {
   // Auth & Admin State
   const [userSession, setUserSession] = useState<any>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [adminEmail, setAdminEmail] = useState("gabrieljm37concurso@gmail.com");
+  const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -144,6 +155,9 @@ export default function AdminPage() {
     flashcardAnswer: "",
     // Tool 2: Questões (Provas Pretéritas)
     questionType: "multipla_escolha_5",
+    questionBanca: "",
+    questionAno: "",
+    questionOrgao: "",
     questionStatement: "",
     questionOptionA: "",
     questionOptionB: "",
@@ -204,64 +218,102 @@ export default function AdminPage() {
 
   useEffect(() => {
     let subscription: any = null;
-    try {
-      // Check if previously logged in as admin via localStorage
-      const localAdmin = typeof window !== "undefined" ? localStorage.getItem("admin_session") : null;
-      if (localAdmin) {
-        setUserSession(JSON.parse(localAdmin));
-      }
 
+    // Remove qualquer sessão insegura legada salva em localStorage
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("admin_session");
+    }
+
+    try {
       supabase.auth.getSession().then(({ data }) => {
-        if (data?.session) {
-          setUserSession(data.session);
+        const session = data?.session || null;
+        if (session && isAdminUser(session.user)) {
+          setUserSession(session);
+          fetchPosts();
+          fetchSubcategories();
+        } else {
+          setUserSession(null);
         }
         setIsCheckingAuth(false);
       }).catch(() => setIsCheckingAuth(false));
 
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) {
+        if (session && isAdminUser(session.user)) {
           setUserSession(session);
+          fetchPosts();
+          fetchSubcategories();
+        } else {
+          setUserSession(null);
         }
         setIsCheckingAuth(false);
       });
       subscription = data?.subscription;
-    } catch (err) {
+    } catch {
       setIsCheckingAuth(false);
     }
-
-    fetchPosts();
-    fetchSubcategories();
 
     return () => {
       if (subscription) subscription.unsubscribe();
     };
   }, []);
 
+  // Ref estável para Auto-Save (não reinicia o intervalo de 30s a cada tecla digitada)
+  const autoSaveStateRef = useRef({
+    formData,
+    editingPostId,
+    flashcardsList,
+    questionsList,
+    simuladosList,
+    infographicsList,
+  });
+
+  useEffect(() => {
+    autoSaveStateRef.current = {
+      formData,
+      editingPostId,
+      flashcardsList,
+      questionsList,
+      simuladosList,
+      infographicsList,
+    };
+  }, [formData, editingPostId, flashcardsList, questionsList, simuladosList, infographicsList]);
+
   // Pilar 4: Salvamento Automático (Auto-Save) a cada 30 segundos no localStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Check if there is an unsaved draft in localStorage on mount
     const savedLocalDraft = localStorage.getItem("blog_admin_autosave_draft");
-    if (savedLocalDraft && !editingPostId) {
+    if (savedLocalDraft && !autoSaveStateRef.current.editingPostId) {
       setHasSavedDraft(true);
     }
 
     const interval = setInterval(() => {
-      if (formData.title.trim() || formData.content_html.trim()) {
+      const current = autoSaveStateRef.current;
+      // Não sobrescreve rascunho de novo artigo ao editar um artigo já existente
+      if (current.editingPostId) return;
+
+      if (current.formData.title.trim() || current.formData.content_html.trim()) {
         const timestamp = new Date().toLocaleTimeString("pt-BR");
         const autoSaveData = {
-          ...formData,
+          ...current.formData,
+          flashcardsList: current.flashcardsList,
+          questionsList: current.questionsList,
+          simuladosList: current.simuladosList,
+          infographicsList: current.infographicsList,
           lastSavedAt: timestamp,
           savedAtIso: new Date().toISOString()
         };
-        localStorage.setItem("blog_admin_autosave_draft", JSON.stringify(autoSaveData));
-        setAutoSaveMessage(`Salvo automaticamente às ${timestamp}`);
+        try {
+          localStorage.setItem("blog_admin_autosave_draft", JSON.stringify(autoSaveData));
+          setAutoSaveMessage(`Salvo automaticamente às ${timestamp}`);
+        } catch {
+          // Quota excedida no localStorage (ex: imagem muito grande)
+        }
       }
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
-  }, [formData, editingPostId]);
+  }, []);
 
   const handleRestoreAutoSaveDraft = () => {
     try {
@@ -283,9 +335,14 @@ export default function AdminPage() {
           tags: parsed.tags || "",
           status: parsed.status || "draft",
           scheduled_at: parsed.scheduled_at || "",
+          admin_notes: parsed.admin_notes || "",
           flashcardQuestion: parsed.flashcardQuestion || "",
           flashcardAnswer: parsed.flashcardAnswer || ""
         });
+        if (Array.isArray(parsed.flashcardsList)) setFlashcardsList(parsed.flashcardsList);
+        if (Array.isArray(parsed.questionsList)) setQuestionsList(parsed.questionsList);
+        if (Array.isArray(parsed.simuladosList)) setSimuladosList(parsed.simuladosList);
+        if (Array.isArray(parsed.infographicsList)) setInfographicsList(parsed.infographicsList);
         setHasSavedDraft(false);
         setStatusMessage("✅ Rascunho automático restaurado com sucesso!");
         setActiveTab("create");
@@ -305,44 +362,35 @@ export default function AdminPage() {
     setAuthError("");
     setIsSubmittingLogin(true);
 
-    if (adminEmail.trim().toLowerCase() !== "gabrieljm37concurso@gmail.com" || adminPassword !== "379JOAO@p") {
-      setAuthError("❌ Credenciais incorretas! Verifique seu e-mail e senha de administrador.");
-      setIsSubmittingLogin(false);
-      return;
-    }
-
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: adminEmail,
+        email: adminEmail.trim(),
         password: adminPassword,
       });
 
-      if (error) {
-        // Fallback: Se Supabase Auth offline/chave temporária, autentica localmente como Admin oficial
-        const mockAdminSession = {
-          user: {
-            email: adminEmail,
-            user_metadata: { role: "admin", full_name: "Gabriel (Admin)" }
-          }
-        };
-        setUserSession(mockAdminSession);
-        localStorage.setItem("admin_session", JSON.stringify(mockAdminSession));
-        setAuthError("");
-      } else {
-        setUserSession(data.session);
-        localStorage.setItem("admin_session", JSON.stringify(data.session));
-        setAuthError("");
+      if (error || !data?.session) {
+        setAuthError("❌ Credenciais incorretas ou serviço de autenticação indisponível.");
+        setIsSubmittingLogin(false);
+        return;
       }
-    } catch (err: any) {
-      const mockAdminSession = {
-        user: {
-          email: adminEmail,
-          user_metadata: { role: "admin", full_name: "Gabriel (Admin)" }
-        }
-      };
-      setUserSession(mockAdminSession);
-      localStorage.setItem("admin_session", JSON.stringify(mockAdminSession));
+
+      if (!isAdminUser(data.session.user)) {
+        await supabase.auth.signOut();
+        setUserSession(null);
+        setAuthError(
+          "❌ Acesso negado: esta conta não possui permissão de administrador (app_metadata.role = 'admin')."
+        );
+        setIsSubmittingLogin(false);
+        return;
+      }
+
+      setUserSession(data.session);
+      setAdminPassword("");
       setAuthError("");
+      fetchPosts();
+      fetchSubcategories();
+    } catch {
+      setAuthError("❌ Falha de comunicação com o Supabase Auth. Tente novamente.");
     }
     setIsSubmittingLogin(false);
   };
@@ -350,12 +398,15 @@ export default function AdminPage() {
   const handleAdminLogout = async () => {
     try {
       await supabase.auth.signOut();
-    } catch (e) {}
-    localStorage.removeItem("admin_session");
+    } catch {}
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("admin_session");
+    }
+    setAdminPassword("");
     setUserSession(null);
   };
 
-  const handleFeaturedImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFeaturedImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -364,44 +415,29 @@ export default function AdminPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxDimension = 1200;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const webpDataUrl = canvas.toDataURL("image/webp", 0.82);
-          setFormData((prev) => ({ ...prev, featured_image: webpDataUrl }));
-        } else {
-          setFormData((prev) => ({ ...prev, featured_image: event.target?.result as string }));
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+    setStatusMessage("⏳ Otimizando capa para WebP e enviando ao Supabase Storage...");
+    try {
+      const result = await uploadOptimizedArticleImage(file, "covers");
+      setFormData((prev) => ({ ...prev, featured_image: result.url }));
+      setStatusMessage(
+        result.storageUploaded
+          ? "✅ Capa otimizada (WebP) enviada para o Supabase Storage CDN!"
+          : "✅ Capa otimizada (WebP Data URI) pronta para publicação."
+      );
+    } catch (err) {
+      console.error("Erro ao processar imagem de capa:", err);
+      setStatusMessage("⚠️ Erro ao processar a imagem de capa.");
+    }
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
+    // Ao editar um artigo já existente, preserva o slug atual para não quebrar URLs indexadas (SEO)
+    if (editingPostId) {
+      setFormData({ ...formData, title });
+      return;
+    }
+
     const generatedSlug = title
       .toLowerCase()
       .normalize("NFD")
@@ -434,63 +470,18 @@ export default function AdminPage() {
       .trim();
   };
 
-  const extractStudyDataFromContentHtml = (contentHtml: string): any => {
-    if (!contentHtml) return null;
-
-    // 1. Check STUDY_DATA_JSON_B64
-    const b64Match = contentHtml.match(/<!-- STUDY_DATA_JSON_B64: ([\s\S]*?) -->/i);
-    if (b64Match && b64Match[1]) {
-      try {
-        return JSON.parse(decodeURIComponent(b64Match[1].trim()));
-      } catch (e) {
-        console.warn("Erro ao decodificar B64:", e);
-      }
-    }
-
-    // 2. Check legacy STUDY_DATA_JSON
-    const legacyMatch = contentHtml.match(/<!-- STUDY_DATA_JSON: ([\s\S]*?) -->/i);
-    if (legacyMatch && legacyMatch[1]) {
-      try {
-        return JSON.parse(legacyMatch[1].trim());
-      } catch (e) {
-        console.warn("Erro ao decodificar legacy JSON direto:", e);
-      }
-    }
-
-    // 3. Relaxed recovery: Find substring starting with "<!-- STUDY_DATA_JSON:" up to the last "-->"
-    const startIdx = contentHtml.indexOf("<!-- STUDY_DATA_JSON:");
-    if (startIdx !== -1) {
-      let sub = contentHtml.substring(startIdx + "<!-- STUDY_DATA_JSON:".length);
-      const lastEnd = sub.lastIndexOf("-->");
-      if (lastEnd !== -1) sub = sub.substring(0, lastEnd);
-      sub = sub.trim();
-      try {
-        return JSON.parse(sub);
-      } catch (e) {
-        console.warn("Erro no parser relaxado:", e);
-      }
-    }
-
-    // 4. Ultimate recovery: Extract any {"flashcards":...} JSON structure anywhere in HTML
-    const jsonMatch = contentHtml.match(/\{"flashcards":[\s\S]*?\}(?=\s*(?:-->|$))/i) || contentHtml.match(/\{"flashcards":[\s\S]*/i);
-    if (jsonMatch) {
-      let str = jsonMatch[0].trim().replace(/-->\s*$/g, "").trim();
-      if (!str.endsWith("}")) {
-        const lastCurly = str.lastIndexOf("}");
-        if (lastCurly !== -1) str = str.substring(0, lastCurly + 1);
-      }
-      try {
-        return JSON.parse(str);
-      } catch (e) {
-        console.warn("Erro no parser ultimate:", e);
-      }
-    }
-
-    return null;
-  };
-
   const handleStartEditPost = (post: DbPost) => {
     setEditingPostId(post.id);
+    // Reseta listas de ferramentas de estudo para evitar contaminação entre artigos
+    setFlashcardsList([]);
+    setQuestionsList([]);
+    setSimuladosList([]);
+    setInfographicsList([]);
+    setEditingFlashcardIndex(null);
+    setEditingQuestionIndex(null);
+    setEditingSimuladoIndex(null);
+    setEditingInfographicIndex(null);
+
     let tagsStr = Array.isArray(post.tags) ? post.tags.join(", ") : (post.tags || "");
     let postStatus: "published" | "draft" | "review" | "scheduled" = post.is_published ? "published" : "draft";
     let scheduledAtStr = "";
@@ -501,19 +492,31 @@ export default function AdminPage() {
         tagsStr = match[1].trim();
       }
       const statusMatch = post.content_html.match(/<!-- STATUS: ([\s\S]*?) -->/i);
-      if (statusMatch && statusMatch[1]) {
+      if (post.status) {
+        postStatus = post.status;
+      } else if (statusMatch && statusMatch[1]) {
         const s = statusMatch[1].trim();
         if (s === "published" || s === "draft" || s === "review" || s === "scheduled") {
           postStatus = s;
         }
       }
       const schedMatch = post.content_html.match(/<!-- SCHEDULED_AT: ([\s\S]*?) -->/i);
-      if (schedMatch && schedMatch[1]) {
+      if (post.scheduled_at) {
+        scheduledAtStr = post.scheduled_at;
+      } else if (schedMatch && schedMatch[1]) {
         scheduledAtStr = schedMatch[1].trim();
       }
 
-      // Extract Study Data with 4-level resilient parser
-      const parsed = extractStudyDataFromContentHtml(post.content_html);
+      // Prefere coluna estruturada `study_data` (Fase 3) com fallback para comentários HTML
+      const hasColumnStudyData =
+        post.study_data &&
+        typeof post.study_data === "object" &&
+        Object.keys(post.study_data).length > 0;
+      const parsed = (
+        hasColumnStudyData
+          ? post.study_data
+          : extractStudyDataFromContentHtml(post.content_html)
+      ) as any;
 
       if (parsed) {
         if (Array.isArray(parsed.flashcards)) setFlashcardsList(parsed.flashcards);
@@ -710,6 +713,9 @@ export default function AdminPage() {
     const isCE = q.type === "certo_errado";
     setFormData(prev => ({
       ...prev,
+      questionBanca: q.banca || prev.banca || "",
+      questionAno: q.ano ? String(q.ano) : "",
+      questionOrgao: q.orgao || "",
       questionStatement: q.statement || "",
       questionType: isCE ? "certo_errado" : "multipla_escolha_5",
       questionOptionA: isCE ? "" : (q.options[0] || ""),
@@ -718,8 +724,7 @@ export default function AdminPage() {
       questionOptionD: isCE ? "" : (q.options[3] || ""),
       questionOptionE: isCE ? "" : (q.options[4] || ""),
       questionCorrectOption: (q.correctIndex !== undefined ? q.correctIndex : 0).toString(),
-      questionExplanation: q.explanation || "",
-      banca: q.banca || prev.banca
+      questionExplanation: q.explanation || ""
     }));
     setEditingQuestionIndex(index);
     setStudyToolTab("questions");
@@ -729,6 +734,9 @@ export default function AdminPage() {
     setEditingQuestionIndex(null);
     setFormData(prev => ({
       ...prev,
+      questionBanca: "",
+      questionAno: "",
+      questionOrgao: "",
       questionStatement: "",
       questionOptionA: "",
       questionOptionB: "",
@@ -780,7 +788,7 @@ export default function AdminPage() {
       }
 
       // Validação de Item Obrigatório 2: GABARITO
-      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-E|Certo|Errado|C|E])/i);
+      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*(Certo|Errado|[A-E])\b/i);
       if (!gabMatch) {
         missingErrors.push(`Bloco ${blockNum}: falta o GABARITO (ex: GABARITO: A ou GABARITO: Certo)`);
         return;
@@ -881,12 +889,13 @@ export default function AdminPage() {
       ];
     }
 
-    const targetId = editingQuestionIndex !== null && questionsList[editingQuestionIndex]?.id ? questionsList[editingQuestionIndex].id : Date.now();
+    const existingQuestion = editingQuestionIndex !== null ? questionsList[editingQuestionIndex] : null;
+    const targetId = existingQuestion?.id ? existingQuestion.id : Date.now();
     const newQuestion = {
       id: targetId,
-      banca: formData.banca || "Cebraspe",
-      ano: "2026",
-      orgao: "Concurso Público",
+      banca: formData.questionBanca.trim() || existingQuestion?.banca || formData.banca || "Cebraspe",
+      ano: formData.questionAno.trim() || (existingQuestion?.ano ? String(existingQuestion.ano) : String(new Date().getFullYear())),
+      orgao: formData.questionOrgao.trim() || existingQuestion?.orgao || "Concurso Público",
       type: isCertoErrado ? "certo_errado" : "multipla_escolha_5",
       statement: formData.questionStatement.trim(),
       options: opts,
@@ -905,6 +914,9 @@ export default function AdminPage() {
 
     setFormData(prev => ({
       ...prev,
+      questionBanca: "",
+      questionAno: "",
+      questionOrgao: "",
       questionStatement: "",
       questionOptionA: "",
       questionOptionB: "",
@@ -981,7 +993,7 @@ export default function AdminPage() {
       }
 
       // Validação de Item Obrigatório 2: GABARITO
-      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*([A-D|Certo|Errado|C|E])/i);
+      const gabMatch = blockText.match(/(?:GABARITO|RESPOSTA):\s*(Certo|Errado|[A-E])\b/i);
       if (!gabMatch) {
         missingErrors.push(`Bloco ${blockNum}: falta o GABARITO (ex: GABARITO: A ou GABARITO: Certo)`);
         return;
@@ -1176,6 +1188,13 @@ export default function AdminPage() {
     setStatusMessage(editingPostId ? "Atualizando artigo no Supabase..." : "Salvando novo post no Supabase...");
 
     let cleanContentHtml = cleanArticleHtmlForStorage(formData.content_html);
+
+    // Calcula o tempo de leitura ANTES de anexar comentários de metadados/JSON
+    const cleanText = cleanContentHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
+    const dynamicReadMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    const dynamicReadTime = `${dynamicReadMinutes} min de leitura`;
+
     if (formData.tags && formData.tags.trim().length > 0) {
       cleanContentHtml += `\n<!-- TAGS: ${formData.tags.trim()} -->`;
     }
@@ -1187,8 +1206,8 @@ export default function AdminPage() {
     // Embed Multi-Item Study Data JSON
     const studyDataJson = {
       flashcards: flashcardsList.length > 0 ? flashcardsList : (formData.flashcardQuestion ? [{ id: Date.now(), question: formData.flashcardQuestion, answer: formData.flashcardAnswer, category: formData.subcategory || "Geral" }] : []),
-      questions: questionsList.length > 0 ? questionsList : (formData.questionStatement ? [{ id: Date.now(), banca: formData.banca || "Cebraspe", ano: "2026", orgao: "Concurso Público", statement: formData.questionStatement, options: [formData.questionOptionA || "Opção A", formData.questionOptionB || "Opção B", formData.questionOptionC || "Opção C", formData.questionOptionD || "Opção D", formData.questionOptionE || "Opção E"], correctIndex: parseInt(formData.questionCorrectOption || "0", 10), explanation: formData.questionExplanation }] : []),
-      simulados: simuladosList.length > 0 ? simuladosList : (formData.simuladoStatement ? [{ id: Date.now(), statement: formData.simuladoStatement, options: [formData.simuladoOptionA || "Opção A", formData.simuladoOptionB || "Opção B", formData.simuladoOptionC || "Opção C", formData.simuladoOptionD || "Opção D"], correctIndex: parseInt(formData.simuladoCorrectOption || "0", 10), explanation: formData.simuladoExplanation }] : []),
+      questions: questionsList.length > 0 ? questionsList : (formData.questionStatement ? [{ id: Date.now(), banca: formData.questionBanca || formData.banca || "Cebraspe", ano: formData.questionAno || String(new Date().getFullYear()), orgao: formData.questionOrgao || "Concurso Público", type: formData.questionType || "multipla_escolha_5", statement: formData.questionStatement, options: formData.questionType === "certo_errado" ? ["Certo", "Errado"] : [formData.questionOptionA || "Opção A", formData.questionOptionB || "Opção B", formData.questionOptionC || "Opção C", formData.questionOptionD || "Opção D", formData.questionOptionE || "Opção E"], correctIndex: parseInt(formData.questionCorrectOption || "0", 10), explanation: formData.questionExplanation }] : []),
+      simulados: simuladosList.length > 0 ? simuladosList : (formData.simuladoStatement ? [{ id: Date.now(), type: formData.simuladoType || "multipla_escolha_4", statement: formData.simuladoStatement, options: formData.simuladoType === "certo_errado" ? ["Certo", "Errado"] : [formData.simuladoOptionA || "Opção A", formData.simuladoOptionB || "Opção B", formData.simuladoOptionC || "Opção C", formData.simuladoOptionD || "Opção D"], correctIndex: parseInt(formData.simuladoCorrectOption || "0", 10), explanation: formData.simuladoExplanation }] : []),
       infographics: infographicsList.length > 0 ? infographicsList : (formData.infographicTitle ? [{ id: Date.now(), title: formData.infographicTitle, subtitle: formData.infographicSubtitle, summary: formData.infographicSummary, type: formData.infographicType, codeContent: infographicCode, points: ["Revisão rápida de alta incidência"] }] : [])
     };
 
@@ -1199,15 +1218,15 @@ export default function AdminPage() {
       formData.status === "scheduled" && formData.scheduled_at && new Date(formData.scheduled_at) <= new Date()
     );
 
-    const cleanText = cleanContentHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-    const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
-    const dynamicReadMinutes = Math.max(1, Math.ceil(wordCount / 200));
-    const dynamicReadTime = `${dynamicReadMinutes} min de leitura`;
-
     let flashcardsCountAcc = studyDataJson.flashcards.length;
     let questionsCountAcc = studyDataJson.questions.length;
     let simuladosCountAcc = studyDataJson.simulados.length;
     let infographicsCountAcc = studyDataJson.infographics.length;
+
+    const parsedTagsArray = (formData.tags || "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
 
     const postPayload: any = {
       title: formData.title,
@@ -1222,11 +1241,28 @@ export default function AdminPage() {
       youtube_video_id: formData.youtube_video_id || null,
       is_published: isPublishedBool,
       admin_notes: formData.admin_notes || null,
+      status: formData.status,
+      scheduled_at: formData.status === "scheduled" && formData.scheduled_at ? formData.scheduled_at : null,
+      tags: parsedTagsArray,
+      study_data: studyDataJson,
       flashcards_count: flashcardsCountAcc,
       questions_count: questionsCountAcc,
       simulados_count: simuladosCountAcc,
       infographics_count: infographicsCountAcc,
       updated_at: new Date().toISOString()
+    };
+
+    const stripPhase3Columns = (payload: Record<string, any>) => {
+      const legacy = { ...payload };
+      delete legacy.status;
+      delete legacy.scheduled_at;
+      delete legacy.tags;
+      delete legacy.study_data;
+      delete legacy.flashcards_count;
+      delete legacy.questions_count;
+      delete legacy.simulados_count;
+      delete legacy.infographics_count;
+      return legacy;
     };
 
     let targetPostId = editingPostId;
@@ -1237,16 +1273,11 @@ export default function AdminPage() {
         .update(postPayload)
         .eq("id", editingPostId);
 
-      // Fallback automático caso as colunas de contagem não existam na tabela posts do Supabase
+      // Fallback automático caso as colunas estruturadas da Fase 3 ainda não tenham sido migradas
       if (error && error.message.toLowerCase().includes("column")) {
-        delete postPayload.flashcards_count;
-        delete postPayload.questions_count;
-        delete postPayload.simulados_count;
-        delete postPayload.infographics_count;
-
         const retryRes = await supabase
           .from("posts")
-          .update(postPayload)
+          .update(stripPhase3Columns(postPayload))
           .eq("id", editingPostId);
         error = retryRes.error;
       }
@@ -1263,16 +1294,11 @@ export default function AdminPage() {
         .select()
         .single();
 
-      // Fallback automático caso as colunas de contagem não existam na tabela posts do Supabase
+      // Fallback automático caso as colunas estruturadas da Fase 3 ainda não tenham sido migradas
       if (error && error.message.toLowerCase().includes("column")) {
-        delete postPayload.flashcards_count;
-        delete postPayload.questions_count;
-        delete postPayload.simulados_count;
-        delete postPayload.infographics_count;
-
         const retryRes = await supabase
           .from("posts")
-          .insert([postPayload])
+          .insert([stripPhase3Columns(postPayload)])
           .select()
           .single();
         insertedPost = retryRes.data;
@@ -1285,6 +1311,30 @@ export default function AdminPage() {
       }
       if (insertedPost) targetPostId = insertedPost.id;
       setStatusMessage("✅ Artigo publicado com sucesso no Supabase!");
+    }
+
+    // Sincroniza infográficos na tabela dedicada `post_infographics` (Fase 3, se já existir)
+    if (targetPostId && studyDataJson.infographics.length > 0) {
+      const infoRows = studyDataJson.infographics.map((info: any) => ({
+        id: info.codeContent ? String(info.id) : `${targetPostId}_${info.id}`,
+        post_id: targetPostId,
+        title: info.title || "Infográfico",
+        subtitle: info.subtitle || "",
+        summary: info.summary || "",
+        type: info.type || "resumo_visual",
+        url: info.url || null,
+        code_content: info.codeContent || null,
+        metadata: {
+          points: info.points || [],
+          imageUrl: info.imageUrl,
+          hotspots: info.hotspots,
+          splitSlider: info.splitSlider,
+        },
+        updated_at: new Date().toISOString(),
+      }));
+      try {
+        await supabase.from("post_infographics").upsert(infoRows, { onConflict: "id" });
+      } catch {}
     }
 
     // Se o artigo usa uma subcategoria nova, salva automaticamente na tabela subcategories
@@ -1301,16 +1351,23 @@ export default function AdminPage() {
       }
     }
 
-    // Insert Flashcard if provided
-    if (targetPostId && formData.flashcardQuestion && formData.flashcardAnswer) {
-      await supabase.from("flashcards").insert([
-        {
-          post_id: targetPostId,
-          question: formData.flashcardQuestion,
-          answer: formData.flashcardAnswer,
-          category: formData.subcategory || "Geral"
-        }
-      ]);
+    // Revalidação sob demanda do cache Next.js (Home, Artigo e Sitemap)
+    if (userSession?.access_token) {
+      fetch("/api/admin/revalidate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userSession.access_token}`,
+        },
+        body: JSON.stringify({ slug: formData.slug }),
+      }).catch(() => {});
+    }
+
+    // Limpa rascunho automático após salvar/publicar novo artigo com sucesso
+    if (!editingPostId && typeof window !== "undefined") {
+      localStorage.removeItem("blog_admin_autosave_draft");
+      setHasSavedDraft(false);
+      setAutoSaveMessage("");
     }
 
     fetchPosts();
@@ -1320,109 +1377,38 @@ export default function AdminPage() {
 
   const handleDeletePost = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este artigo?")) return;
+    const targetPost = posts.find((p) => p.id === id);
     await supabase.from("posts").delete().eq("id", id);
+    if (userSession?.access_token) {
+      fetch("/api/admin/revalidate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userSession.access_token}`,
+        },
+        body: JSON.stringify({ slug: targetPost?.slug || "" }),
+      }).catch(() => {});
+    }
     fetchPosts();
   };
 
-  // Check if current logged-in user has admin privileges
-  const isAdminLoggedIn = userSession?.user && (
-    userSession.user.email === "gabrieljm37concurso@gmail.com" ||
-    userSession.user.user_metadata?.role === "admin"
-  );
+  // Check if current logged-in user has admin privileges (verified via JWT app_metadata)
+  const isAdminLoggedIn = isAdminUser(userSession?.user);
 
-  if (isCheckingAuth) {
+  if (isCheckingAuth || !isAdminLoggedIn) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center p-8">
-        <div className="text-center space-y-3">
-          <ShieldCheck className="w-10 h-10 text-emerald-500 animate-pulse mx-auto" />
-          <p className="text-sm font-semibold text-slate-400">Verificando credenciais de administrador...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // IF NOT LOGGED IN AS ADMIN -> SHOW ADMIN LOGIN FORM
-  if (!isAdminLoggedIn) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full bg-white dark:bg-[#111827] rounded-3xl p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6">
-          
-          {/* Header Badge */}
-          <div className="text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
-              <ShieldCheck className="w-7 h-7" />
-            </div>
-            <h1 className="text-2xl font-extrabold font-outfit text-slate-900 dark:text-white">
-              Acesso Administrativo
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Faça login com sua conta de administrador para gerenciar o blog Concurseiro Focado.
-            </p>
-          </div>
-
-          {authError && (
-            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold">
-              {authError}
-            </div>
-          )}
-
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div className="space-y-1.5 text-left">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                <User className="w-3.5 h-3.5 text-emerald-500" /> E-mail do Administrador
-              </label>
-              <input
-                type="email"
-                required
-                value={adminEmail}
-                onChange={(e) => setAdminEmail(e.target.value)}
-                placeholder="gabrieljm37concurso@gmail.com"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div className="space-y-1.5 text-left">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                <Key className="w-3.5 h-3.5 text-emerald-500" /> Senha
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
-                  title={showPassword ? "Ocultar senha" : "Visualizar senha"}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmittingLogin}
-              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
-            >
-              <Lock className="w-4 h-4" />
-              <span>{isSubmittingLogin ? "Autenticando..." : "Entrar no Painel ADM"}</span>
-            </button>
-          </form>
-
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
-            <Link href="/" className="text-xs font-semibold text-slate-500 hover:text-emerald-500">
-              ← Voltar ao Portal Público
-            </Link>
-          </div>
-
-        </div>
-      </div>
+      <AdminAuthGate
+        isCheckingAuth={isCheckingAuth}
+        adminEmail={adminEmail}
+        setAdminEmail={setAdminEmail}
+        adminPassword={adminPassword}
+        setAdminPassword={setAdminPassword}
+        showPassword={showPassword}
+        setShowPassword={setShowPassword}
+        authError={authError}
+        isSubmittingLogin={isSubmittingLogin}
+        onSubmit={handleAdminLogin}
+      />
     );
   }
 
@@ -2080,6 +2066,7 @@ export default function AdminPage() {
                 <option value="aprenda">Aprenda (Técnicas)</option>
                 <option value="estude-comigo">Estude comigo (YouTube)</option>
                 <option value="informe-se">Informe-se (Editais)</option>
+                <option value="rotina">Rotina (Organização & Foco)</option>
               </select>
             </div>
 
@@ -2578,18 +2565,48 @@ export default function AdminPage() {
                       />
                     </div>
 
-                    {/* Modalidade de Questão (Múltipla Escolha vs Certo ou Errado) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Modalidade + Metadados da Questão (Banca, Ano, Órgão) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-400">Modalidade / Tipo da Questão</label>
+                        <label className="text-xs font-bold text-slate-400">Modalidade / Tipo</label>
                         <select
                           value={formData.questionType || "multipla_escolha_5"}
                           onChange={(e) => setFormData({ ...formData, questionType: e.target.value, questionCorrectOption: "0" })}
-                          className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
-                          <option value="multipla_escolha_5">Múltipla Escolha (5 Alternativas A-E)</option>
-                          <option value="certo_errado">Certo ou Errado (Cebraspe / CESPE)</option>
+                          <option value="multipla_escolha_5">Múltipla Escolha (5 A-E)</option>
+                          <option value="certo_errado">Certo ou Errado (Cebraspe)</option>
                         </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400">Banca</label>
+                        <input
+                          type="text"
+                          value={formData.questionBanca}
+                          onChange={(e) => setFormData({ ...formData, questionBanca: e.target.value })}
+                          placeholder={formData.banca || "Ex: Cebraspe / FGV"}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400">Ano</label>
+                        <input
+                          type="text"
+                          value={formData.questionAno}
+                          onChange={(e) => setFormData({ ...formData, questionAno: e.target.value })}
+                          placeholder="Ex: 2025"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400">Órgão</label>
+                        <input
+                          type="text"
+                          value={formData.questionOrgao}
+                          onChange={(e) => setFormData({ ...formData, questionOrgao: e.target.value })}
+                          placeholder="Ex: TCU / STJ / PF"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
                       </div>
                     </div>
 
@@ -3113,6 +3130,21 @@ export default function AdminPage() {
             </div>
           )}
 
+          <SemanticLintBanner
+            title={formData.title}
+            slug={formData.slug}
+            summary={formData.summary}
+            contentHtml={formData.content_html}
+            featuredImage={formData.featured_image}
+            tags={formData.tags}
+            studyData={{
+              flashcards: flashcardsList,
+              questions: questionsList,
+              simulados: simuladosList,
+              infographics: infographicsList,
+            }}
+          />
+
           <div className="pt-4 flex items-center justify-between">
             {editingPostId ? (
               <button
@@ -3137,428 +3169,35 @@ export default function AdminPage() {
 
       {/* TAB 3: CATEGORIES & SUBCATEGORIES MANAGEMENT */}
       {activeTab === "categories" && (
-        <div className="space-y-6">
-          {/* Header Card */}
-          <div className="bg-white dark:bg-[#111827] p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6 shadow-sm">
-            <div>
-              <h2 className="text-xl font-bold font-outfit text-slate-900 dark:text-white flex items-center gap-2">
-                <FolderTree className="w-6 h-6 text-purple-500" />
-                Organizador de Categorias & Subcategorias (Disciplinas)
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Cadastre novas matérias como <strong>AFO</strong>, <strong>Direito Constitucional</strong>, <strong>Direito Penal</strong>, etc. Todas as subcategorias criadas aparecem instantaneamente nos menus de navegação do site e no formulário de artigos.
-              </p>
-            </div>
-
-            {/* Quick Add Subcategory Form */}
-            <form onSubmit={handleAddSubcategory} className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-end gap-3">
-              <div className="flex-1 w-full space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Nome da Nova Subcategoria / Matéria
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newSubcategoryName}
-                  onChange={(e) => setNewSubcategoryName(e.target.value)}
-                  placeholder="Ex: AFO, Contabilidade Pública, Direito Eleitoral..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              <div className="w-full sm:w-64 space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Categoria Pai
-                </label>
-                <select
-                  value={newSubcategoryCategory}
-                  onChange={(e) => setNewSubcategoryCategory(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="estude">Estude (Disciplinas)</option>
-                  <option value="aprenda">Aprenda (Técnicas)</option>
-                  <option value="estude-comigo">Estude comigo (YouTube)</option>
-                  <option value="informe-se">Informe-se (Editais)</option>
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-              >
-                <Plus className="w-4 h-4" /> Criar Subcategoria
-              </button>
-            </form>
-          </div>
-
-          {/* Subcategories Grid List */}
-          <div className="bg-white dark:bg-[#111827] p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-emerald-500" /> Subcategorias Ativas no Portal ({Array.from(new Set([...customSubcategories, ...posts.map(p => p.subcategory).filter((s): s is string => Boolean(s))])).length})
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {Array.from(new Set([
-                ...customSubcategories,
-                ...posts.map(p => p.subcategory).filter((s): s is string => Boolean(s))
-              ])).sort((a, b) => a.localeCompare(b, "pt-BR")).map((subName, idx) => {
-                const count = posts.filter(p => p.subcategory?.toLowerCase() === subName.toLowerCase()).length;
-                return (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 flex items-center justify-between gap-3 hover:border-emerald-500/50 transition-all"
-                  >
-                    <div>
-                      <div className="font-bold text-slate-900 dark:text-white text-sm font-outfit flex items-center gap-1.5">
-                        <Tag className="w-3.5 h-3.5 text-emerald-500" /> {subName}
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                        {count === 1 ? "1 artigo publicado" : `${count} artigos publicados`}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormData(prev => ({ ...prev, category_slug: "estude", subcategory: subName }));
-                          setEditingPostId(null);
-                          setActiveTab("create");
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white text-[11px] font-bold transition-all flex items-center gap-1"
-                        title="Criar novo artigo nesta subcategoria"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Postar
-                      </button>
-
-                      {count === 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSubcategory(subName)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-                          title="Excluir subcategoria vazia"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <AdminCategoriesTab
+          posts={posts}
+          customSubcategories={customSubcategories}
+          newSubcategoryName={newSubcategoryName}
+          setNewSubcategoryName={setNewSubcategoryName}
+          newSubcategoryCategory={newSubcategoryCategory}
+          setNewSubcategoryCategory={setNewSubcategoryCategory}
+          onAddSubcategory={handleAddSubcategory}
+          onDeleteSubcategory={handleDeleteSubcategory}
+          onQuickCreatePost={(subName) => {
+            setFormData((prev) => ({ ...prev, category_slug: "estude", subcategory: subName }));
+            setEditingPostId(null);
+            setActiveTab("create");
+          }}
+        />
       )}
 
-      {/* TAB 4: ESTATÍSTICAS DO BLOG */}
-      {activeTab === "stats" && (
-        <div className="space-y-8 animate-in fade-in duration-300">
-          
-          {/* Header Banner */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 text-white border border-slate-800 shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2 z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold uppercase tracking-wider">
-                <Activity className="w-3.5 h-3.5" /> Dashboard de Métricas do Portal
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold font-outfit">
-                Estatísticas & Desempenho do Blog
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
-                Acompanhe o engajamento dos leitores, tráfego dos artigos, ferramentas de estudo mais utilizadas e o status do workflow editorial.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0 z-10">
-              <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 text-center">
-                <span className="block text-2xl font-black text-emerald-400 font-outfit">
-                  {(posts.filter(p => p.is_published !== false).length * 1485 + 2450).toLocaleString("pt-BR")}
-                </span>
-                <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Views Totais</span>
-              </div>
-              <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 text-center">
-                <span className="block text-2xl font-black text-amber-400 font-outfit">
-                  ~12 min
-                </span>
-                <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Leitura Média</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 4 KPI Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            {/* KPI 1: Artigos Publicados */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Artigos Publicados</span>
-                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="text-3xl font-black font-outfit text-slate-900 dark:text-white">
-                {posts.filter(p => p.is_published !== false).length}
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Conteúdo ativo visível no site</span>
-              </p>
-            </div>
-
-            {/* KPI 2: Rascunhos & Em Revisão */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fila Editorial</span>
-                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
-                  <FileEdit className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="text-3xl font-black font-outfit text-slate-900 dark:text-white">
-                {posts.filter(p => p.is_published === false).length}
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
-                <Clock className="w-3.5 h-3.5 text-amber-500" />
-                <span>Rascunhos ou pendentes de revisão</span>
-              </p>
-            </div>
-
-            {/* KPI 3: Subcategorias Ativas */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subcategorias</span>
-                <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500">
-                  <FolderTree className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="text-3xl font-black font-outfit text-slate-900 dark:text-white">
-                {Array.from(new Set([...customSubcategories, ...posts.map(p => p.subcategory).filter((s): s is string => Boolean(s))])).length}
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
-                <Layers className="w-3.5 h-3.5 text-purple-500" />
-                <span>Disciplinas de concurso organizadas</span>
-              </p>
-            </div>
-
-            {/* KPI 4: Engajamento com Estudo */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Flashcards Praticados</span>
-                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
-                  <BrainCircuit className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="text-3xl font-black font-outfit text-slate-900 dark:text-white">
-                3.420
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Evocações práticas ativas no mês</span>
-              </p>
-            </div>
-
-          </div>
-
-          {/* Two Column Layout: Top Articles & Category Breakdown */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Column 1 & 2: Top Performing Articles */}
-            <div className="lg:col-span-2 bg-white dark:bg-[#111827] p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-6 shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-                <h3 className="text-base font-bold font-outfit text-slate-900 dark:text-white flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-amber-500" />
-                  Artigos Mais Acessados no Portal
-                </h3>
-                <span className="text-xs font-semibold text-slate-400">Últimos 30 dias</span>
-              </div>
-
-              <div className="space-y-4">
-                {posts.slice(0, 5).map((postItem, idx) => {
-                  const simulatedViews = 4500 - idx * 720;
-                  const maxViews = 4500;
-                  const pct = Math.round((simulatedViews / maxViews) * 100);
-
-                  return (
-                    <div key={postItem.id} className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 space-y-2">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black text-xs flex items-center justify-center shrink-0">
-                            #{idx + 1}
-                          </span>
-                          <span className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
-                            {postItem.title}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 uppercase">
-                            {postItem.category_slug}
-                          </span>
-                          <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
-                            {simulatedViews.toLocaleString("pt-BR")} views
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Column 3: Category Distribution & Workflow */}
-            <div className="space-y-6">
-              
-              {/* Category Breakdown Card */}
-              <div className="bg-white dark:bg-[#111827] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-emerald-500" />
-                  Artigos por Categoria Principal
-                </h3>
-
-                <div className="space-y-3 pt-2">
-                  {[
-                    { key: "estude", label: "Estude", color: "bg-emerald-500" },
-                    { key: "aprenda", label: "Aprenda", color: "bg-amber-500" },
-                    { key: "estude-comigo", label: "Estude comigo", color: "bg-red-500" },
-                    { key: "informe-se", label: "Informe-se", color: "bg-blue-500" },
-                    { key: "rotina", label: "Rotina", color: "bg-purple-500" }
-                  ].map((cat) => {
-                    const count = posts.filter(p => p.category_slug === cat.key).length;
-                    const pct = posts.length > 0 ? Math.round((count / posts.length) * 100) : 0;
-
-                    return (
-                      <div key={cat.key} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs font-semibold">
-                          <span className="text-slate-700 dark:text-slate-300">{cat.label}</span>
-                          <span className="text-slate-500 dark:text-slate-400">{count} artigos ({pct}%)</span>
-                        </div>
-                        <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                          <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${Math.max(pct, 5)}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Editorial Workflow Status Card */}
-              <div className="bg-white dark:bg-[#111827] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <Award className="w-4 h-4 text-purple-500" />
-                  Status da Produção Editorial
-                </h3>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center">
-                    <span className="block text-xl font-bold text-emerald-600 dark:text-emerald-400 font-outfit">
-                      {posts.filter(p => p.is_published !== false).length}
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">Publicados</span>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center">
-                    <span className="block text-xl font-bold text-amber-600 dark:text-amber-400 font-outfit">
-                      {posts.filter(p => p.is_published === false).length}
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">Rascunhos</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-      )}
+      {/* TAB 4: ESTATÍSTICAS DO BLOG (Métricas Reais do Banco de Dados) */}
+      {activeTab === "stats" && <AdminStatsTab posts={posts} />}
 
       {/* TAB 5: GENERATE / COPY AI SYSTEM PROMPT FOR ARTICLES */}
       {activeTab === "ai_prompt" && (
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-[#111827] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <BrainCircuit className="w-5 h-5 text-teal-500" />
-                  Gerador & Diretrizes de Prompt de IA (Design System Semântico)
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Copie as instruções completas semânticas para enviar ao ChatGPT, Claude ou Gemini antes de redigir qualquer artigo.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(AI_SYSTEM_PROMPT_ARTIGOS);
-                  setStatusMessage("✅ System Prompt de IA copiado para a área de transferência com sucesso!");
-                }}
-                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 shrink-0 cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4" /> Copiar System Prompt Base
-              </button>
-            </div>
-
-            {/* Custom Task Generator Form */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#070A10] border border-slate-200 dark:border-slate-800 space-y-3">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                🎯 Personalizar Prompt para um Tema Específico:
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  placeholder="Ex: Atos Administrativos - Espécies e Atributos"
-                  value={aiPromptTopic}
-                  onChange={(e) => setAiPromptTopic(e.target.value)}
-                  className="px-3.5 py-2 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Banca (Ex: Cebraspe, FGV, Vunesp, FCC)"
-                  value={aiPromptBanca}
-                  onChange={(e) => setAiPromptBanca(e.target.value)}
-                  className="px-3.5 py-2 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!aiPromptTopic.trim()) {
-                      setStatusMessage("⚠️ Por favor, digite o tema do artigo.");
-                      return;
-                    }
-                    const customPrompt = buildArticleAiPrompt(aiPromptTopic.trim(), aiPromptBanca.trim() || undefined);
-                    navigator.clipboard.writeText(customPrompt);
-                    setStatusMessage(`✅ Prompt customizado para "${aiPromptTopic.trim()}" copiado para a área de transferência!`);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5" /> Copiar Prompt Customizado sobre este Tema
-                </button>
-              </div>
-            </div>
-
-            {/* Prompt Code Viewer */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Visualização das Diretrizes de IA (Classes Semânticas sem CSS Inline):
-              </label>
-              <textarea
-                readOnly
-                rows={16}
-                value={AI_SYSTEM_PROMPT_ARTIGOS}
-                className="w-full p-4 rounded-2xl bg-slate-950 font-mono text-xs text-emerald-400 border border-slate-800 focus:outline-none leading-relaxed resize-y"
-              />
-            </div>
-          </div>
-        </div>
+        <AdminAiPromptTab
+          aiPromptTopic={aiPromptTopic}
+          setAiPromptTopic={setAiPromptTopic}
+          aiPromptBanca={aiPromptBanca}
+          setAiPromptBanca={setAiPromptBanca}
+          onStatusMessage={setStatusMessage}
+        />
       )}
 
       {/* Article Quick Notes & Adjustments Modal */}

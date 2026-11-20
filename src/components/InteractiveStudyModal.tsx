@@ -35,24 +35,28 @@ import {
   VolumeX,
   Pause,
   Play,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Clock
 } from "lucide-react";
 import { InfographicItem } from "@/data/mockPosts";
 import MathRenderer from "@/components/MathRenderer";
+import { recordFlashcardReview, recordQuestionAttempt } from "@/lib/studyProgress";
 
 interface Flashcard {
-  id: number;
+  id: number | string;
   question: string;
   answer: string;
   category: string;
+  bancaTip?: string;
 }
 
 interface Question {
-  id: number;
+  id: number | string;
   statement: string;
   options: string[];
   correctIndex: number;
   explanation: string;
+  type?: string;
   isSimuladoInedita?: boolean;
   banca?: string;
   ano?: string | number;
@@ -66,6 +70,7 @@ interface InteractiveStudyModalProps {
   onClose: () => void;
   type: "flashcards" | "questions" | "infografico" | "simulado";
   articleTitle: string;
+  articleSlug?: string;
   customFlashcards?: Flashcard[];
   customQuestions?: Question[];
   customSimulados?: Question[];
@@ -87,6 +92,7 @@ export default function InteractiveStudyModal({
   onClose,
   type,
   articleTitle,
+  articleSlug = "",
   customFlashcards,
   customQuestions,
   customSimulados,
@@ -101,17 +107,51 @@ export default function InteractiveStudyModal({
   // State for Flashcards (Gemini 3D Style & Immersive Mode)
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [wrongCount, setWrongCount] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
+  const [flashcardResults, setFlashcardResults] = useState<Record<string, "correct" | "wrong">>({});
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isFlashcardsCompleted, setIsFlashcardsCompleted] = useState(false);
 
-  // State for Questions & Simulado
+  const wrongCount = Object.values(flashcardResults).filter((r) => r === "wrong").length;
+  const correctCount = Object.values(flashcardResults).filter((r) => r === "correct").length;
+
+  // State for Questions & Simulado (Estudo vs Modo Prova Cronometrado + Nota Líquida Cebraspe)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
+  const [isExamMode, setIsExamMode] = useState(false);
+  const [examElapsedSec, setExamElapsedSec] = useState(0);
+  const [quizAnswers, setQuizAnswers] = useState<
+    Record<string, { selected: number | null; result: "correct" | "wrong" | "blank" }>
+  >({});
+
+  const wrongQuizCount = Object.values(quizAnswers).filter((a) => a.result === "wrong").length;
+  const blankQuizCount = Object.values(quizAnswers).filter((a) => a.result === "blank").length;
+  const hasCertoErradoQuestions = activeQuestions.some(
+    (q) =>
+      q.type === "certo_errado" ||
+      (q.options?.length === 2 &&
+        q.options[0]?.trim().toLowerCase() === "certo" &&
+        q.options[1]?.trim().toLowerCase() === "errado")
+  );
+  const cebraspeNetScore = score - wrongQuizCount;
+  const formatElapsed = (sec: number) => {
+    const m = Math.floor(sec / 60).toString().padStart(2, "0");
+    const s = (sec % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  // Cronômetro do Modo Prova
+  React.useEffect(() => {
+    if (!isOpen || !isExamMode || isQuizCompleted || (type !== "questions" && type !== "simulado")) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setExamElapsedSec((prev) => prev + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isOpen, isExamMode, isQuizCompleted, type]);
 
   // State for Infographics (Fase 1, 2 e 3: Teste de Memória, Banca, Hotspots, Split Slider, TTS Áudio & Anki Export)
   const [currentInfographicIndex, setCurrentInfographicIndex] = useState(0);
@@ -224,8 +264,7 @@ export default function InteractiveStudyModal({
 
       setCurrentFlashcardIndex(0);
       setIsFlipped(false);
-      setWrongCount(0);
-      setCorrectCount(0);
+      setFlashcardResults({});
       setIsFlashcardsCompleted(false);
 
       setCurrentQuestionIndex(0);
@@ -233,6 +272,9 @@ export default function InteractiveStudyModal({
       setIsAnswerSubmitted(false);
       setScore(0);
       setIsQuizCompleted(false);
+      setIsExamMode(false);
+      setExamElapsedSec(0);
+      setQuizAnswers({});
 
       setCurrentInfographicIndex(0);
       setIsMemoryTestMode(false);
@@ -366,8 +408,7 @@ export default function InteractiveStudyModal({
     setActiveFlashcards(shuffleArray(activeFlashcards));
     setCurrentFlashcardIndex(0);
     setIsFlipped(false);
-    setWrongCount(0);
-    setCorrectCount(0);
+    setFlashcardResults({});
     setIsFlashcardsCompleted(false);
     setIsFlashcardsShuffled(true);
   };
@@ -403,18 +444,60 @@ export default function InteractiveStudyModal({
   };
 
   const handleMarkWrong = () => {
-    setWrongCount(prev => prev + 1);
+    const currentCard = activeFlashcards[currentFlashcardIndex];
+    const cardKey = String(currentCard?.id ?? currentFlashcardIndex);
+    setFlashcardResults((prev) => ({ ...prev, [cardKey]: "wrong" }));
+    if (currentCard) {
+      recordFlashcardReview({
+        articleSlug,
+        articleTitle,
+        cardId: currentCard.id ?? currentFlashcardIndex,
+        question: currentCard.question,
+        answer: currentCard.answer,
+        bancaTip: currentCard.bancaTip,
+        category: currentCard.category,
+        result: "wrong",
+      });
+    }
     handleNextFlashcard();
   };
 
   const handleMarkCorrect = () => {
-    setCorrectCount(prev => prev + 1);
+    const currentCard = activeFlashcards[currentFlashcardIndex];
+    const cardKey = String(currentCard?.id ?? currentFlashcardIndex);
+    setFlashcardResults((prev) => ({ ...prev, [cardKey]: "correct" }));
+    if (currentCard) {
+      recordFlashcardReview({
+        articleSlug,
+        articleTitle,
+        cardId: currentCard.id ?? currentFlashcardIndex,
+        question: currentCard.question,
+        answer: currentCard.answer,
+        bancaTip: currentCard.bancaTip,
+        category: currentCard.category,
+        result: "correct",
+      });
+    }
     handleNextFlashcard();
   };
 
   const handleResetFlashcardStats = () => {
-    setWrongCount(0);
-    setCorrectCount(0);
+    setActiveFlashcards(customFlashcards || []);
+    setFlashcardResults({});
+    setCurrentFlashcardIndex(0);
+    setIsFlipped(false);
+    setIsFlashcardsCompleted(false);
+    setIsFlashcardsShuffled(false);
+  };
+
+  const handleReviewWrongFlashcards = () => {
+    const wrongCards = activeFlashcards.filter((card, idx) => {
+      const cardKey = String(card.id ?? idx);
+      return flashcardResults[cardKey] === "wrong";
+    });
+    if (wrongCards.length === 0) return;
+    setActiveFlashcards(wrongCards);
+    setFlashcardResults({});
     setCurrentFlashcardIndex(0);
     setIsFlipped(false);
     setIsFlashcardsCompleted(false);
@@ -492,9 +575,9 @@ export default function InteractiveStudyModal({
   const exportToAnkiCSV = () => {
     const csvHeader = "Pergunta,Resposta,Categoria\n";
     const csvRows = activeFlashcards
-      .map(card => `"${card.question.replace(/"/g, '""')}","${card.answer.replace(/"/g, '""')}","${card.category}"`)
+      .map(card => `"${card.question.replace(/"/g, '""')}","${card.answer.replace(/"/g, '""')}","${(card.category || "Geral").replace(/"/g, '""')}"`)
       .join("\n");
-    const blob = new Blob([csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFF" + csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
@@ -502,19 +585,66 @@ export default function InteractiveStudyModal({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleSelectOption = (index: number) => {
-    if (isAnswerSubmitted) return;
+    if (isAnswerSubmitted && !isExamMode) return;
     setSelectedOption(index);
   };
 
   const handleSubmitAnswer = () => {
     if (selectedOption === null) return;
-    setIsAnswerSubmitted(true);
-    if (selectedOption === activeQuestions[currentQuestionIndex].correctIndex) {
-      setScore(prev => prev + 1);
+    const currentQ = activeQuestions[currentQuestionIndex];
+    if (!currentQ) return;
+    const qKey = String(currentQ.id ?? currentQuestionIndex);
+    const isCorrect = selectedOption === currentQ.correctIndex;
+    const result: "correct" | "wrong" = isCorrect ? "correct" : "wrong";
+
+    setQuizAnswers((prev) => ({
+      ...prev,
+      [qKey]: { selected: selectedOption, result },
+    }));
+
+    if (isCorrect) {
+      setScore((prev) => prev + 1);
     }
+
+    recordQuestionAttempt({
+      articleSlug,
+      articleTitle,
+      mode: type === "simulado" ? "simulado" : "questions",
+      questionId: currentQ.id ?? currentQuestionIndex,
+      statement: currentQ.statement,
+      banca: currentQ.banca,
+      result,
+    });
+
+    if (isExamMode) {
+      handleNextQuestion();
+    } else {
+      setIsAnswerSubmitted(true);
+    }
+  };
+
+  const handleSkipBlank = () => {
+    const currentQ = activeQuestions[currentQuestionIndex];
+    if (!currentQ) return;
+    const qKey = String(currentQ.id ?? currentQuestionIndex);
+    setQuizAnswers((prev) => ({
+      ...prev,
+      [qKey]: { selected: null, result: "blank" },
+    }));
+    recordQuestionAttempt({
+      articleSlug,
+      articleTitle,
+      mode: type === "simulado" ? "simulado" : "questions",
+      questionId: currentQ.id ?? currentQuestionIndex,
+      statement: currentQ.statement,
+      banca: currentQ.banca,
+      result: "blank",
+    });
+    handleNextQuestion();
   };
 
   const handleNextQuestion = () => {
@@ -528,15 +658,53 @@ export default function InteractiveStudyModal({
   };
 
   const handleRestartQuiz = () => {
+    const original = type === "simulado" ? (customSimulados || []) : (customQuestions || []);
+    setActiveQuestions(original);
+    setIsQuestionsShuffled(false);
     setCurrentQuestionIndex(0);
     setSelectedOption(null);
     setIsAnswerSubmitted(false);
     setScore(0);
     setIsQuizCompleted(false);
+    setExamElapsedSec(0);
+    setQuizAnswers({});
+  };
+
+  const handleToggleExamMode = () => {
+    setIsExamMode((prev) => !prev);
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setIsAnswerSubmitted(false);
+    setScore(0);
+    setIsQuizCompleted(false);
+    setExamElapsedSec(0);
+    setQuizAnswers({});
+  };
+
+  const handleReviewWrongQuestions = () => {
+    const wrongList = activeQuestions.filter((q, idx) => {
+      const qKey = String(q.id ?? idx);
+      return quizAnswers[qKey]?.result === "wrong";
+    });
+    if (wrongList.length === 0) return;
+    setActiveQuestions(wrongList);
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setIsAnswerSubmitted(false);
+    setScore(0);
+    setIsQuizCompleted(false);
+    setIsExamMode(false);
+    setExamElapsedSec(0);
+    setQuizAnswers({});
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 ${isFocusMode ? "p-0" : ""}`}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Ferramenta de Estudo: ${articleTitle}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 ${isFocusMode ? "p-0" : ""}`}
+    >
       <div className={`relative w-full bg-white dark:bg-[#0B0F17] shadow-2xl border border-slate-200 dark:border-slate-800/80 overflow-hidden flex flex-col transition-all duration-300 ${
         isFocusMode
           ? "w-screen h-screen max-w-none max-h-none rounded-none border-none"
@@ -643,6 +811,15 @@ export default function InteractiveStudyModal({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  {wrongCount > 0 && (
+                    <button
+                      onClick={handleReviewWrongFlashcards}
+                      className="px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 border border-rose-500/30 text-rose-700 dark:text-rose-300 hover:text-white font-extrabold text-xs transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Target className="w-4 h-4" /> Revisar Apenas os Que Errei ({wrongCount})
+                    </button>
+                  )}
+
                   <button
                     onClick={handleResetFlashcardStats}
                     className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
@@ -803,10 +980,16 @@ export default function InteractiveStudyModal({
                         </span>
                       </div>
 
-                      <div className="my-auto py-4 max-w-3xl">
+                      <div className="my-auto py-4 max-w-3xl space-y-3 overflow-y-auto">
                         <div className="text-base sm:text-lg md:text-xl font-bold font-outfit text-emerald-100 leading-relaxed">
                           <MathRenderer content={activeFlashcards[currentFlashcardIndex]?.answer || ""} />
                         </div>
+                        {activeFlashcards[currentFlashcardIndex]?.bancaTip && (
+                          <div className="inline-block px-3.5 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs sm:text-sm font-semibold leading-snug">
+                            💡 <strong className="text-amber-300">Dica da Banca:</strong>{" "}
+                            <MathRenderer content={activeFlashcards[currentFlashcardIndex].bancaTip!} inline />
+                          </div>
+                        )}
                       </div>
 
                       <div className="w-full flex items-center justify-center gap-3 pt-2">
@@ -917,12 +1100,91 @@ export default function InteractiveStudyModal({
                       ? "👍 Bom Treino!"
                       : "📚 Continue Revisando!"}
                   </h4>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
                     Você acertou <strong className="text-slate-900 dark:text-white font-black">{score}</strong> de <strong className="text-slate-900 dark:text-white font-black">{activeQuestions.length}</strong> questões ({Math.round((score / activeQuestions.length) * 100)}% de aproveitamento).
                   </p>
+
+                  {/* Métricas de Prova: Acertos, Erros, Em Branco, Tempo & Nota Líquida Cebraspe */}
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
+                    <span className="px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold">
+                      ✅ Acertos: {score}
+                    </span>
+                    <span className="px-3 py-1 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 font-bold">
+                      ❌ Erros: {wrongQuizCount}
+                    </span>
+                    {blankQuizCount > 0 && (
+                      <span className="px-3 py-1 rounded-xl bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold">
+                        ⬜ Em Branco: {blankQuizCount}
+                      </span>
+                    )}
+                    {isExamMode && (
+                      <span className="px-3 py-1 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-300 font-bold font-mono">
+                        ⏱️ Tempo: {formatElapsed(examElapsedSec)}
+                      </span>
+                    )}
+                    {(hasCertoErradoQuestions || isExamMode) && (
+                      <span className="px-3 py-1 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-black">
+                        ⚖️ Nota Líquida (Cebraspe): {cebraspeNetScore}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
+                {/* Gabarito Comentado Consolidado no Modo Prova */}
+                {isExamMode && (
+                  <div className="text-left max-h-60 overflow-y-auto space-y-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                    <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      📋 Gabarito Comentado da Prova
+                    </div>
+                    {activeQuestions.map((q, idx) => {
+                      const qKey = String(q.id ?? idx);
+                      const ans = quizAnswers[qKey];
+                      const statusBadge =
+                        ans?.result === "correct"
+                          ? "✅ Acertou"
+                          : ans?.result === "blank"
+                          ? "⬜ Em Branco"
+                          : "❌ Errou";
+                      return (
+                        <div
+                          key={qKey}
+                          className="p-3 rounded-xl bg-white dark:bg-[#0B0F17] border border-slate-200 dark:border-slate-800 text-xs space-y-1"
+                        >
+                          <div className="flex items-center justify-between gap-2 font-bold">
+                            <span className="text-slate-900 dark:text-white">Questão {idx + 1}</span>
+                            <span
+                              className={
+                                ans?.result === "correct"
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : ans?.result === "blank"
+                                  ? "text-slate-500"
+                                  : "text-rose-600 dark:text-rose-400"
+                              }
+                            >
+                              {statusBadge} • Gabarito: {q.options[q.correctIndex] || String.fromCharCode(65 + q.correctIndex)}
+                            </span>
+                          </div>
+                          {q.explanation && (
+                            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                              {q.explanation}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  {wrongQuizCount > 0 && (
+                    <button
+                      onClick={handleReviewWrongQuestions}
+                      className="px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 border border-rose-500/30 text-rose-700 dark:text-rose-300 hover:text-white font-extrabold text-xs transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Target className="w-4 h-4" /> Revisar Apenas os Que Errei ({wrongQuizCount})
+                    </button>
+                  )}
+
                   <button
                     onClick={handleRestartQuiz}
                     className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
@@ -962,7 +1224,22 @@ export default function InteractiveStudyModal({
                     )}
                   </span>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    {/* Alternador Modo Prova Cronometrado (Cebraspe) */}
+                    <button
+                      type="button"
+                      onClick={handleToggleExamMode}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border ${
+                        isExamMode
+                          ? "bg-blue-600 text-white border-blue-500 shadow-xs"
+                          : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-500"
+                      }`}
+                      title="Alternar entre Modo Estudo (gabarito imediato) e Modo Prova (cronômetro, deixar em branco e nota líquida Cebraspe)"
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{isExamMode ? `Prova ${formatElapsed(examElapsedSec)}` : "Modo Prova"}</span>
+                    </button>
+
                     {/* Shuffle Button */}
                     <button
                       onClick={handleShuffleQuestions}
@@ -977,9 +1254,11 @@ export default function InteractiveStudyModal({
                       <span>{isQuestionsShuffled ? "Ordem Aleatória" : "Embaralhar"}</span>
                     </button>
 
-                    <span className={`flex items-center gap-1 font-bold ${type === "simulado" ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}>
-                      <Award className="w-4 h-4" /> Acertos: {score}
-                    </span>
+                    {!isExamMode && (
+                      <span className={`flex items-center gap-1 font-bold ${type === "simulado" ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                        <Award className="w-4 h-4" /> Acertos: {score}
+                      </span>
+                    )}
 
                     <button
                       onClick={() => setIsFocusMode(!isFocusMode)}
@@ -994,26 +1273,35 @@ export default function InteractiveStudyModal({
                 {/* Question Metadata Badges: Banca, Ano, Órgão */}
                 {(() => {
                   const currentQ = activeQuestions[currentQuestionIndex];
-                  const bancaVal = currentQ?.banca || "Cebraspe";
-                  const anoVal = currentQ?.ano || currentQ?.year || "2026";
-                  const orgaoVal = currentQ?.orgao || "Concurso Público";
+                  const isSimuladoMode = type === "simulado" || Boolean(currentQ?.isSimuladoInedita);
+                  const bancaVal = currentQ?.banca || (isSimuladoMode ? undefined : "Cebraspe");
+                  const anoVal = currentQ?.ano || currentQ?.year || (isSimuladoMode ? undefined : "2026");
+                  const orgaoVal = currentQ?.orgao || (isSimuladoMode ? undefined : "Concurso Público");
+
+                  if (!bancaVal && !anoVal && !orgaoVal) return null;
 
                   return (
                     <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 shadow-xs font-bold">
-                        <Building2 className="w-3.5 h-3.5 text-emerald-500" />
-                        <span className="text-slate-400 dark:text-slate-500 font-semibold">Banca:</span> {bancaVal}
-                      </span>
+                      {bancaVal && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 shadow-xs font-bold">
+                          <Building2 className="w-3.5 h-3.5 text-emerald-500" />
+                          <span className="text-slate-400 dark:text-slate-500 font-semibold">Banca:</span> {bancaVal}
+                        </span>
+                      )}
 
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 shadow-xs font-bold">
-                        <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                        <span className="text-slate-400 dark:text-slate-500 font-semibold">Ano:</span> {anoVal}
-                      </span>
+                      {anoVal && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 shadow-xs font-bold">
+                          <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                          <span className="text-slate-400 dark:text-slate-500 font-semibold">Ano:</span> {anoVal}
+                        </span>
+                      )}
 
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 shadow-xs font-bold">
-                        <Landmark className="w-3.5 h-3.5 text-blue-500" />
-                        <span className="text-slate-400 dark:text-slate-500 font-semibold">Órgão:</span> {orgaoVal}
-                      </span>
+                      {orgaoVal && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 shadow-xs font-bold">
+                          <Landmark className="w-3.5 h-3.5 text-blue-500" />
+                          <span className="text-slate-400 dark:text-slate-500 font-semibold">Órgão:</span> {orgaoVal}
+                        </span>
+                      )}
                     </div>
                   );
                 })()}
@@ -1025,48 +1313,63 @@ export default function InteractiveStudyModal({
 
                 {/* Options */}
                 <div className="space-y-2.5">
-                  {activeQuestions[currentQuestionIndex]?.options.map((option, idx) => {
-                    let optionStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-amber-500/50";
-                    let badgeStyle = "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300";
-                    
-                    if (selectedOption === idx) {
-                      optionStyle = "border-amber-500 bg-amber-500/10 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 font-bold ring-1 ring-amber-500/50";
-                      badgeStyle = "border-amber-500 bg-amber-500 text-slate-950 font-black";
-                    }
+                  {(() => {
+                    const currentQ = activeQuestions[currentQuestionIndex];
+                    const isCertoErrado =
+                      currentQ?.type === "certo_errado" ||
+                      (currentQ?.options?.length === 2 &&
+                        currentQ.options[0]?.trim().toLowerCase() === "certo" &&
+                        currentQ.options[1]?.trim().toLowerCase() === "errado");
 
-                    if (isAnswerSubmitted) {
-                      if (idx === activeQuestions[currentQuestionIndex].correctIndex) {
-                        optionStyle = "border-emerald-600 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 font-bold";
-                        badgeStyle = "border-emerald-500 bg-emerald-600 text-white font-black";
-                      } else if (selectedOption === idx) {
-                        optionStyle = "border-red-500 bg-red-100 dark:bg-red-950/40 text-red-900 dark:text-red-200";
-                        badgeStyle = "border-red-500 bg-red-500 text-white font-black";
-                      } else {
-                        optionStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 opacity-60";
+                    return currentQ?.options.map((option, idx) => {
+                      let optionStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-amber-500/50";
+                      let badgeStyle = "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300";
+
+                      if (selectedOption === idx) {
+                        optionStyle = "border-amber-500 bg-amber-500/10 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 font-bold ring-1 ring-amber-500/50";
+                        badgeStyle = "border-amber-500 bg-amber-500 text-slate-950 font-black";
                       }
-                    }
 
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => handleSelectOption(idx)}
-                        disabled={isAnswerSubmitted}
-                        className={`w-full text-left p-3.5 rounded-xl border text-sm transition-all flex items-start gap-3 cursor-pointer ${optionStyle}`}
-                      >
-                        <span className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 font-bold text-xs transition-colors ${badgeStyle}`}>
-                          {String.fromCharCode(65 + idx)}
-                        </span>
-                        <MathRenderer content={option} inline className="flex-1" />
-                        
-                        {isAnswerSubmitted && idx === activeQuestions[currentQuestionIndex].correctIndex && (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                        )}
-                        {isAnswerSubmitted && selectedOption === idx && idx !== activeQuestions[currentQuestionIndex].correctIndex && (
-                          <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                        )}
-                      </button>
-                    );
-                  })}
+                      if (isAnswerSubmitted) {
+                        if (idx === currentQ.correctIndex) {
+                          optionStyle = "border-emerald-600 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 font-bold";
+                          badgeStyle = "border-emerald-500 bg-emerald-600 text-white font-black";
+                        } else if (selectedOption === idx) {
+                          optionStyle = "border-red-500 bg-red-100 dark:bg-red-950/40 text-red-900 dark:text-red-200";
+                          badgeStyle = "border-red-500 bg-red-500 text-white font-black";
+                        } else {
+                          optionStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 opacity-60";
+                        }
+                      }
+
+                      const optionBadge = isCertoErrado
+                        ? idx === 0
+                          ? "C"
+                          : "E"
+                        : String.fromCharCode(65 + idx);
+
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleSelectOption(idx)}
+                          disabled={isAnswerSubmitted}
+                          className={`w-full text-left p-3.5 rounded-xl border text-sm transition-all flex items-start gap-3 cursor-pointer ${optionStyle}`}
+                        >
+                          <span className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 font-bold text-xs transition-colors ${badgeStyle}`}>
+                            {optionBadge}
+                          </span>
+                          <MathRenderer content={option} inline className="flex-1" />
+
+                          {isAnswerSubmitted && idx === currentQ.correctIndex && (
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                          )}
+                          {isAnswerSubmitted && selectedOption === idx && idx !== currentQ.correctIndex && (
+                            <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
 
                 {/* Explanation Box when submitted (only if explanation exists) */}
@@ -1080,15 +1383,31 @@ export default function InteractiveStudyModal({
                 )}
 
                 {/* Controls */}
-                <div className="flex justify-end gap-3 pt-2">
+                <div className="flex flex-wrap justify-end gap-3 pt-2">
                   {!isAnswerSubmitted ? (
-                    <button
-                      onClick={handleSubmitAnswer}
-                      disabled={selectedOption === null}
-                      className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
-                    >
-                      Responder Questão
-                    </button>
+                    <>
+                      {isExamMode && (
+                        <button
+                          type="button"
+                          onClick={handleSkipBlank}
+                          className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs sm:text-sm transition-all cursor-pointer"
+                          title="Não pontua nem desconta na Nota Líquida Cebraspe"
+                        >
+                          Deixar em Branco
+                        </button>
+                      )}
+                      <button
+                        onClick={handleSubmitAnswer}
+                        disabled={selectedOption === null}
+                        className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm shadow-md transition-all cursor-pointer"
+                      >
+                        {isExamMode
+                          ? currentQuestionIndex < activeQuestions.length - 1
+                            ? "Confirmar e Avançar"
+                            : "Finalizar Prova"
+                          : "Responder Questão"}
+                      </button>
+                    </>
                   ) : (
                     <button
                       onClick={handleNextQuestion}
@@ -1129,9 +1448,8 @@ export default function InteractiveStudyModal({
             ) : (
               <div className="space-y-6">
                 
-                {/* TOOLBAR DE ESTUDO ATIVO (Exibida apenas para Flashcards, Questões e Simulados) */}
-                {type !== "infografico" && (
-                  <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-[#0F172A]/90 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                {/* TOOLBAR DE ESTUDO ATIVO DO INFOGRÁFICO */}
+                <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-[#0F172A]/90 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-sm">
                     
                     <div className="flex items-center gap-2 flex-wrap">
                       {/* Botão Alternador do Modo Teste de Memória (Active Recall) */}
@@ -1224,7 +1542,6 @@ export default function InteractiveStudyModal({
                     </div>
 
                   </div>
-                )}
 
                 {sampleInfographics.length > 1 && (
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
@@ -1254,6 +1571,186 @@ export default function InteractiveStudyModal({
                       "{(sampleInfographics[currentInfographicIndex] || sampleInfographics[0])?.summary}"
                     </div>
                   )}
+
+                  {/* Pontos-Chave + Hotspots Interativos + Comparativo Antes/Depois */}
+                  {(() => {
+                    const currentInfo = sampleInfographics[currentInfographicIndex] || sampleInfographics[0];
+                    if (!currentInfo) return null;
+
+                    const filteredHotspots = (currentInfo.hotspots || []).filter((hs) => {
+                      if (selectedBancaFilter === "todas") return true;
+                      return (hs.bancaTip || "").toLowerCase().includes(selectedBancaFilter);
+                    });
+                    const selectedHotspot =
+                      filteredHotspots.find((hs) => hs.id === activeHotspotId) || filteredHotspots[0] || null;
+
+                    return (
+                      <div className="space-y-5 text-left">
+                        {/* Hotspots Interativos */}
+                        {currentInfo.hotspots && currentInfo.hotspots.length > 0 && (
+                          <div className="space-y-3">
+                            <div className="relative h-56 sm:h-64 w-full rounded-2xl bg-slate-950/90 border border-purple-500/30 overflow-hidden">
+                              {currentInfo.imageUrl && (
+                                <img
+                                  src={currentInfo.imageUrl}
+                                  alt={currentInfo.title}
+                                  className="w-full h-full object-cover opacity-35"
+                                />
+                              )}
+                              {filteredHotspots.map((hs, idx) => {
+                                const isActive = selectedHotspot?.id === hs.id;
+                                return (
+                                  <button
+                                    key={hs.id}
+                                    type="button"
+                                    onClick={() => setActiveHotspotId(hs.id)}
+                                    style={{ left: `${hs.x}%`, top: `${hs.y}%` }}
+                                    className={`absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full font-black text-xs flex items-center justify-center transition-all cursor-pointer border-2 ${
+                                      isActive
+                                        ? "bg-amber-400 text-slate-950 border-white scale-115 shadow-lg shadow-amber-500/40 z-20"
+                                        : "bg-purple-600/90 hover:bg-purple-500 text-white border-purple-300 z-10"
+                                    }`}
+                                    title={hs.title}
+                                  >
+                                    {idx + 1}
+                                  </button>
+                                );
+                              })}
+                              {filteredHotspots.length === 0 && (
+                                <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-xs text-slate-400">
+                                  Nenhum ponto específico encontrado para a banca <strong className="ml-1 uppercase text-amber-400">{selectedBancaFilter}</strong>.
+                                </div>
+                              )}
+                            </div>
+
+                            {selectedHotspot && (
+                              <div className="p-4 rounded-xl bg-slate-800/90 border border-purple-500/30 space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <h4 className="font-extrabold text-sm text-white">{selectedHotspot.title}</h4>
+                                  {selectedHotspot.badge && (
+                                    <span className="px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-black uppercase">
+                                      {selectedHotspot.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                                  {selectedHotspot.description}
+                                </p>
+                                {selectedHotspot.bancaTip && (
+                                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
+                                    💡 <strong>Dica de Banca:</strong> {selectedHotspot.bancaTip}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Comparativo Antes vs Depois (Split Slider) */}
+                        {currentInfo.splitSlider && (
+                          <div className="space-y-3 p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+                            <div className="flex items-center justify-between gap-3 text-[11px] font-bold text-slate-400">
+                              <span>{currentInfo.splitSlider.beforeTitle}</span>
+                              <span className="inline-flex items-center gap-1 text-emerald-400">
+                                <MoveHorizontal className="w-3.5 h-3.5" /> {splitSliderPos}%
+                              </span>
+                              <span>{currentInfo.splitSlider.afterTitle}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min={15}
+                              max={85}
+                              value={splitSliderPos}
+                              onChange={(e) => setSplitSliderPos(Number(e.target.value))}
+                              aria-label="Controle comparativo antes e depois"
+                              className="w-full accent-emerald-500 cursor-pointer"
+                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div
+                                className="p-4 rounded-xl bg-slate-900 border border-slate-700 space-y-1.5 transition-opacity"
+                                style={{ opacity: Math.max(0.45, splitSliderPos / 100) }}
+                              >
+                                <div className="font-extrabold text-xs sm:text-sm text-amber-300">
+                                  {currentInfo.splitSlider.beforeTitle}
+                                </div>
+                                {currentInfo.splitSlider.beforeSubtitle && (
+                                  <p className="text-[11px] text-slate-400">{currentInfo.splitSlider.beforeSubtitle}</p>
+                                )}
+                                <p className="text-xs text-slate-200 whitespace-pre-line leading-relaxed pt-1">
+                                  {currentInfo.splitSlider.beforeContent}
+                                </p>
+                              </div>
+                              <div
+                                className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 space-y-1.5 transition-opacity"
+                                style={{ opacity: Math.max(0.45, (100 - splitSliderPos) / 100) }}
+                              >
+                                <div className="font-extrabold text-xs sm:text-sm text-emerald-300">
+                                  {currentInfo.splitSlider.afterTitle}
+                                </div>
+                                {currentInfo.splitSlider.afterSubtitle && (
+                                  <p className="text-[11px] text-emerald-200/70">{currentInfo.splitSlider.afterSubtitle}</p>
+                                )}
+                                <p className="text-xs text-slate-100 whitespace-pre-line leading-relaxed pt-1">
+                                  {currentInfo.splitSlider.afterContent}
+                                </p>
+                              </div>
+                            </div>
+                            {currentInfo.splitSlider.bancaHighlight && (
+                              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
+                                📌 <strong>Foco de Prova:</strong> {currentInfo.splitSlider.bancaHighlight}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Pontos-Chave de Prova (com suporte ao Modo Teste de Memória) */}
+                        {currentInfo.points && currentInfo.points.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-[11px] font-black uppercase tracking-wider text-purple-300 flex items-center justify-between">
+                              <span>🎯 Pontos-Chave de Prova</span>
+                              {isMemoryTestMode && (
+                                <span className="text-amber-400 normal-case font-semibold">
+                                  Clique em cada item para revelar
+                                </span>
+                              )}
+                            </div>
+                            <ul className="space-y-2">
+                              {currentInfo.points.map((pt, idx) => {
+                                const isHidden = isMemoryTestMode && !revealedPoints[idx];
+                                return (
+                                  <li key={idx}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (!isMemoryTestMode) return;
+                                        setRevealedPoints((prev) => ({ ...prev, [idx]: !prev[idx] }));
+                                      }}
+                                      className={`w-full text-left p-3 rounded-xl border text-xs sm:text-sm transition-all flex items-start gap-2.5 ${
+                                        isMemoryTestMode
+                                          ? "cursor-pointer hover:border-amber-400"
+                                          : "cursor-default"
+                                      } ${
+                                        isHidden
+                                          ? "bg-slate-800/70 border-amber-500/30 text-amber-300"
+                                          : "bg-slate-800/50 border-slate-700/80 text-slate-200"
+                                      }`}
+                                    >
+                                      <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
+                                        {idx + 1}
+                                      </span>
+                                      <span className={isHidden ? "blur-xs select-none" : ""}>
+                                        {isHidden ? "Clique para testar sua memória e revelar este ponto-chave..." : pt}
+                                      </span>
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Botão de Destaque com Alta Visibilidade em Ambos os Modos */}
                   {(() => {
