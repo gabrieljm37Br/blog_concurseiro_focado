@@ -32,7 +32,7 @@ function HomeContent() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState<boolean>(true);
 
-  const categories = ["Todos", "Estude", "Aprenda", "Estude comigo", "Informe-se"];
+  const categories = ["Todos", "Estude", "Aprenda", "Estude comigo", "Informe-se", "Rotina"];
 
   useEffect(() => {
     async function loadSupabasePosts() {
@@ -162,7 +162,7 @@ function HomeContent() {
           </div>
 
           {/* Reinforced H1 Title with Glow Highlights */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold font-outfit tracking-tight leading-[1.15] text-white">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold font-outfit tracking-tight leading-[1.15] text-white">
             Estudo{" "}
             <span className="text-[#10B981] drop-shadow-[0_0_25px_rgba(16,185,129,0.8)]">
               Ativo & Prático
@@ -175,17 +175,17 @@ function HomeContent() {
           </h1>
 
           {/* Supportive Subtitle */}
-          <p className="text-base sm:text-lg lg:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed font-normal">
+          <p className="text-sm sm:text-lg lg:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed font-normal">
             Mais do que 'assistir a alguém estudar'. Aqui você tem acesso ao meu processo de aprendizagem em prática: conteúdos didáticos públicos, técnicas comprovadas, flashcards interativos, simulados acoplados aos artigos e APPs de gestão de estudo.
           </p>
 
           {/* Clear CTA Hierarchy */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 pt-2">
             
             {/* Primary CTA */}
             <Link
               href="#artigos"
-              className="px-8 py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm sm:text-base shadow-xl shadow-emerald-500/25 transition-all hover:scale-[1.03] active:scale-[0.98] flex items-center gap-2.5"
+              className="w-full sm:w-auto justify-center px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm sm:text-base shadow-xl shadow-emerald-500/25 transition-all hover:scale-[1.03] active:scale-[0.98] flex items-center gap-2.5"
             >
               <BookOpen className="w-5 h-5 shrink-0" />
               <span>Explorar Artigos</span>
@@ -194,7 +194,7 @@ function HomeContent() {
             {/* Secondary CTA */}
             <Link
               href="/loja"
-              className="px-7 py-4 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/80 hover:border-slate-600 font-bold text-sm sm:text-base transition-all hover:scale-[1.02] flex items-center gap-2.5 backdrop-blur-md"
+              className="w-full sm:w-auto justify-center px-6 sm:px-7 py-3.5 sm:py-4 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-200 border border-slate-700/80 hover:border-slate-600 font-bold text-sm sm:text-base transition-all hover:scale-[1.02] flex items-center gap-2.5 backdrop-blur-md"
             >
               <ShoppingBag className="w-5 h-5 text-emerald-400 shrink-0" />
               <span>Conhecer Nossos APPs</span>
@@ -203,17 +203,17 @@ function HomeContent() {
           </div>
 
           {/* Neon Glow Resource Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-12 text-left max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 pt-8 sm:pt-12 text-left max-w-5xl mx-auto">
             
             {/* Card 1 */}
-            <div className="relative p-6 rounded-2xl bg-[#0B101D] border border-slate-800/80 shadow-[0_15px_30px_-10px_rgba(16,185,129,0.3)] hover:border-emerald-500/50 hover:shadow-[0_20px_45px_-10px_rgba(16,185,129,0.5)] transition-all duration-300 flex items-center gap-4 group overflow-hidden">
+            <div className="relative p-4 sm:p-6 rounded-2xl bg-[#0B101D] border border-slate-800/80 shadow-[0_15px_30px_-10px_rgba(16,185,129,0.3)] hover:border-emerald-500/50 hover:shadow-[0_20px_45px_-10px_rgba(16,185,129,0.5)] transition-all duration-300 flex items-center gap-3.5 sm:gap-4 group overflow-hidden">
               <div className="absolute -bottom-6 left-6 w-24 h-12 bg-emerald-500/20 blur-2xl rounded-full pointer-events-none" />
               
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#060911] border border-emerald-500/40 flex items-center justify-center shrink-0 shadow-[0_0_25px_rgba(16,185,129,0.5)] group-hover:scale-105 transition-transform relative z-10">
-                <ShieldCheck className="w-9 h-9 text-[#10B981] drop-shadow-[0_0_12px_#10B981]" />
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-[#060911] border border-emerald-500/40 flex items-center justify-center shrink-0 shadow-[0_0_25px_rgba(16,185,129,0.5)] group-hover:scale-105 transition-transform relative z-10">
+                <ShieldCheck className="w-7 h-7 sm:w-9 sm:h-9 text-[#10B981] drop-shadow-[0_0_12px_#10B981]" />
               </div>
 
-              <div className="space-y-1 relative z-10">
+              <div className="space-y-1 relative z-10 min-w-0">
                 <h3 className="font-extrabold text-base sm:text-lg text-white font-outfit tracking-tight">
                   Membros Sem Ads
                 </h3>
@@ -224,14 +224,14 @@ function HomeContent() {
             </div>
 
             {/* Card 2 */}
-            <div className="relative p-6 rounded-2xl bg-[#0B101D] border border-slate-800/80 shadow-[0_15px_30px_-10px_rgba(245,158,11,0.3)] hover:border-amber-500/50 hover:shadow-[0_20px_45px_-10px_rgba(245,158,11,0.5)] transition-all duration-300 flex items-center gap-4 group overflow-hidden">
+            <div className="relative p-4 sm:p-6 rounded-2xl bg-[#0B101D] border border-slate-800/80 shadow-[0_15px_30px_-10px_rgba(245,158,11,0.3)] hover:border-amber-500/50 hover:shadow-[0_20px_45px_-10px_rgba(245,158,11,0.5)] transition-all duration-300 flex items-center gap-3.5 sm:gap-4 group overflow-hidden">
               <div className="absolute -bottom-6 left-6 w-24 h-12 bg-amber-500/20 blur-2xl rounded-full pointer-events-none" />
 
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#060911] border border-amber-500/40 flex items-center justify-center shrink-0 shadow-[0_0_25px_rgba(245,158,11,0.5)] group-hover:scale-105 transition-transform relative z-10">
-                <Zap className="w-9 h-9 text-[#F59E0B] drop-shadow-[0_0_12px_#F59E0B]" />
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-[#060911] border border-amber-500/40 flex items-center justify-center shrink-0 shadow-[0_0_25px_rgba(245,158,11,0.5)] group-hover:scale-105 transition-transform relative z-10">
+                <Zap className="w-7 h-7 sm:w-9 sm:h-9 text-[#F59E0B] drop-shadow-[0_0_12px_#F59E0B]" />
               </div>
 
-              <div className="space-y-1 relative z-10">
+              <div className="space-y-1 relative z-10 min-w-0">
                 <h3 className="font-extrabold text-base sm:text-lg text-white font-outfit tracking-tight">
                   Modo Foco
                 </h3>
@@ -242,14 +242,14 @@ function HomeContent() {
             </div>
 
             {/* Card 3 */}
-            <div className="relative p-6 rounded-2xl bg-[#0B101D] border border-slate-800/80 shadow-[0_15px_30px_-10px_rgba(59,130,246,0.3)] hover:border-blue-500/50 hover:shadow-[0_20px_45px_-10px_rgba(59,130,246,0.5)] transition-all duration-300 flex items-center gap-4 group overflow-hidden">
+            <div className="relative p-4 sm:p-6 rounded-2xl bg-[#0B101D] border border-slate-800/80 shadow-[0_15px_30px_-10px_rgba(59,130,246,0.3)] hover:border-blue-500/50 hover:shadow-[0_20px_45px_-10px_rgba(59,130,246,0.5)] transition-all duration-300 flex items-center gap-3.5 sm:gap-4 group overflow-hidden">
               <div className="absolute -bottom-6 left-6 w-24 h-12 bg-blue-500/20 blur-2xl rounded-full pointer-events-none" />
 
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#060911] border border-blue-500/40 flex items-center justify-center shrink-0 shadow-[0_0_25px_rgba(59,130,246,0.5)] group-hover:scale-105 transition-transform relative z-10">
-                <BrainCircuit className="w-9 h-9 text-[#3B82F6] drop-shadow-[0_0_12px_#3B82F6]" />
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-[#060911] border border-blue-500/40 flex items-center justify-center shrink-0 shadow-[0_0_25px_rgba(59,130,246,0.5)] group-hover:scale-105 transition-transform relative z-10">
+                <BrainCircuit className="w-7 h-7 sm:w-9 sm:h-9 text-[#3B82F6] drop-shadow-[0_0_12px_#3B82F6]" />
               </div>
 
-              <div className="space-y-1 relative z-10">
+              <div className="space-y-1 relative z-10 min-w-0">
                 <h3 className="font-extrabold text-base sm:text-lg text-white font-outfit tracking-tight">
                   Modais de Treino
                 </h3>
@@ -297,7 +297,7 @@ function HomeContent() {
 
         {/* ACTIVE TAG FILTER NOTIFICATION BANNER */}
         {tagQuery && (
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 shadow-sm">
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 shadow-sm">
             <div className="flex items-center gap-2">
               <Tag className="w-4 h-4 shrink-0 text-emerald-500" />
               <span>Exibindo conteúdos sobre a tag: <strong className="underline decoration-emerald-500">#{tagQuery}</strong> ({filteredPosts.length} artigos encontrados)</span>

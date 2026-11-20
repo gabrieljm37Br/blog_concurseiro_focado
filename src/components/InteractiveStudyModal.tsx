@@ -846,12 +846,12 @@ export default function InteractiveStudyModal({
               <div className="flex-1 flex flex-col justify-between space-y-4 py-1">
                 
                 {/* Gemini Top Header Bar: Progress track + Counters + Shuffle + Focus Mode */}
-                <div className={`flex items-center justify-between gap-3 text-xs font-semibold text-slate-400 bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/80 w-full ${
+                <div className={`flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-xs font-semibold text-slate-400 bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/80 w-full ${
                   isFocusMode ? "max-w-2xl sm:max-w-3xl md:max-w-4xl mx-auto" : ""
                 }`}>
                   
                   {/* Segmented Track & Number */}
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-[140px]">
                     <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden flex gap-1 p-0.5">
                       <div 
                         className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full transition-all duration-300" 
@@ -935,12 +935,12 @@ export default function InteractiveStudyModal({
                   >
                     {/* FRONT FACE (PERGUNTA) */}
                     <div
-                      className="absolute inset-0 w-full h-full p-6 sm:p-10 md:p-12 rounded-3xl bg-[#141B2D] border border-amber-500/25 flex flex-col items-center justify-between text-center shadow-xl hover:border-amber-500/40 transition-colors group"
+                      className="absolute inset-0 w-full h-full p-4 sm:p-10 md:p-12 rounded-3xl bg-[#141B2D] border border-amber-500/25 flex flex-col items-center justify-between text-center shadow-xl hover:border-amber-500/40 transition-colors group"
                       style={{ backfaceVisibility: "hidden" }}
                     >
-                      <div className="w-full flex items-center justify-between text-[11px] sm:text-xs font-black uppercase tracking-widest text-amber-400">
+                      <div className="w-full flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-400">
                         <span className="flex items-center gap-1.5">
-                          <SquareStack className="w-4 h-4 text-amber-400" /> Memorização Ativa
+                          <SquareStack className="w-4 h-4 text-amber-400 shrink-0" /> Memorização Ativa
                           {isFlashcardsShuffled && (
                             <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold normal-case">
                               ⚡ Aleatório
@@ -952,26 +952,26 @@ export default function InteractiveStudyModal({
                         </span>
                       </div>
 
-                      <div className="my-auto py-4 max-w-3xl">
+                      <div className="my-auto py-3 sm:py-4 max-w-3xl max-h-full overflow-y-auto">
                         <h3 className="text-base sm:text-xl md:text-2xl font-bold font-outfit text-white leading-relaxed">
                           <MathRenderer content={activeFlashcards[currentFlashcardIndex]?.question || ""} />
                         </h3>
                       </div>
 
                       <div className="text-[11px] sm:text-xs font-semibold text-slate-400 flex items-center gap-1.5 group-hover:text-amber-400 transition-colors">
-                        <RotateCw className="w-3.5 h-3.5 text-amber-400 animate-spin-once" /> Clique no cartão para virar (ou barra de Espaço)
+                        <RotateCw className="w-3.5 h-3.5 text-amber-400 animate-spin-once shrink-0" /> Clique no cartão para virar (ou barra de Espaço)
                       </div>
                     </div>
 
                     {/* BACK FACE (RESPOSTA / GABARITO) */}
                     <div
-                      className="absolute inset-0 w-full h-full p-6 sm:p-10 md:p-12 rounded-3xl bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#172136] border border-emerald-500/30 flex flex-col items-center justify-between text-center shadow-2xl"
+                      className="absolute inset-0 w-full h-full p-4 sm:p-10 md:p-12 rounded-3xl bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#172136] border border-emerald-500/30 flex flex-col items-center justify-between text-center shadow-2xl"
                       style={{
                         backfaceVisibility: "hidden",
                         transform: "rotateY(180deg)",
                       }}
                     >
-                      <div className="w-full flex items-center justify-between text-[11px] sm:text-xs font-black uppercase tracking-widest text-emerald-400">
+                      <div className="w-full flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-emerald-400">
                         <span className="flex items-center gap-1.5">
                           <Sparkles className="w-4 h-4 text-amber-400" /> Gabarito / Resposta
                         </span>

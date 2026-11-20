@@ -76,10 +76,10 @@ export default function PostCard({ post }: PostCardProps) {
         </div>
 
         {/* Interactive Features & Read Footer */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
           
           {/* Study Badges */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 min-w-0">
             {post.flashcardsCount && post.flashcardsCount > 0 ? (
               <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold" title={`${post.flashcardsCount} Flashcards inclusos`}>
                 <Layers className="w-3.5 h-3.5" /> {post.flashcardsCount} cards
@@ -117,7 +117,7 @@ export default function PostCard({ post }: PostCardProps) {
           {/* Read Article Arrow Link */}
           <Link
             href={`/artigo/${post.slug}`}
-            className="inline-flex items-center gap-0.5 font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
+            className="inline-flex items-center gap-0.5 font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 shrink-0"
           >
             Ler <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>

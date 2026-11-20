@@ -811,6 +811,76 @@ hr, .prose hr, .editor-canvas hr {
   }
 }
 
+/* Destaque visual breve ao navegar pelo Sumário do Artigo (ToC) */
+@keyframes tocTargetFlash {
+  0% {
+    background-color: rgba(16, 185, 129, 0.22);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.toc-target-highlight {
+  border-radius: 0.75rem;
+  animation: tocTargetFlash 1.5s ease-out;
+}
+
+/* Responsividade aprimorada para conteúdo editorial em telas pequenas (360px–640px) */
+.prose {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+.venn-diagram-card svg {
+  max-width: 100%;
+  height: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 640px) {
+  .prose h1, .editor-canvas h1, h1.article-heading {
+    font-size: 1.55rem !important;
+    line-height: 2rem !important;
+    margin-top: 1.5rem !important;
+  }
+
+  .prose h2, .editor-canvas h2, h2.article-heading {
+    font-size: 1.35rem !important;
+    line-height: 1.75rem !important;
+    margin-top: 2rem !important;
+  }
+
+  .prose h3, .editor-canvas h3, h3.article-heading {
+    font-size: 1.15rem !important;
+    line-height: 1.55rem !important;
+    margin-top: 1.5rem !important;
+  }
+
+  .prose h4, .editor-canvas h4, h4.article-heading {
+    font-size: 1.025rem !important;
+    line-height: 1.45rem !important;
+  }
+
+  .callout-dica,
+  .callout-pegadinha,
+  .callout-lei,
+  .mnemonico-card,
+  .math-card-block,
+  .chart-card,
+  .venn-diagram-card {
+    padding: 1rem !important;
+  }
+}
+
 /* ==========================================================================
    PRINT & PDF GENERATOR STYLES
    ========================================================================== */

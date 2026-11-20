@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Post } from "@/data/mockPosts";
@@ -12,6 +12,7 @@ import {
   cleanAndSanitizeArticleHtml,
   extractStudyDataFromContentHtml,
   getArticleVisibility,
+  injectHeadingIds,
 } from "@/lib/articleSecurity";
 import { validateStudyMetadata } from "@/lib/studyMetadataSchema";
 import { 
@@ -73,6 +74,26 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   // Bookmark & Share Feedback State
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
+  // HTML sanitizado e memoizado com IDs determinísticos em <h2>/<h3> para o Sumário
+  const renderedArticleHtml = useMemo(
+    () => injectHeadingIds(cleanAndSanitizeArticleHtml(post?.content || "")),
+    [post?.content]
+  );
+
+  // Persiste o último artigo visitado para o botão "Voltar ao Artigo" em /minha-revisao
+  useEffect(() => {
+    if (typeof window === "undefined" || !post?.slug) return;
+    try {
+      sessionStorage.setItem(
+        "cf_last_article",
+        JSON.stringify({
+          href: `/artigo/${post.slug}`,
+          title: post.title || "Artigo anterior",
+        })
+      );
+    } catch {}
+  }, [post?.slug, post?.title]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -742,15 +763,15 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               <span className="flex items-center gap-1 font-medium">
                 <UserCheck className="w-3.5 h-3.5 text-emerald-500" /> Autor: Concurseiro Focado
               </span>
-              <span>•</span>
+              <span className="hidden sm:inline" aria-hidden="true">•</span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" /> {post.readTime}
               </span>
-              <span>•</span>
+              <span className="hidden sm:inline" aria-hidden="true">•</span>
               <span title={`Publicado em ${post.publishedAt}`}>Publicado em {post.publishedAt}</span>
               {post.updatedAt && post.updatedAt !== post.publishedAt && (
                 <>
-                  <span>•</span>
+                  <span className="hidden sm:inline" aria-hidden="true">•</span>
                   <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/20 px-2 py-0.5 rounded-md border border-emerald-500/30 shadow-xs" title={`Conteúdo revisado e atualizado em ${post.updatedAt}`}>
                     🔄 Atualizado em {post.updatedAt}
                   </span>
@@ -758,7 +779,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               )}
             </div>
 
-            <div className="no-print flex items-center gap-2 flex-wrap self-end sm:self-auto">
+            <div className="no-print flex items-center gap-2 flex-wrap self-start sm:self-auto">
               {/* Font Size Selector (Acessibilidade) */}
               <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 rounded-xl p-1 border border-slate-200 dark:border-slate-700/80">
                 <span className="text-[10px] font-extrabold uppercase px-1 text-slate-400 dark:text-slate-500 hidden sm:inline" title="Acessibilidade: Ajustar Tamanho da Fonte">
@@ -891,7 +912,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+            <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto">
               {/* Stop Audio Button */}
               {isPlayingAudio && (
                 <button
@@ -957,6 +978,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               {/* DROPDOWN TOGGLE TRIGGER HEADER */}
               <button
                 onClick={() => setIsToolsExpanded(!isToolsExpanded)}
+                aria-expanded={isToolsExpanded}
                 className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left cursor-pointer group hover:bg-slate-200/40 dark:hover:bg-slate-800/40 transition-colors"
                 title="Clique para expandir ou recolher as Ferramentas de Estudo"
               >
@@ -974,7 +996,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                         {isToolsExpanded ? "Aberto" : "Clique para Abrir"}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 sm:truncate">
                       {isEstudeCategory
                         ? "Flashcards, Questões, Simulados Inéditos e Infográficos acoplados."
                         : "Mapas mentais, resumos visuais e esquemas acoplados a este artigo."}
@@ -995,13 +1017,13 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               {/* DROPDOWN EXPANDABLE CONTENT */}
               {isToolsExpanded && (
                 <div className="p-4 sm:p-5 pt-0 border-t border-slate-200/80 dark:border-slate-800/80 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="pt-3 flex flex-wrap items-center gap-3">
+                  <div className="pt-3 grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 sm:gap-3">
                     
                     {/* Flashcards Button */}
                     {isEstudeCategory && (
                       <button
                         onClick={openFlashcards}
-                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-700 dark:text-amber-400 hover:text-slate-950 border border-amber-500/30 hover:border-amber-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
+                        className="sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-700 dark:text-amber-400 hover:text-slate-950 dark:hover:text-slate-950 border border-amber-500/30 hover:border-amber-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
                       >
                         <div className="w-6 h-6 rounded-lg bg-amber-500/20 group-hover/btn:bg-slate-950/20 flex items-center justify-center shrink-0">
                           <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 group-hover/btn:text-slate-950" />
@@ -1015,7 +1037,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                       <button
                         onClick={openQuestions}
                         title="Questões de concursos anteriores"
-                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500 text-emerald-700 dark:text-emerald-400 hover:text-slate-950 border border-emerald-500/30 hover:border-emerald-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
+                        className="sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500 text-emerald-700 dark:text-emerald-400 hover:text-slate-950 dark:hover:text-slate-950 border border-emerald-500/30 hover:border-emerald-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
                       >
                         <div className="w-6 h-6 rounded-lg bg-emerald-500/20 group-hover/btn:bg-slate-950/20 flex items-center justify-center shrink-0">
                           <HelpCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover/btn:text-slate-950" />
@@ -1029,7 +1051,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                       <button
                         onClick={openSimulado}
                         title="Simulado de questões inéditas baseadas neste artigo"
-                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500 text-blue-700 dark:text-blue-400 hover:text-white border border-blue-500/30 hover:border-blue-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
+                        className="sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500 text-blue-700 dark:text-blue-400 hover:text-white dark:hover:text-white border border-blue-500/30 hover:border-blue-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
                       >
                         <div className="w-6 h-6 rounded-lg bg-blue-500/20 group-hover/btn:bg-white/20 flex items-center justify-center shrink-0">
                           <Target className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 group-hover/btn:text-white" />
@@ -1041,7 +1063,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                     {/* Infográfico Button */}
                     <button
                       onClick={openInfographic}
-                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-purple-500/15 hover:bg-purple-600 text-purple-700 dark:text-purple-300 hover:text-white border border-purple-500/30 hover:border-purple-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
+                      className="sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-purple-500/15 hover:bg-purple-600 text-purple-700 dark:text-purple-300 hover:text-white dark:hover:text-white border border-purple-500/30 hover:border-purple-400 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer"
                     >
                       <div className="w-6 h-6 rounded-lg bg-purple-500/20 group-hover/btn:bg-white/20 flex items-center justify-center shrink-0">
                         <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 group-hover/btn:text-white" />
@@ -1051,11 +1073,13 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
 
                     {/* Atalho Minha Revisão (SRS & Caderno de Erros) */}
                     <Link
-                      href="/minha-revisao"
-                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-200/70 dark:bg-slate-800/90 hover:bg-slate-900 dark:hover:bg-white text-slate-700 dark:text-slate-200 hover:text-white dark:hover:text-slate-950 border border-slate-300 dark:border-slate-700 font-bold text-xs transition-all shadow-xs"
+                      href={`/minha-revisao?from=${encodeURIComponent(`/artigo/${post.slug}`)}&title=${encodeURIComponent(post.title)}`}
+                      className={`${isEstudeCategory ? "col-span-2 sm:col-span-1" : ""} sm:flex-initial flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-700 dark:text-rose-300 hover:text-white dark:hover:text-white border border-rose-500/30 hover:border-rose-500 font-extrabold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xs group/btn cursor-pointer`}
                       title="Abrir seu painel de Revisão Espaçada (SRS), Caderno de Erros e Salvos"
                     >
-                      <BrainCircuit className="w-3.5 h-3.5 text-emerald-500" />
+                      <div className="w-6 h-6 rounded-lg bg-rose-500/20 group-hover/btn:bg-white/20 flex items-center justify-center shrink-0 transition-colors">
+                        <BrainCircuit className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 group-hover/btn:text-white transition-colors" />
+                      </div>
                       <span>Minha Revisão</span>
                     </Link>
 
@@ -1094,7 +1118,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             fontSizeLevel === "sm" ? "article-font-sm" : fontSizeLevel === "lg" ? "article-font-lg" : fontSizeLevel === "xl" ? "article-font-xl" : ""
           }`}
           dangerouslySetInnerHTML={{
-            __html: cleanAndSanitizeArticleHtml(post.content),
+            __html: renderedArticleHtml,
           }}
         />
 
@@ -1160,7 +1184,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
             <span className="text-[11px] font-medium opacity-80">Sair (ESC)</span>
           </button>
 
-          <article className="max-w-3xl mx-auto space-y-8 py-6 px-2">
+          <article className="max-w-3xl mx-auto space-y-8 pt-16 sm:pt-14 pb-8 px-1 sm:px-2">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
@@ -1177,17 +1201,17 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                 {post.title}
               </h1>
 
-              <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <span className="font-medium">Autor: Concurseiro Focado</span>
-                <span>•</span>
+                <span className="hidden sm:inline" aria-hidden="true">•</span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5" /> {post.readTime}
                 </span>
-                <span>•</span>
+                <span className="hidden sm:inline" aria-hidden="true">•</span>
                 <span>Publicado em {post.publishedAt}</span>
                 {post.updatedAt && post.updatedAt !== post.publishedAt && (
                   <>
-                    <span>•</span>
+                    <span className="hidden sm:inline" aria-hidden="true">•</span>
                     <span className="font-bold text-emerald-600 dark:text-emerald-400">
                       🔄 Atualizado em {post.updatedAt}
                     </span>
@@ -1215,7 +1239,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
                 fontSizeLevel === "sm" ? "article-font-sm" : fontSizeLevel === "lg" ? "article-font-lg" : fontSizeLevel === "xl" ? "article-font-xl" : ""
               }`}
               dangerouslySetInnerHTML={{
-                __html: cleanAndSanitizeArticleHtml(post.content),
+                __html: renderedArticleHtml,
               }}
             />
 

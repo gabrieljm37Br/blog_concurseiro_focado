@@ -239,3 +239,69 @@ export function cleanAndSanitizeArticleHtml(rawHtml: string | null | undefined):
 
   return html;
 }
+
+/**
+ * Gera um ID semântico determinístico a partir do texto de um cabeçalho HTML.
+ */
+export function slugifyHeadingText(text: string, index: number): string {
+  const base = text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 60);
+  return base ? `sec-${base}-${index}` : `sec-topico-${index}`;
+}
+
+/**
+ * Injeta atributos `id` determinísticos diretamente nas tags <h2> e <h3> do HTML sanitizado.
+ * Garante que o Sumário do Artigo (ToC) nunca perca referências de âncora após re-renders
+ * do React ou hidratação SSR/CSR.
+ */
+export function injectHeadingIds(html: string): string {
+  if (!html) return "";
+  let headingCounter = 0;
+  const usedIds = new Set<string>();
+
+  return html.replace(
+    /<(h[23])(\b[^>]*)>([\s\S]*?)<\/\1>/gi,
+    (fullMatch, tag: string, rawAttrs: string, innerHtml: string) => {
+      const plainText = innerHtml
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/gi, "&")
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/&#?\w+;/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (!plainText || plainText.length < 2) {
+        return fullMatch;
+      }
+
+      headingCounter += 1;
+
+      const existingIdMatch = rawAttrs.match(/\bid\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      const existingId = (existingIdMatch?.[1] || existingIdMatch?.[2] || existingIdMatch?.[3] || "").trim();
+
+      if (existingId && !usedIds.has(existingId)) {
+        usedIds.add(existingId);
+        return fullMatch;
+      }
+
+      let nextId = slugifyHeadingText(plainText, headingCounter);
+      while (usedIds.has(nextId)) {
+        headingCounter += 1;
+        nextId = slugifyHeadingText(plainText, headingCounter);
+      }
+      usedIds.add(nextId);
+
+      // Remove eventual id vazio ou duplicado antes de injetar o novo id único
+      const cleanedAttrs = rawAttrs.replace(/\s+\bid\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+      return `<${tag} id="${nextId}"${cleanedAttrs}>${innerHtml}</${tag}>`;
+    }
+  );
+}
