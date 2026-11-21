@@ -22,7 +22,7 @@ interface DbPost {
   subcategory?: string;
   banca?: string;
   summary: string;
-  content_html: string;
+  content_html?: string;
   read_time?: string;
   featured_image?: string;
   youtube_video_id?: string;

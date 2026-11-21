@@ -67,7 +67,7 @@ interface DbPost {
   subcategory?: string;
   banca?: string;
   summary: string;
-  content_html: string;
+  content_html?: string;
   read_time?: string;
   featured_image?: string;
   youtube_video_id?: string;
@@ -75,11 +75,80 @@ interface DbPost {
   status?: "published" | "draft" | "review" | "scheduled";
   scheduled_at?: string | null;
   study_data?: any;
+  flashcards_count?: number;
+  questions_count?: number;
+  simulados_count?: number;
+  infographics_count?: number;
+  views_count?: number;
   published_at?: string;
   is_published?: boolean;
   admin_notes?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// Cache de sessão/memória para evitar refetches desnecessários ao sair e voltar para /admin
+const ADMIN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+const ADMIN_POSTS_CACHE_KEY = "cf_admin_posts_cache_v1";
+const ADMIN_SUBCATS_CACHE_KEY = "cf_admin_subcats_cache_v1";
+
+// Colunas leves para a listagem e estatísticas (exclui `content_html` e `study_data`, reduzindo ~95% do tráfego)
+const ADMIN_LIST_SELECT =
+  "id, title, slug, category_slug, subcategory, banca, summary, read_time, featured_image, youtube_video_id, is_published, status, scheduled_at, tags, flashcards_count, questions_count, simulados_count, infographics_count, views_count, admin_notes, created_at, updated_at";
+const ADMIN_LIST_FALLBACK_SELECT =
+  "id, title, slug, category_slug, subcategory, banca, summary, read_time, featured_image, youtube_video_id, is_published, admin_notes, created_at, updated_at";
+
+let memoryAdminPostsCache: { userId: string; data: DbPost[]; ts: number } | null = null;
+let memoryAdminSubcatsCache: { data: string[]; ts: number } | null = null;
+
+function readAdminPostsCache(userId: string): { data: DbPost[]; ts: number } | null {
+  if (
+    memoryAdminPostsCache &&
+    memoryAdminPostsCache.userId === userId &&
+    Date.now() - memoryAdminPostsCache.ts < ADMIN_CACHE_TTL_MS
+  ) {
+    return { data: memoryAdminPostsCache.data, ts: memoryAdminPostsCache.ts };
+  }
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(ADMIN_POSTS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { userId: string; data: DbPost[]; ts: number };
+    if (
+      parsed &&
+      parsed.userId === userId &&
+      Array.isArray(parsed.data) &&
+      Date.now() - parsed.ts < ADMIN_CACHE_TTL_MS
+    ) {
+      memoryAdminPostsCache = parsed;
+      return { data: parsed.data, ts: parsed.ts };
+    }
+  } catch {}
+  return null;
+}
+
+function writeAdminPostsCache(userId: string, data: DbPost[]): number {
+  const ts = Date.now();
+  // Mantém o espelho em sessionStorage enxuto (sem content_html / study_data pesados)
+  const lightweight = data.map(({ content_html: _c, study_data: _s, ...rest }) => rest);
+  memoryAdminPostsCache = { userId, data, ts };
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem(ADMIN_POSTS_CACHE_KEY, JSON.stringify({ userId, data: lightweight, ts }));
+    } catch {}
+  }
+  return ts;
+}
+
+function clearAdminCache(): void {
+  memoryAdminPostsCache = null;
+  memoryAdminSubcatsCache = null;
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.removeItem(ADMIN_POSTS_CACHE_KEY);
+      sessionStorage.removeItem(ADMIN_SUBCATS_CACHE_KEY);
+    } catch {}
+  }
 }
 
 export default function AdminPage() {
@@ -186,30 +255,108 @@ export default function AdminPage() {
   // Form State for creating a post (Pilar 4: Workflow Editorial & Status)
   const [formData, setFormData] = useState(initialFormDataState);
 
-  const fetchPosts = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("posts")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const [isRefreshingPosts, setIsRefreshingPosts] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [loadingEditPostId, setLoadingEditPostId] = useState<string | null>(null);
+  const loadedUserIdRef = useRef<string | null>(null);
+  const isFetchingPostsRef = useRef<boolean>(false);
 
-    if (error) {
-      console.error("Erro ao buscar posts:", error.message || error);
-    } else {
-      setPosts(data || []);
+  const fetchPosts = async (options?: { force?: boolean; userId?: string }) => {
+    const force = options?.force ?? false;
+    const effectiveUserId = options?.userId || userSession?.user?.id || loadedUserIdRef.current || "";
+
+    if (!force && effectiveUserId) {
+      const cached = readAdminPostsCache(effectiveUserId);
+      if (cached) {
+        setPosts(cached.data);
+        setLastSyncedAt(cached.ts);
+        setLoading(false);
+        return;
+      }
     }
-    setLoading(false);
+
+    if (isFetchingPostsRef.current) return;
+    isFetchingPostsRef.current = true;
+
+    // Só exibe tela "Carregando..." se ainda não houver artigos na tela
+    if (posts.length === 0 && !memoryAdminPostsCache?.data?.length) {
+      setLoading(true);
+    } else {
+      setIsRefreshingPosts(true);
+    }
+
+    try {
+      let { data, error } = await supabase
+        .from("posts")
+        .select(ADMIN_LIST_SELECT)
+        .order("created_at", { ascending: false });
+
+      if (error && error.message?.toLowerCase().includes("column")) {
+        const fallbackRes = await supabase
+          .from("posts")
+          .select(ADMIN_LIST_FALLBACK_SELECT)
+          .order("created_at", { ascending: false });
+        data = fallbackRes.data as any;
+        error = fallbackRes.error;
+      }
+
+      if (error) {
+        console.error("Erro ao buscar posts:", error.message || error);
+      } else {
+        const list = (data as unknown as DbPost[]) || [];
+        setPosts(list);
+        if (effectiveUserId) {
+          const syncedTs = writeAdminPostsCache(effectiveUserId, list);
+          setLastSyncedAt(syncedTs);
+        } else {
+          setLastSyncedAt(Date.now());
+        }
+      }
+    } finally {
+      isFetchingPostsRef.current = false;
+      setLoading(false);
+      setIsRefreshingPosts(false);
+    }
   };
 
-  const fetchSubcategories = async () => {
+  const fetchSubcategories = async (force = false) => {
+    if (!force && memoryAdminSubcatsCache && Date.now() - memoryAdminSubcatsCache.ts < ADMIN_CACHE_TTL_MS) {
+      setCustomSubcategories((prev) =>
+        Array.from(new Set([...INITIAL_DEFAULT_DISCIPLINAS, ...prev, ...memoryAdminSubcatsCache!.data]))
+      );
+      return;
+    }
+
+    if (!force && typeof window !== "undefined") {
+      try {
+        const raw = sessionStorage.getItem(ADMIN_SUBCATS_CACHE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { data: string[]; ts: number };
+          if (parsed && Array.isArray(parsed.data) && Date.now() - parsed.ts < ADMIN_CACHE_TTL_MS) {
+            memoryAdminSubcatsCache = parsed;
+            setCustomSubcategories((prev) =>
+              Array.from(new Set([...INITIAL_DEFAULT_DISCIPLINAS, ...prev, ...parsed.data]))
+            );
+            return;
+          }
+        }
+      } catch {}
+    }
+
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("subcategories")
         .select("name");
 
       if (data && data.length > 0) {
         const dbNames = data.map((item: any) => item.name).filter(Boolean);
-        setCustomSubcategories(prev => Array.from(new Set([...INITIAL_DEFAULT_DISCIPLINAS, ...prev, ...dbNames])));
+        memoryAdminSubcatsCache = { data: dbNames, ts: Date.now() };
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem(ADMIN_SUBCATS_CACHE_KEY, JSON.stringify(memoryAdminSubcatsCache));
+          } catch {}
+        }
+        setCustomSubcategories((prev) => Array.from(new Set([...INITIAL_DEFAULT_DISCIPLINAS, ...prev, ...dbNames])));
       }
     } catch (err) {
       console.warn("Erro ao buscar subcategorias:", err);
@@ -224,28 +371,47 @@ export default function AdminPage() {
       localStorage.removeItem("admin_session");
     }
 
-    try {
-      supabase.auth.getSession().then(({ data }) => {
-        const session = data?.session || null;
-        if (session && isAdminUser(session.user)) {
-          setUserSession(session);
-          fetchPosts();
-          fetchSubcategories();
-        } else {
-          setUserSession(null);
+    const hydrateAdminSession = (session: any, force = false) => {
+      if (session && isAdminUser(session.user)) {
+        const uid = session.user.id;
+        setUserSession(session);
+        // Evita refetch duplicado em INITIAL_SESSION, TOKEN_REFRESHED ou retorno de aba (visibilitychange)
+        if (force || loadedUserIdRef.current !== uid) {
+          loadedUserIdRef.current = uid;
+          fetchPosts({ force, userId: uid });
+          fetchSubcategories(force);
         }
-        setIsCheckingAuth(false);
-      }).catch(() => setIsCheckingAuth(false));
+      } else {
+        loadedUserIdRef.current = null;
+        setUserSession(null);
+      }
+      setIsCheckingAuth(false);
+    };
 
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session && isAdminUser(session.user)) {
-          setUserSession(session);
-          fetchPosts();
-          fetchSubcategories();
-        } else {
+    try {
+      supabase.auth
+        .getSession()
+        .then(({ data }) => {
+          hydrateAdminSession(data?.session || null, false);
+        })
+        .catch(() => setIsCheckingAuth(false));
+
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_OUT") {
+          loadedUserIdRef.current = null;
+          clearAdminCache();
           setUserSession(null);
+          setIsCheckingAuth(false);
+          return;
         }
-        setIsCheckingAuth(false);
+        if (event === "TOKEN_REFRESHED") {
+          // Apenas atualiza o access_token em memória, sem recarregar artigos do Supabase
+          if (session && isAdminUser(session.user)) {
+            setUserSession(session);
+          }
+          return;
+        }
+        hydrateAdminSession(session, false);
       });
       subscription = data?.subscription;
     } catch {
@@ -385,10 +551,11 @@ export default function AdminPage() {
       }
 
       setUserSession(data.session);
+      loadedUserIdRef.current = data.session.user.id;
       setAdminPassword("");
       setAuthError("");
-      fetchPosts();
-      fetchSubcategories();
+      fetchPosts({ force: false, userId: data.session.user.id });
+      fetchSubcategories(false);
     } catch {
       setAuthError("❌ Falha de comunicação com o Supabase Auth. Tente novamente.");
     }
@@ -402,6 +569,8 @@ export default function AdminPage() {
     if (typeof window !== "undefined") {
       localStorage.removeItem("admin_session");
     }
+    loadedUserIdRef.current = null;
+    clearAdminCache();
     setAdminPassword("");
     setUserSession(null);
   };
@@ -470,8 +639,48 @@ export default function AdminPage() {
       .trim();
   };
 
-  const handleStartEditPost = (post: DbPost) => {
-    setEditingPostId(post.id);
+  const handleStartEditPost = async (post: DbPost) => {
+    let fullPost: DbPost = post;
+
+    // Lazy-load sob demanda: busca `content_html` e `study_data` apenas do artigo clicado para edição
+    if (typeof post.content_html !== "string") {
+      setLoadingEditPostId(post.id);
+      try {
+        let { data, error } = await supabase
+          .from("posts")
+          .select("content_html, study_data")
+          .eq("id", post.id)
+          .single();
+
+        if (error && error.message?.toLowerCase().includes("column")) {
+          const fallbackRes = await supabase
+            .from("posts")
+            .select("content_html")
+            .eq("id", post.id)
+            .single();
+          data = fallbackRes.data as any;
+          error = fallbackRes.error;
+        }
+
+        if (error || !data) {
+          setStatusMessage(`❌ Erro ao carregar conteúdo completo do artigo: ${error?.message || "não encontrado"}`);
+          return;
+        }
+
+        fullPost = {
+          ...post,
+          content_html: data.content_html || "",
+          study_data: (data as any).study_data ?? post.study_data,
+        };
+
+        // Mantém em memória para reabertura instantânea caso o admin volte a editar este artigo
+        setPosts((prev) => prev.map((p) => (p.id === post.id ? fullPost : p)));
+      } finally {
+        setLoadingEditPostId(null);
+      }
+    }
+
+    setEditingPostId(fullPost.id);
     // Reseta listas de ferramentas de estudo para evitar contaminação entre artigos
     setFlashcardsList([]);
     setQuestionsList([]);
@@ -482,66 +691,70 @@ export default function AdminPage() {
     setEditingSimuladoIndex(null);
     setEditingInfographicIndex(null);
 
-    let tagsStr = Array.isArray(post.tags) ? post.tags.join(", ") : (post.tags || "");
-    let postStatus: "published" | "draft" | "review" | "scheduled" = post.is_published ? "published" : "draft";
-    let scheduledAtStr = "";
+    let tagsStr = Array.isArray(fullPost.tags) ? fullPost.tags.join(", ") : (fullPost.tags || "");
+    let postStatus: "published" | "draft" | "review" | "scheduled" =
+      fullPost.status || (fullPost.is_published ? "published" : "draft");
+    let scheduledAtStr = fullPost.scheduled_at || "";
 
-    if (post.content_html) {
-      const match = post.content_html.match(/<!-- TAGS: ([\s\S]*?) -->/i);
-      if (match && match[1]) {
-        tagsStr = match[1].trim();
-      }
-      const statusMatch = post.content_html.match(/<!-- STATUS: ([\s\S]*?) -->/i);
-      if (post.status) {
-        postStatus = post.status;
-      } else if (statusMatch && statusMatch[1]) {
-        const s = statusMatch[1].trim();
-        if (s === "published" || s === "draft" || s === "review" || s === "scheduled") {
-          postStatus = s;
+    const rawHtml = fullPost.content_html || "";
+    if (rawHtml) {
+      if (!tagsStr) {
+        const match = rawHtml.match(/<!-- TAGS: ([\s\S]*?) -->/i);
+        if (match && match[1]) {
+          tagsStr = match[1].trim();
         }
       }
-      const schedMatch = post.content_html.match(/<!-- SCHEDULED_AT: ([\s\S]*?) -->/i);
-      if (post.scheduled_at) {
-        scheduledAtStr = post.scheduled_at;
-      } else if (schedMatch && schedMatch[1]) {
-        scheduledAtStr = schedMatch[1].trim();
+      if (!fullPost.status) {
+        const statusMatch = rawHtml.match(/<!-- STATUS: ([\s\S]*?) -->/i);
+        if (statusMatch && statusMatch[1]) {
+          const s = statusMatch[1].trim();
+          if (s === "published" || s === "draft" || s === "review" || s === "scheduled") {
+            postStatus = s;
+          }
+        }
       }
-
-      // Prefere coluna estruturada `study_data` (Fase 3) com fallback para comentários HTML
-      const hasColumnStudyData =
-        post.study_data &&
-        typeof post.study_data === "object" &&
-        Object.keys(post.study_data).length > 0;
-      const parsed = (
-        hasColumnStudyData
-          ? post.study_data
-          : extractStudyDataFromContentHtml(post.content_html)
-      ) as any;
-
-      if (parsed) {
-        if (Array.isArray(parsed.flashcards)) setFlashcardsList(parsed.flashcards);
-        if (Array.isArray(parsed.questions)) setQuestionsList(parsed.questions);
-        if (Array.isArray(parsed.simulados)) setSimuladosList(parsed.simulados);
-        if (Array.isArray(parsed.infographics)) setInfographicsList(parsed.infographics);
+      if (!scheduledAtStr) {
+        const schedMatch = rawHtml.match(/<!-- SCHEDULED_AT: ([\s\S]*?) -->/i);
+        if (schedMatch && schedMatch[1]) {
+          scheduledAtStr = schedMatch[1].trim();
+        }
       }
+    }
+
+    // Prefere coluna estruturada `study_data` (Fase 3) com fallback para comentários HTML
+    const hasColumnStudyData =
+      fullPost.study_data &&
+      typeof fullPost.study_data === "object" &&
+      Object.keys(fullPost.study_data).length > 0;
+    const parsed = (
+      hasColumnStudyData
+        ? fullPost.study_data
+        : extractStudyDataFromContentHtml(rawHtml)
+    ) as any;
+
+    if (parsed) {
+      if (Array.isArray(parsed.flashcards)) setFlashcardsList(parsed.flashcards);
+      if (Array.isArray(parsed.questions)) setQuestionsList(parsed.questions);
+      if (Array.isArray(parsed.simulados)) setSimuladosList(parsed.simulados);
+      if (Array.isArray(parsed.infographics)) setInfographicsList(parsed.infographics);
     }
 
     setFormData({
       ...initialFormDataState,
-      title: post.title || "",
-      slug: post.slug || "",
-      category_slug: post.category_slug || "estude",
-      subcategory: post.subcategory || "",
-      banca: post.banca || "",
-      summary: post.summary || "",
-      content_html: cleanArticleHtmlForStorage(post.content_html || ""),
-      read_time: post.read_time || "6 min de leitura",
-      featured_image: post.featured_image || "",
-      youtube_video_id: post.youtube_video_id || "",
+      title: fullPost.title || "",
+      slug: fullPost.slug || "",
+      category_slug: fullPost.category_slug || "estude",
+      subcategory: fullPost.subcategory || "",
+      banca: fullPost.banca || "",
+      summary: fullPost.summary || "",
+      content_html: cleanArticleHtmlForStorage(rawHtml),
+      read_time: fullPost.read_time || "6 min de leitura",
+      featured_image: fullPost.featured_image || "",
+      youtube_video_id: fullPost.youtube_video_id || "",
       tags: tagsStr,
       status: postStatus,
       scheduled_at: scheduledAtStr,
-      admin_notes: post.admin_notes || ""
+      admin_notes: fullPost.admin_notes || ""
     });
     setActiveTab("create");
   };
@@ -564,9 +777,15 @@ export default function AdminPage() {
         return;
       }
 
-      setPosts((prevPosts) =>
-        prevPosts.map((p) => (p.id === postId ? { ...p, admin_notes: notes } : p))
-      );
+      setPosts((prevPosts) => {
+        const nextPosts = prevPosts.map((p) => (p.id === postId ? { ...p, admin_notes: notes } : p));
+        const uid = userSession?.user?.id || loadedUserIdRef.current;
+        if (uid) {
+          const syncedTs = writeAdminPostsCache(uid, nextPosts);
+          setLastSyncedAt(syncedTs);
+        }
+        return nextPosts;
+      });
 
       if (selectedNotesPost && selectedNotesPost.id === postId) {
         setSelectedNotesPost((prev) => prev ? { ...prev, admin_notes: notes } : null);
@@ -1370,7 +1589,13 @@ export default function AdminPage() {
       setAutoSaveMessage("");
     }
 
-    fetchPosts();
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.removeItem("cf_header_search_posts_v1");
+        sessionStorage.removeItem("cf_header_subcats_v1");
+      } catch {}
+    }
+    fetchPosts({ force: true });
     handleCancelEdit();
     setActiveTab("list");
   };
@@ -1389,7 +1614,12 @@ export default function AdminPage() {
         body: JSON.stringify({ slug: targetPost?.slug || "" }),
       }).catch(() => {});
     }
-    fetchPosts();
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.removeItem("cf_header_search_posts_v1");
+      } catch {}
+    }
+    fetchPosts({ force: true });
   };
 
   // Check if current logged-in user has admin privileges (verified via JWT app_metadata)
@@ -1541,6 +1771,9 @@ export default function AdminPage() {
       {/* TAB 1: LIST POSTS */}
       {activeTab === "list" && (() => {
         const getPostStatus = (p: DbPost): "published" | "draft" | "review" | "scheduled" => {
+          if (p.status === "published" || p.status === "draft" || p.status === "review" || p.status === "scheduled") {
+            return p.status;
+          }
           let status: any = p.is_published ? "published" : "draft";
           if (p.content_html) {
             const sMatch = p.content_html.match(/<!-- STATUS: ([\s\S]*?) -->/i);
@@ -1798,11 +2031,32 @@ export default function AdminPage() {
 
               </div>
 
-              {/* Results Count Footer */}
-              <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+              {/* Results Count Footer + Manual Refresh */}
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pt-1">
                 <span>
                   Exibindo <strong className="text-slate-900 dark:text-white font-bold">{filteredPosts.length}</strong> de <strong className="text-slate-900 dark:text-white font-bold">{posts.length}</strong> artigos cadastrados
                 </span>
+                <div className="flex items-center gap-2.5">
+                  {lastSyncedAt && (
+                    <span className="text-[11px] text-slate-400">
+                      Cache ativo • sincronizado às{" "}
+                      {new Date(lastSyncedAt).toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    disabled={isRefreshingPosts || loading}
+                    onClick={() => fetchPosts({ force: true })}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-emerald-500/15 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-700 text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-60"
+                    title="Forçar atualização da lista diretamente do Supabase"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingPosts ? "animate-spin text-emerald-500" : ""}`} />
+                    <span>{isRefreshingPosts ? "Atualizando..." : "Atualizar"}</span>
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -1891,8 +2145,8 @@ export default function AdminPage() {
                           <td className="px-6 py-4">
                             {(() => {
                               const status = getPostStatus(post);
-                              let schedAt = "";
-                              if (post.content_html) {
+                              let schedAt = post.scheduled_at || "";
+                              if (!schedAt && post.content_html) {
                                 const scMatch = post.content_html.match(/<!-- SCHEDULED_AT: ([\s\S]*?) -->/i);
                                 if (scMatch && scMatch[1]) schedAt = scMatch[1].trim();
                               }
@@ -1947,11 +2201,16 @@ export default function AdminPage() {
                             </Link>
                             <button
                               type="button"
+                              disabled={loadingEditPostId === post.id}
                               onClick={() => handleStartEditPost(post)}
-                              className="inline-flex items-center p-2 rounded-lg text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              className="inline-flex items-center p-2 rounded-lg text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer disabled:opacity-60"
                               title="Editar artigo"
                             >
-                              <Pencil className="w-4 h-4" />
+                              {loadingEditPostId === post.id ? (
+                                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                              ) : (
+                                <Pencil className="w-4 h-4" />
+                              )}
                             </button>
                             <button
                               type="button"

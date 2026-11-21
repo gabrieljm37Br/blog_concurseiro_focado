@@ -1,22 +1,23 @@
 /**
- * DIRETRIZES DE FORMATAÇÃO VISUAL, DESIGN SYSTEM SEMÂNTICO E PUBLICAÇÃO AUTOMATIZADA
- * Blog Concurseiro Focado — Pipeline Completo (Redação + Imagens WebP + Ferramentas de Estudo + Publicação Supabase)
+ * DIRETRIZES DE FORMATAÇÃO VISUAL, DESIGN SYSTEM SEMÂNTICO E PUBLICAÇÃO AUTOMATIZADA (FASES 1 A 4)
+ * Blog Concurseiro Focado — Pipeline Completo (Redação + Storage WebP + Linter 100/100 + Colunas Estruturadas Supabase)
  */
 
-export const AI_SYSTEM_PROMPT_ARTIGOS = `Compreenda o Design System Semântico e a arquitetura de publicação do projeto no código (\`src/app/globals.css\`, \`src/data/ai_prompt_instructions.ts\`, \`src/app/admin/page.tsx\`, \`src/app/artigo/[slug]/page.tsx\` e \`src/components/InteractiveStudyModal.tsx\`).
+export const AI_SYSTEM_PROMPT_ARTIGOS = `Compreenda o Design System Semântico, o Linter Semântico Pré-Publicação e a arquitetura de publicação do projeto no código (\`src/app/globals.css\`, \`src/data/ai_prompt_instructions.ts\`, \`src/lib/semanticLinter.ts\`, \`src/lib/articleSecurity.ts\`, \`src/lib/mediaStorage.ts\`, \`src/lib/studyMetadataSchema.ts\`, \`src/app/api/admin/publish/route.ts\`, \`src/app/admin/page.tsx\`, \`src/app/artigo/[slug]/page.tsx\` e \`src/components/InteractiveStudyModal.tsx\`).
 
-Analise o texto-base a seguir, compreenda todas as informações e execute TODO O PROCESSO DE PONTA A PONTA ATÉ A PUBLICAÇÃO DIRETA NO SUPABASE, seguindo rigorosamente as diretrizes abaixo:
+Analise o texto-base a seguir, compreenda todas as informações e execute TODO O PROCESSO DE PONTA A PONTA ATÉ A PUBLICAÇÃO DIRETA NO SUPABASE, garantindo pontuação 100/100 no Linter Semântico (\`runSemanticLinter\`) e seguindo rigorosamente as diretrizes abaixo:
 
 ---
 
-🚨 1. REGRAS CRÍTICAS DE SINTAXE, TÍTULOS E ESTILO:
+🚨 1. REGRAS CRÍTICAS DE SINTAXE, SEGURANÇA HTML, SUMÁRIO (ToC) E ESTILO:
 1. NUNCA utilize atributos \`style="..."\` ou CSS inline em nenhuma tag HTML.
-2. NUNCA inclua blocos de \`<style>...</style>\`, \`<!DOCTYPE>\`, \`<html>\`, \`<head>\` ou \`<body>\`.
-3. NÃO insira a tag \`<h1>\` no \`content_html\` (o título principal já é renderizado pelo cabeçalho da página do artigo).
-4. Os demais títulos e subtítulos (\`<h2>\`, \`<h3>\`, \`<h4>\`) NÃO precisam e NÃO devem conter numeração, ícones ou emojis.
-5. NUNCA utilize entidades HTML codificadas como \`&gt;\`, \`&lt;\` ou \`&amp;\` no texto. Escreva texto em UTF-8 puro.
-6. Utilize as classes semânticas do Design System oficial do blog listadas abaixo e, quando adequado para a aprendizagem do conteúdo, crie recursos educativos visuais novos (ex.: escalas visuais, bússolas de decisão ramificadas, laboratórios de prova discursiva comentada com espelho de correção em spoilers).
-7. Escreva um artigo completo, denso, extremamente didático e focado em aprovação, sem omitir nenhum detalhe técnico, doutrinário, jurisprudencial ou legal do texto-base.
+2. NUNCA utilize handlers de evento inline (\`onclick="..."\`, \`onload="..."\`, \`onerror="..."\`, etc.). Eles são removidos pelo sanitizador XSS (\`cleanAndSanitizeArticleHtml\`) e geram alerta no Linter (\`INLINE_EVENT_HANDLER\`). Os botões \`.btn-copiar-lei\` e \`.btn-copy-math\` já funcionam automaticamente via event delegation.
+3. NUNCA inclua blocos de \`<style>\`, \`<script>\`, \`<iframe>\`, \`<!DOCTYPE>\`, \`<html>\`, \`<head>\` ou \`<body>\`.
+4. NÃO insira a tag \`<h1>\` no \`content_html\` (o \`<h1>\` pertence exclusivamente ao cabeçalho da página do artigo).
+5. Os demais títulos e subtítulos (\`<h2>\`, \`<h3>\`, \`<h4>\`) NÃO devem conter numeração, ícones ou emojis. Estruture \`<h2>\` e \`<h3>\` de forma clara e escaneável, pois eles alimentam automaticamente o Sumário Interativo (Table of Contents lateral e flutuante) via \`injectHeadingIds\`.
+6. NUNCA utilize entidades HTML codificadas como \`&gt;\`, \`&lt;\` ou \`&amp;\` fora de blocos \`<code>\`/\`<pre>\`. Escreva texto em UTF-8 puro.
+7. Utilize as classes semânticas do Design System oficial do blog listadas abaixo e, quando adequado para a aprendizagem do conteúdo, crie recursos educativos visuais novos (ex.: escalas visuais, bússolas de decisão ramificadas, laboratórios de prova discursiva comentada com espelho de correção em spoilers).
+8. Escreva um artigo completo, denso, extremamente didático e focado em aprovação, sem omitir nenhum detalhe técnico, doutrinário, jurisprudencial ou legal do texto-base.
 
 ---
 
@@ -27,7 +28,7 @@ A) Parágrafo de Introdução (Destaque Lead):
   Escreva aqui a introdução envolvente, contextualizando a importância do tema nas provas...
 </p>
 
-B) Títulos e Subtítulos Limpos (Sem numeração, sem ícones e sem emojis):
+B) Títulos e Subtítulos Limpos (Sem numeração, sem ícones e sem emojis — indexados automaticamente pelo Sumário ToC):
 <h2 class="text-2xl font-bold text-slate-900 dark:text-white mt-10 mb-4">
   Título da Seção Principal
 </h2>
@@ -52,7 +53,7 @@ D) Pegadinha da Banca / Alerta de Erro Comum (Caixa Âmbar):
   <p>Atenção à armadilha clássica da banca sobre a troca de conceitos...</p>
 </div>
 
-E) Dispositivo Legal / Vade Mecum (Caixa Púrpura):
+E) Dispositivo Legal / Vade Mecum (Caixa Púrpura — SEM onclick inline):
 <div class="callout-lei">
   <div class="lei-header">
     <span>📜 LEI Nº X.XXX / CONSTITUIÇÃO FEDERAL — Art. Xº</span>
@@ -109,18 +110,19 @@ H) Card Mnemônico Interativo:
   </div>
 </div>
 
-I) Fórmulas Matemáticas & RLM (KaTeX Dark Block):
-<div class="math-card-block">
+I) Fórmulas Matemáticas & RLM (KaTeX Dark Block — SEM onclick inline):
+<div class="math-card-block" data-latex="P \\rightarrow Q \\equiv \\neg P \\vee Q">
   <div class="math-card-header">
     <span class="math-badge">⚡ EQUAÇÃO / FÓRMULA / REGRA DE RLM</span>
+    <button type="button" class="btn-copy-math">📋 Copiar LaTeX</button>
   </div>
   <div class="math-card-body font-mono text-xl text-emerald-300">
-    Fórmula ou Equação em texto ou KaTeX...
+    $$ P \\rightarrow Q \\equiv \\neg P \\vee Q $$
   </div>
 </div>
 
-J) Gráfico de Incidência do Assunto na Banca (CSS Bar Chart sem style inline):
-Use APENAS as classes seguras de largura (\`chart-pct-5\` até \`chart-pct-100\` de 5 em 5, mais \`chart-pct-33\`, \`chart-pct-67\`, \`chart-pct-92\`) e cores (\`bg-emerald-500\`, \`bg-sky-500\`, \`bg-blue-500\`, \`bg-purple-500\`, \`bg-amber-500\`, \`bg-rose-500\`, \`bg-indigo-500\`, \`bg-teal-500\`):
+J) Gráfico de Incidência do Assunto na Banca (CSS Bar Chart purge-safe, sem style inline):
+Use OBRIGATORIAMENTE uma das classes de largura seguras validadas pelo Linter (\`chart-pct-5\` até \`chart-pct-100\` de 5 em 5, além de \`chart-pct-33\`, \`chart-pct-67\`, \`chart-pct-92\`) e cores (\`bg-emerald-500\`, \`bg-sky-500\`, \`bg-blue-500\`, \`bg-purple-500\`, \`bg-amber-500\`, \`bg-rose-500\`, \`bg-indigo-500\`, \`bg-teal-500\`):
 <div class="chart-card">
   <div class="chart-title">📊 Incidência deste Tema nas Bancas Examinadoras</div>
   <div class="chart-bars space-y-3">
@@ -312,43 +314,55 @@ M) Blocos de Questões de Concurso no Corpo do Texto:
 
 ---
 
-🖼️ 3. GERAÇÃO, OTIMIZAÇÃO WEBP E INSERÇÃO DE IMAGENS (CAPA + CORPO):
+🖼️ 3. GERAÇÃO, OTIMIZAÇÃO WEBP E UPLOAD PARA O SUPABASE STORAGE (\`article-media\`):
 1. Gere uma Imagem Destacada de Capa (\`featured_image\`) com identidade visual editorial moderna compatível com o tema do artigo.
 2. Quando adequado para a aprendizagem, gere imagens didáticas (esquemas, fluxos, quadros comparativos, gráficos ou mnemônicos visuais) para ilustrar os tópicos principais do artigo.
-3. Converta todas as imagens geradas (capa e ilustrações internas) para o formato WebP otimizado (máx. 1200px de dimensão, qualidade ~82%) codificado em Data URI (\`data:image/webp;base64,...\`), seguindo o padrão do \`ImageUploadModal.tsx\`.
-4. Insira as imagens do corpo diretamente nas seções adequadas do \`content_html\` com Texto Alternativo (Alt SEO) e Legenda Visível (\`figcaption\`):
+3. Converta todas as imagens geradas (capa e ilustrações internas) para o formato WebP otimizado (máx. 1200px de dimensão, qualidade ~82%).
+4. Faça upload das imagens WebP para o bucket público \`article-media\` do Supabase Storage (\`covers/<slug>-capa.webp\` para a capa e \`content/<slug>-fig-X.webp\` para as imagens do corpo) e utilize a URL pública HTTPS (\`https://<project_ref>.supabase.co/storage/v1/object/public/article-media/...\`) no \`featured_image\` e nas tags \`<img>\`. Utilize Data URI (\`data:image/webp;base64,...\`) apenas como fallback caso o upload via Storage não esteja disponível (o Linter penaliza \`data:image/\` em \`featured_image\` devido ao \`og:image\`).
+5. Insira as imagens do corpo diretamente nas seções adequadas do \`content_html\` com Texto Alternativo (Alt SEO) e Legenda Visível (\`figcaption\`):
 <figure class="my-6 text-center">
-  <img src="data:image/webp;base64,..." alt="Texto Alternativo descritivo para SEO" loading="lazy" decoding="async" class="rounded-2xl max-w-full mx-auto border border-slate-200 dark:border-slate-800 shadow-md" />
+  <img src="https://ovpyjsjvowhhyxvwbedh.supabase.co/storage/v1/object/public/article-media/content/..." alt="Texto Alternativo descritivo para SEO" loading="lazy" decoding="async" class="rounded-2xl max-w-full mx-auto border border-slate-200 dark:border-slate-800 shadow-md" />
   <figcaption class="text-xs text-slate-500 dark:text-slate-400 mt-2 font-medium italic text-center">Figura X: Legenda visível explicativa.</figcaption>
 </figure>
 
 ---
 
-🎯 4. FERRAMENTAS DE ESTUDO INTERATIVAS E TAGS (BLOCO FINAL DO \`content_html\`):
-Ao final do \`content_html\`, insira obrigatoriamente os comentários estruturais para alimentar as ferramentas interativas do artigo:
-- \`<!-- TAGS: Tag1, Tag2, Tag3, ... -->\` (8 a 12 tags otimizadas para SEO e busca interna)
+🎯 4. FERRAMENTAS DE ESTUDO INTERATIVAS (SRS SM-2, CADERNO DE ERROS E MODO PROVA):
+Monte o objeto estruturado \`study_data\` (validado por \`validateStudyMetadata\` em \`src/lib/studyMetadataSchema.ts\`) contendo obrigatoriamente:
+1. \`flashcards\`: Mínimo de 8 a 10 flashcards (\`{ id: "fc-1", question, answer, category, bancaTip }\`) para alimentar o sistema de Repetição Espaçada (SRS SM-2) em \`/minha-revisao\`.
+2. \`questions\` (Questões de Provas Pretéritas/Estilo Banca): Mínimo de 4 questões (\`{ id: "q-1", banca, ano, orgao, type, statement, options, correctIndex, explanation }\`), mesclando \`"certo_errado"\` (2 opções: \`["Certo", "Errado"]\`, \`correctIndex\` \`0\` ou \`1\`) e \`"multipla_escolha_5"\` (5 opções de A a E sem duplicar o prefixo \`"A) "\` no texto da opção, com \`correctIndex\` numérico estritamente entre \`0\` e \`4\`).
+3. \`simulados\` (Questões Inéditas do Artigo para Modo Prova / Líquido Cebraspe): Mínimo de 3 questões inéditas (\`{ id: "sim-1", type, statement, options, correctIndex, explanation }\`), mesclando \`"multipla_escolha_4"\` (4 opções inéditas sem prefixo \`"A) "\`, \`correctIndex\` estritamente entre \`0\` e \`3\`) e \`"certo_errado"\` (2 opções: \`["Certo", "Errado"]\`, \`correctIndex\` \`0\` ou \`1\`).
+4. \`infographics\`: \`[]\` (ou lista de infográficos interativos tipados conforme \`InfographicItem\`).
+
+Para total retrocompatibilidade com o Editor Admin, anexe também ao final do \`content_html\`:
+- \`<!-- TAGS: Tag1, Tag2, Tag3, ... -->\`
 - \`<!-- STATUS: published -->\`
-- \`<!-- STUDY_DATA_JSON_B64: <encodeURIComponent(JSON.stringify(studyDataJson))> -->\` (codificado com \`encodeURIComponent\`, sem necessidade de duplicar o JSON em comentário secundário), contendo:
-  1. \`flashcards\`: Mínimo de 8 a 10 flashcards (\`{ id, question, answer, category, bancaTip }\`).
-  2. \`questions\` (Questões de Provas/Estilo Banca): Mínimo de 4 questões (\`{ id, banca, ano, orgao, type, statement, options, correctIndex, explanation }\`), mesclando \`"certo_errado"\` (2 opções: \`["Certo", "Errado"]\`) e \`"multipla_escolha_5"\` (5 opções de A a E sem duplicar o prefixo \`"A) "\` no texto da opção, com \`correctIndex\` numérico de \`0\` a \`4\`).
-  3. \`simulados\` (Questões Inéditas do Artigo): Mínimo de 3 questões inéditas (\`{ id, type, statement, options, correctIndex, explanation }\`), mesclando \`"multipla_escolha_4"\` (4 opções inéditas, \`correctIndex\` de \`0\` a \`3\`) e \`"certo_errado"\` (2 opções: \`["Certo", "Errado"]\`, \`correctIndex\` \`0\` ou \`1\`).
-  4. \`infographics\`: \`[]\` (ou lista de infográficos interativos se aplicável).
+- \`<!-- STUDY_DATA_JSON_B64: <encodeURIComponent(JSON.stringify(study_data))> -->\`
 
 ---
 
-🚀 5. METADADOS E PUBLICAÇÃO DIRETA NO SUPABASE:
-1. Defina automaticamente os metadados do artigo:
-   - \`title\`: Título forte, claro e atrativo para concurseiros.
-   - \`slug\`: URL amigável normalizada (kebab-case, sem acentos ou caracteres especiais).
+🚀 5. METADADOS, COLUNAS ESTRUTURADAS (FASE 3/4) E PUBLICAÇÃO DIRETA NO SUPABASE:
+1. Defina os metadados respeitando as faixas ideais do Linter Semântico (\`runSemanticLinter\`):
+   - \`title\`: Título forte, claro e atrativo (**entre 40 e 68 caracteres**; limite do Linter: 20 a 90 caracteres).
+   - \`slug\`: URL amigável normalizada estritamente em kebab-case minúsculo sem acentos (\`^[a-z0-9]+(?:-[a-z0-9]+)*$\`).
    - \`category_slug\`: \`"estude"\` (ou \`"aprenda"\`, \`"estude-comigo"\`, \`"informe-se"\`, \`"rotina"\`).
-   - \`subcategory\`: Disciplina/Matéria exata (garanta também que ela exista na tabela \`public.subcategories\`).
-   - \`banca\`: Nome da banca se o texto focar em uma banca específica, ou \`null\` se for multi-banca.
-   - \`summary\`: Resumo denso e persuasivo (150 a 260 caracteres) para o card da Home e meta description SEO.
-   - \`read_time\`: Calculado com base no total de palavras (\`\${Math.max(1, Math.ceil(palavras / 200))} min de leitura\`).
-   - \`featured_image\`: Data URI WebP da imagem de capa gerada (ou URL HTTPS otimizada no Storage).
+   - \`subcategory\`: Disciplina/Matéria exata (garanta também seu registro na tabela \`public.subcategories\`).
+   - \`banca\`: Nome da banca se o artigo focar em uma banca específica, ou \`null\` se for multi-banca.
+   - \`summary\`: Resumo denso e persuasivo para SEO e OpenGraph (**entre 140 e 240 caracteres**; limite do Linter: 100 a 280 caracteres).
+   - \`read_time\`: Calculado sobre o texto limpo ANTES dos comentários finais (\`\${Math.max(1, Math.ceil(palavras / 200))} min de leitura\`).
+   - \`featured_image\`: URL pública HTTPS da capa WebP no bucket \`article-media\` (ou Data URI WebP de fallback).
    - \`is_published\`: \`true\`.
-2. Insira (ou atualize, se o \`slug\` já existir) o registro completo diretamente na tabela \`public.posts\` do Supabase configurado no ambiente e valide se a gravação foi concluída com sucesso.
-3. Ao finalizar, apresente no chat um resumo executivo da publicação (Título, Slug/URL, Categoria/Subcategoria, quantidade de imagens, flashcards, questões e simulados cadastrados).
+   - \`status\`: \`"published"\`.
+   - \`scheduled_at\`: \`null\`.
+   - \`tags\`: Array nativo \`text[]\` com 8 a 12 tags otimizadas para SEO e busca na Home.
+   - \`study_data\`: Objeto JSONB completo \`{ flashcards, questions, simulados, infographics }\`.
+   - \`flashcards_count\`: \`study_data.flashcards.length\` (exibido nos cards da Home, que não trafegam mais \`content_html\`).
+   - \`questions_count\`: \`study_data.questions.length\` (exibido nos cards da Home).
+   - \`simulados_count\`: \`study_data.simulados.length\` (exibido nos cards da Home).
+   - \`infographics_count\`: \`study_data.infographics.length\` (exibido nos cards da Home).
+2. Insira (ou atualize via \`ON CONFLICT (slug)\`) o registro completo na tabela \`public.posts\` do Supabase (e, se houver infográficos em \`study_data.infographics\`, sincronize-os na tabela \`public.post_infographics\`).
+3. Valide o artigo com as regras do \`runSemanticLinter\` e confirme no banco se todas as colunas estruturadas e contadores foram gravados com sucesso.
+4. Ao finalizar, apresente no chat um resumo executivo da publicação (Título, Slug/URL, Score do Linter Semântico, Categoria/Subcategoria, URLs das imagens e contagens de flashcards, questões e simulados).
 
 Segue texto:
 `;

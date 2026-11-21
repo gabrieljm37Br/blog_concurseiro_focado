@@ -29,6 +29,33 @@ import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 import { supabase } from "@/lib/supabaseClient";
 import { INITIAL_DEFAULT_DISCIPLINAS } from "@/data/categories";
 
+const HEADER_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
+const HEADER_SUBCATS_CACHE_KEY = "cf_header_subcats_v1";
+const HEADER_SEARCH_CACHE_KEY = "cf_header_search_posts_v1";
+
+let memoryHeaderSubcats: { data: string[]; ts: number } | null = null;
+let memoryHeaderSearchPosts: { data: any[]; ts: number } | null = null;
+
+function readSessionCache<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data: T; ts: number };
+    if (parsed && typeof parsed.ts === "number" && Date.now() - parsed.ts < HEADER_CACHE_TTL_MS) {
+      return parsed.data;
+    }
+  } catch {}
+  return null;
+}
+
+function writeSessionCache<T>(key: string, data: T): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+  } catch {}
+}
+
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isEstudeDropdownOpen, setIsEstudeDropdownOpen] = useState(false);
@@ -78,41 +105,86 @@ export default function Header() {
 
   const [dbSubcategories, setDbSubcategories] = useState<string[]>([]);
   const [dbSearchPosts, setDbSearchPosts] = useState<any[]>([]);
+  const [isLoadingSearchPosts, setIsLoadingSearchPosts] = useState(false);
 
+  // Carrega subcategorias apenas da tabela dedicada com cache de 10 minutos
   useEffect(() => {
-    async function fetchHeaderData() {
+    let active = true;
+    async function fetchHeaderSubcategories() {
+      if (memoryHeaderSubcats && Date.now() - memoryHeaderSubcats.ts < HEADER_CACHE_TTL_MS) {
+        setDbSubcategories(memoryHeaderSubcats.data);
+        return;
+      }
+      const cached = readSessionCache<string[]>(HEADER_SUBCATS_CACHE_KEY);
+      if (cached) {
+        memoryHeaderSubcats = { data: cached, ts: Date.now() };
+        setDbSubcategories(cached);
+        return;
+      }
+
       try {
-        // Buscar da tabela dedicada de subcategorias
         const { data: subTableData } = await supabase
           .from("subcategories")
           .select("name");
 
-        // Buscar também quaisquer subcategorias vinculadas aos posts
-        const { data: subData } = await supabase
-          .from("posts")
-          .select("subcategory")
-          .not("subcategory", "is", null);
-
-        const fromTable = subTableData ? subTableData.map((s: any) => s.name).filter(Boolean) : [];
-        const fromPosts = subData ? subData.map((d: any) => d.subcategory).filter(Boolean) : [];
-
-        const mergedSubs = Array.from(new Set([...fromTable, ...fromPosts]));
-        setDbSubcategories(mergedSubs);
-
-        const { data: postsData } = await supabase
-          .from("posts")
-          .select("id, title, slug, summary, subcategory, banca, category_slug, is_published");
-
-        if (postsData) {
-          const valid = postsData.filter((p: any) => p.is_published !== false);
-          setDbSearchPosts(valid);
-        }
+        if (!active) return;
+        const fromTable = subTableData
+          ? Array.from(new Set(subTableData.map((s: any) => s.name).filter(Boolean)))
+          : [];
+        memoryHeaderSubcats = { data: fromTable, ts: Date.now() };
+        writeSessionCache(HEADER_SUBCATS_CACHE_KEY, fromTable);
+        setDbSubcategories(fromTable);
       } catch (e) {
-        console.warn("Erro ao carregar dados do Header:", e);
+        console.warn("Erro ao carregar subcategorias do Header:", e);
       }
     }
-    fetchHeaderData();
+    fetchHeaderSubcategories();
+    return () => {
+      active = false;
+    };
   }, []);
+
+  // Lazy-load dos artigos de busca: consulta Supabase somente quando o modal de busca é aberto (com cache 10 min)
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    let active = true;
+
+    async function loadSearchPostsIfNeeded() {
+      if (memoryHeaderSearchPosts && Date.now() - memoryHeaderSearchPosts.ts < HEADER_CACHE_TTL_MS) {
+        setDbSearchPosts(memoryHeaderSearchPosts.data);
+        return;
+      }
+      const cached = readSessionCache<any[]>(HEADER_SEARCH_CACHE_KEY);
+      if (cached) {
+        memoryHeaderSearchPosts = { data: cached, ts: Date.now() };
+        setDbSearchPosts(cached);
+        return;
+      }
+
+      setIsLoadingSearchPosts(true);
+      try {
+        const { data: postsData } = await supabase
+          .from("posts")
+          .select("id, title, slug, summary, subcategory, banca, category_slug, is_published")
+          .eq("is_published", true);
+
+        if (!active) return;
+        const valid = (postsData || []).filter((p: any) => p.is_published !== false);
+        memoryHeaderSearchPosts = { data: valid, ts: Date.now() };
+        writeSessionCache(HEADER_SEARCH_CACHE_KEY, valid);
+        setDbSearchPosts(valid);
+      } catch (e) {
+        console.warn("Erro ao carregar índice de busca:", e);
+      } finally {
+        if (active) setIsLoadingSearchPosts(false);
+      }
+    }
+
+    loadSearchPostsIfNeeded();
+    return () => {
+      active = false;
+    };
+  }, [isSearchOpen]);
 
   const allSubcategories = Array.from(
     new Set([...INITIAL_DEFAULT_DISCIPLINAS, ...dbSubcategories])
@@ -522,6 +594,10 @@ export default function Header() {
                       </button>
                     ))}
                   </div>
+                </div>
+              ) : isLoadingSearchPosts && dbSearchPosts.length === 0 ? (
+                <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                  Carregando índice de artigos...
                 </div>
               ) : filteredSearchResults.length === 0 ? (
                 <div className="p-8 text-center text-sm text-slate-600 dark:text-slate-300 leading-relaxed">

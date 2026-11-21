@@ -21,10 +21,14 @@ export interface AdminStatsPost {
   id: string;
   title: string;
   category_slug: string;
-  content_html: string;
+  content_html?: string;
   read_time?: string;
   is_published?: boolean;
   study_data?: any;
+  flashcards_count?: number;
+  questions_count?: number;
+  simulados_count?: number;
+  infographics_count?: number;
   views_count?: number;
 }
 
@@ -34,20 +38,39 @@ interface AdminStatsTabProps {
 
 export default function AdminStatsTab({ posts }: AdminStatsTabProps) {
   const postMetrics = posts.map((postItem) => {
-    const hasColumnStudyData =
-      postItem.study_data &&
-      typeof postItem.study_data === "object" &&
-      Object.keys(postItem.study_data).length > 0;
-    const parsed = (
-      hasColumnStudyData
-        ? postItem.study_data
-        : extractStudyDataFromContentHtml(postItem.content_html)
-    ) as any;
+    const hasPrecomputedCounts =
+      typeof postItem.flashcards_count === "number" ||
+      typeof postItem.questions_count === "number" ||
+      typeof postItem.simulados_count === "number" ||
+      typeof postItem.infographics_count === "number";
 
-    const flashcardsCount = Array.isArray(parsed?.flashcards) ? parsed.flashcards.length : 0;
-    const questionsCount = Array.isArray(parsed?.questions) ? parsed.questions.length : 0;
-    const simuladosCount = Array.isArray(parsed?.simulados) ? parsed.simulados.length : 0;
-    const infographicsCount = Array.isArray(parsed?.infographics) ? parsed.infographics.length : 0;
+    let flashcardsCount = 0;
+    let questionsCount = 0;
+    let simuladosCount = 0;
+    let infographicsCount = 0;
+
+    if (hasPrecomputedCounts) {
+      flashcardsCount = postItem.flashcards_count || 0;
+      questionsCount = postItem.questions_count || 0;
+      simuladosCount = postItem.simulados_count || 0;
+      infographicsCount = postItem.infographics_count || 0;
+    } else {
+      const hasColumnStudyData =
+        postItem.study_data &&
+        typeof postItem.study_data === "object" &&
+        Object.keys(postItem.study_data).length > 0;
+      const parsed = (
+        hasColumnStudyData
+          ? postItem.study_data
+          : extractStudyDataFromContentHtml(postItem.content_html || "")
+      ) as any;
+
+      flashcardsCount = Array.isArray(parsed?.flashcards) ? parsed.flashcards.length : 0;
+      questionsCount = Array.isArray(parsed?.questions) ? parsed.questions.length : 0;
+      simuladosCount = Array.isArray(parsed?.simulados) ? parsed.simulados.length : 0;
+      infographicsCount = Array.isArray(parsed?.infographics) ? parsed.infographics.length : 0;
+    }
+
     const totalStudyItems = flashcardsCount + questionsCount + simuladosCount + infographicsCount;
     const readMinsMatch = (postItem.read_time || "").match(/\d+/);
     const readMins = readMinsMatch ? parseInt(readMinsMatch[0], 10) : 6;
