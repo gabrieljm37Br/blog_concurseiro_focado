@@ -98,9 +98,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const description =
       dbPost.summary || `Leia o artigo completo sobre ${dbPost.title} no portal Concurseiro Focado.`;
     const rawImage = typeof dbPost.featured_image === "string" ? dbPost.featured_image.trim() : "";
+    const resolvedImage = rawImage.startsWith("/") ? `${baseUrl}${rawImage}` : rawImage;
     // Data URIs não são aceitas em og:image / twitter:image; usa OpenGraph dinâmico PNG (next/og)
     const dynamicOgImage = `${baseUrl}/artigo/${slug}/opengraph-image`;
-    const ogImage = rawImage && !rawImage.startsWith("data:") ? rawImage : dynamicOgImage;
+    const ogImage = resolvedImage && !resolvedImage.startsWith("data:") ? resolvedImage : dynamicOgImage;
     const canonicalUrl = `${baseUrl}/artigo/${slug}`;
 
     const tags = extractTagsFromPost(dbPost);
@@ -284,9 +285,12 @@ export default async function ArticlePage({ params }: Props) {
 
   const rawFeaturedImage =
     typeof dbPost?.featured_image === "string" ? dbPost.featured_image.trim() : "";
+  const resolvedFeaturedImage = rawFeaturedImage.startsWith("/")
+    ? `${baseUrl}${rawFeaturedImage}`
+    : rawFeaturedImage;
   const schemaImage =
-    rawFeaturedImage && !rawFeaturedImage.startsWith("data:")
-      ? rawFeaturedImage
+    resolvedFeaturedImage && !resolvedFeaturedImage.startsWith("data:")
+      ? resolvedFeaturedImage
       : `${baseUrl}/artigo/${slug}/opengraph-image`;
 
   const publishedIso = dbPost?.created_at ? new Date(dbPost.created_at).toISOString() : undefined;
