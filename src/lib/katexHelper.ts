@@ -10,15 +10,31 @@ export const MATH_DELIMITER_REGEX =
   /(?<![\\A-Za-z])(\$\$(?:\\.|[^\$\\])+?\$\$|\\\[[\s\S]+?\\\]|\$(?:\\.|[^\$\\\n])+?(?<!\\)\$|\\\([\s\S]+?\\\))/g;
 
 /**
+ * Normaliza comandos LaTeX salvos com barra invertida duplicada acidentalmente
+ * (ex.: \\text{Ativos} -> \text{Ativos}, \\rightarrow -> \rightarrow),
+ * preservando quebras de linha legítimas (\\ seguido de espaço, fim de linha ou outro \).
+ */
+const DOUBLE_ESCAPED_LATEX_CMD_REGEX =
+  /(?<!\\)\\\\(?=(?:text|textbf|textit|textrm|mathrm|mathbf|mathbb|mathcal|frac|dfrac|tfrac|sqrt|sum|prod|int|lim|log|ln|sin|cos|tan|begin|end|left|right|quad|qquad|cdot|times|div|pm|mp|approx|equiv|neq|ne|le|leq|ge|geq|ll|gg|implies|iff|rightarrow|leftarrow|leftrightarrow|longrightarrow|longleftarrow|Longleftrightarrow|Rightarrow|Leftarrow|Leftrightarrow|to|mapsto|neg|lnot|vee|lor|wedge|land|forall|exists|in|notin|subset|subseteq|cup|cap|emptyset|infty|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|omega|Delta|Sigma|Omega|vec|hat|bar|overline|underline|binom|choose)\b)/g;
+
+export function normalizeDoubleEscapedLatex(code: string): string {
+  if (!code || !code.includes("\\\\")) return code;
+  return code.replace(DOUBLE_ESCAPED_LATEX_CMD_REGEX, "\\");
+}
+
+/**
  * Decodifica entidades HTML comuns que podem aparecer dentro de fórmulas LaTeX
+ * e corrige comandos LaTeX duplamente escapados.
  */
 export function decodeMathEntities(code: string): string {
-  return code
-    .replace(/&gt;/gi, ">")
-    .replace(/&lt;/gi, "<")
-    .replace(/&amp;/gi, "&")
-    .replace(/&nbsp;/gi, " ")
-    .trim();
+  return normalizeDoubleEscapedLatex(
+    code
+      .replace(/&gt;/gi, ">")
+      .replace(/&lt;/gi, "<")
+      .replace(/&amp;/gi, "&")
+      .replace(/&nbsp;/gi, " ")
+      .trim()
+  );
 }
 
 /**
@@ -122,29 +138,88 @@ export function parseMathPart(part: string): {
 }
 
 /**
+ * Pré-renderiza blocos `.math-card-body` diretamente na string HTML (SSR/CSR),
+ * evitando flash de código LaTeX bruto e mantendo a renderização imune a re-renders do React.
+ * Preserva intactos cards de texto puro sem delimitadores/comandos LaTeX.
+ */
+export function renderMathCardsInHtml(html: string): string {
+  if (!html || !html.includes("math-card-body")) return html;
+
+  return html.replace(
+    /(<div\b[^>]*\bclass="[^"]*\bmath-card-body\b[^"]*"[^>]*>)([\s\S]*?)(<\/div>)/gi,
+    (fullMatch, openTag: string, innerHtml: string, closeTag: string) => {
+      if (innerHtml.includes("katex")) return fullMatch;
+
+      const attrMatch = openTag.match(/\bdata-latex\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+      const rawAttr = attrMatch?.[1] ?? attrMatch?.[2] ?? "";
+
+      let mathCode = "";
+      if (rawAttr.trim()) {
+        mathCode = decodeMathEntities(rawAttr);
+      } else {
+        const plainText = innerHtml.replace(/<[^>]*>/g, "").trim();
+        if (plainText.includes("$$")) {
+          const m = plainText.match(/\$\$([\s\S]+?)\$\$/);
+          if (m && m[1]) {
+            mathCode = decodeMathEntities(m[1]);
+          }
+        } else if (plainText.startsWith("\\[") && plainText.endsWith("\\]")) {
+          mathCode = decodeMathEntities(plainText.slice(2, -2));
+        } else if (plainText.includes("\\")) {
+          mathCode = decodeMathEntities(plainText);
+        }
+      }
+
+      if (!mathCode) return fullMatch;
+
+      try {
+        const rendered = katex.renderToString(mathCode, {
+          displayMode: true,
+          throwOnError: false,
+          strict: "ignore",
+        });
+        const escapedAttr = mathCode
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        const updatedOpenTag = /\bdata-latex\s*=/i.test(openTag)
+          ? openTag.replace(/\bdata-latex\s*=\s*(?:"[^"]*"|'[^']*')/i, `data-latex="${escapedAttr}"`)
+          : openTag.replace(/>$/, ` data-latex="${escapedAttr}">`);
+        return `${updatedOpenTag}${rendered}${closeTag}`;
+      } catch {
+        return fullMatch;
+      }
+    }
+  );
+}
+
+/**
  * Hidrata todos os cards .math-card-body e fórmulas inline/bloco ($...$, $$...$$, \(...\), \[...\])
  * dentro de um container DOM, além de limpar R\$ escapados no texto comum.
  */
 export function hydrateMathInContainer(container: HTMLElement): void {
   if (!container || typeof document === "undefined") return;
 
-  // 1. Hidrata blocos .math-card-body
+  // 1. Hidrata blocos .math-card-body (e normaliza data-latex no bloco pai)
   const mathCardBodies = container.querySelectorAll(".math-card-body");
   mathCardBodies.forEach((el) => {
     const mathCode = extractMathCardLatex(el);
     if (mathCode) {
       el.setAttribute("data-latex", mathCode);
       const blockParent = el.closest(".math-card-block");
-      if (blockParent && !blockParent.getAttribute("data-latex")) {
+      if (blockParent) {
         blockParent.setAttribute("data-latex", mathCode);
       }
-      try {
-        el.innerHTML = katex.renderToString(mathCode, {
-          displayMode: true,
-          throwOnError: false,
-          strict: "ignore",
-        });
-      } catch (e) {}
+      if (!el.querySelector(".katex")) {
+        try {
+          el.innerHTML = katex.renderToString(mathCode, {
+            displayMode: true,
+            throwOnError: false,
+            strict: "ignore",
+          });
+        } catch (e) {}
+      }
     }
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { 
   Bold, 
   Italic, 
@@ -47,7 +47,11 @@ import {
 } from "lucide-react";
 import ImageUploadModal from "./ImageUploadModal";
 import IconPickerModal from "./IconPickerModal";
-import { hydrateMathInContainer, restoreLatexFromRenderedHtml } from "@/lib/katexHelper";
+import {
+  hydrateMathInContainer,
+  renderMathCardsInHtml,
+  restoreLatexFromRenderedHtml,
+} from "@/lib/katexHelper";
 import { 
   DicaGradientIcon, 
   PegadinhaGradientIcon, 
@@ -349,6 +353,15 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       }
     }
   }, [value, editorMode]);
+
+  const previewHtmlMarkup = useMemo(
+    () => ({
+      __html: value
+        ? renderMathCardsInHtml(value)
+        : "<p class='text-slate-400 dark:text-slate-500 italic'>O conteúdo formatado aparecerá aqui...</p>",
+    }),
+    [value]
+  );
 
   // Auto-render KaTeX math in Live Preview & Visual Editor
   useEffect(() => {
@@ -1418,7 +1431,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             </div>
             <div 
               className="prose dark:prose-invert max-w-none text-xs sm:text-sm leading-relaxed text-slate-800 dark:text-slate-200"
-              dangerouslySetInnerHTML={{ __html: value || "<p class='text-slate-400 dark:text-slate-500 italic'>O conteúdo formatado aparecerá aqui...</p>" }}
+              dangerouslySetInnerHTML={previewHtmlMarkup}
             />
           </div>
         )}

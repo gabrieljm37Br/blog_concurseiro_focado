@@ -7,7 +7,11 @@ import { Post } from "@/data/mockPosts";
 import { supabase } from "@/lib/supabaseClient";
 import InteractiveStudyModal from "@/components/InteractiveStudyModal";
 import ArticleTableOfContents from "@/components/ArticleTableOfContents";
-import { hydrateMathInContainer } from "@/lib/katexHelper";
+import {
+  decodeMathEntities,
+  hydrateMathInContainer,
+  renderMathCardsInHtml,
+} from "@/lib/katexHelper";
 import {
   cleanAndSanitizeArticleHtml,
   extractStudyDataFromContentHtml,
@@ -75,10 +79,17 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
-  // HTML sanitizado e memoizado com IDs determinísticos em <h2>/<h3> para o Sumário
+  // HTML sanitizado e memoizado com IDs determinísticos em <h2>/<h3> para o Sumário e KaTeX pré-renderizado nos cards
   const renderedArticleHtml = useMemo(
-    () => injectHeadingIds(cleanAndSanitizeArticleHtml(post?.content || "")),
+    () => renderMathCardsInHtml(injectHeadingIds(cleanAndSanitizeArticleHtml(post?.content || ""))),
     [post?.content]
+  );
+
+  // Objeto memoizado evita que o React 19 reatribua innerHTML em re-renders não relacionados,
+  // preservando as fórmulas KaTeX inline hidratadas no DOM.
+  const articleHtmlMarkup = useMemo(
+    () => ({ __html: renderedArticleHtml }),
+    [renderedArticleHtml]
   );
 
   // Persiste o último artigo visitado para o botão "Voltar ao Artigo" em /minha-revisao
@@ -178,11 +189,12 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
         event.preventDefault();
         const block = copyMathBtn.closest(".math-card-block");
         const body = block?.querySelector(".math-card-body");
-        const latex =
-          block?.getAttribute("data-latex") ||
+        const rawLatex =
           body?.getAttribute("data-latex") ||
+          block?.getAttribute("data-latex") ||
           body?.querySelector('annotation[encoding="application/x-tex"]')?.textContent?.trim() ||
           body?.textContent?.trim();
+        const latex = rawLatex ? decodeMathEntities(rawLatex) : "";
         if (latex && navigator.clipboard) {
           try {
             await navigator.clipboard.writeText(latex);
@@ -1117,9 +1129,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
           className={`prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 leading-relaxed space-y-4 transition-all duration-200 ${
             fontSizeLevel === "sm" ? "article-font-sm" : fontSizeLevel === "lg" ? "article-font-lg" : fontSizeLevel === "xl" ? "article-font-xl" : ""
           }`}
-          dangerouslySetInnerHTML={{
-            __html: renderedArticleHtml,
-          }}
+          dangerouslySetInnerHTML={articleHtmlMarkup}
         />
 
         {/* Article Tags / Palavras-chave Relacionadas */}
@@ -1238,9 +1248,7 @@ export default function ArticleClient({ initialPost, initialFlashcards = [], slu
               className={`prose dark:prose-invert max-w-none text-base sm:text-lg leading-relaxed text-slate-800 dark:text-slate-200 space-y-6 pt-2 font-sans transition-all duration-200 ${
                 fontSizeLevel === "sm" ? "article-font-sm" : fontSizeLevel === "lg" ? "article-font-lg" : fontSizeLevel === "xl" ? "article-font-xl" : ""
               }`}
-              dangerouslySetInnerHTML={{
-                __html: renderedArticleHtml,
-              }}
+              dangerouslySetInnerHTML={articleHtmlMarkup}
             />
 
             <div className="pt-12 text-center border-t border-slate-200 dark:border-slate-800">
