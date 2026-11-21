@@ -4,9 +4,19 @@
 -- ============================================================================
 
 -- 1. Promove a role 'admin' no app_metadata (somente controlado pelo servidor/JWT,
---    imutável pelo cliente via supabase.auth.updateUser)
+--    imutável pelo cliente via supabase.auth.updateUser) e garante que colunas de
+--    token do GoTrue não fiquem NULL (evita HTTP 500 "converting NULL to string is unsupported")
 UPDATE auth.users
-SET raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role": "admin"}'::jsonb
+SET
+  raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role": "admin"}'::jsonb,
+  confirmation_token = coalesce(confirmation_token, ''),
+  recovery_token = coalesce(recovery_token, ''),
+  email_change_token_new = coalesce(email_change_token_new, ''),
+  email_change = coalesce(email_change, ''),
+  email_change_token_current = coalesce(email_change_token_current, ''),
+  phone_change = coalesce(phone_change, ''),
+  phone_change_token = coalesce(phone_change_token, ''),
+  reauthentication_token = coalesce(reauthentication_token, '')
 WHERE lower(email) = 'gabrieljm37concurso@gmail.com';
 
 -- 2. Função segura de verificação de administrador via JWT app_metadata
